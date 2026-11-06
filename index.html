@@ -5,65 +5,60 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Random Maps</title>
 <meta name="description" content="Cartes construites à partir de données ouvertes, par Gabriel Kasmi. Maps built from open data, by Gabriel Kasmi.">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%231d2733'/><path d='M6 22l6-9 5 6 3-4 6 7' fill='none' stroke='%23e8590c' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23181818'/%3E%3Cg fill='%23e8a33d'%3E%3Crect x='20' y='20' width='16' height='16' rx='2'/%3E%3Crect x='42' y='20' width='16' height='16' rx='2'/%3E%3Crect x='64' y='20' width='16' height='16' rx='2'/%3E%3Crect x='20' y='42' width='16' height='16' rx='2'/%3E%3Crect x='42' y='42' width='16' height='16' rx='2'/%3E%3Crect x='64' y='42' width='16' height='16' rx='2'/%3E%3Crect x='20' y='64' width='16' height='16' rx='2'/%3E%3Crect x='42' y='64' width='16' height='16' rx='2'/%3E%3Crect x='64' y='64' width='16' height='16' rx='2'/%3E%3C/g%3E%3C/svg%3E">
 <style>
+/* Mirrors the tokens of gabrielkasmi.github.io (assets/css/main.css) so the two read as one site. */
 :root{
-  --ink:#1d2733;--ink-soft:#4a5866;--fog:#66717d;--hairline:#d9dfe5;--paper:#fbfaf7;--sun:#c24a09;--sun-wash:#fff2e8;
-  --serif:"Iowan Old Style","Palatino Linotype","Book Antiqua",Palatino,Georgia,serif;
-  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-  color-scheme:light;
+  --color-bg:#ffffff;--color-bg-raised:#f4f4f5;--color-text:#18181b;--color-text-muted:#6b7280;
+  --color-border:#e4e4e7;--color-link:#9c6209;--color-link-hover:#7a4d07;--color-accent:#9c6209;
+  --font-serif:"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,"Times New Roman",serif;
+  --font-sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --measure:40rem;--measure-wide:52rem;
 }
 @media (prefers-color-scheme:dark){
-  :root{--ink:#eef1f4;--ink-soft:#b7c0c9;--fog:#8d98a4;--hairline:#2c3540;--paper:#11161c;--sun:#f08a4b;--sun-wash:#2a1a10;color-scheme:dark}
+  :root{--color-bg:#0a0a0b;--color-bg-raised:#19191b;--color-text:#f4f4f5;--color-text-muted:#9ca3af;
+    --color-border:#2c2c31;--color-link:#e8a33d;--color-link-hover:#f3ba66;--color-accent:#e8a33d;color-scheme:dark}
 }
 *{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%;accent-color:var(--sun)}
-body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
-::selection{background:color-mix(in srgb,var(--sun) 25%,transparent)}
-a{color:inherit}
-:focus-visible{outline:2px solid var(--sun);outline-offset:3px;border-radius:3px}
-.wrap{max-width:44rem;margin:0 auto;padding:clamp(2.5rem,8vw,5.5rem) 20px 3rem}
-header{display:flex;justify-content:space-between;align-items:flex-start;gap:1.5rem}
-h1{font-family:var(--serif);font-weight:600;font-size:clamp(2.2rem,6vw,3.1rem);line-height:1.05;letter-spacing:-0.02em;margin:0}
-.lede{color:var(--ink-soft);font-size:1.05rem;max-width:34rem;margin:1rem 0 0}
-.lang{display:flex;gap:2px;padding:3px;border:1px solid var(--hairline);border-radius:999px;flex-shrink:0;margin-top:.5rem}
-.lang a{font-size:.8rem;font-weight:600;letter-spacing:.04em;text-decoration:none;color:var(--ink-soft);padding:.3em .75em;border-radius:999px}
-.lang a:hover{color:var(--ink)}
-.lang a[aria-current="true"]{background:var(--ink);color:var(--paper)}
-.maps{list-style:none;margin:3.5rem 0 0;padding:0;border-top:1px solid var(--hairline)}
-.maps li{border-bottom:1px solid var(--hairline)}
-.map{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.35rem 1.5rem;padding:1.6rem 0;text-decoration:none}
-.map h2{font-family:var(--serif);font-weight:600;font-size:1.45rem;line-height:1.2;margin:0;grid-column:1}
-.map:hover h2{color:var(--sun)}
-.map p{margin:0;color:var(--ink-soft);grid-column:1;max-width:34rem}
-.map .meta{font-size:.85rem;color:var(--fog);font-variant-numeric:tabular-nums}
-.map .go{grid-column:2;grid-row:1;align-self:baseline;font-size:.9rem;font-weight:600;color:var(--sun);white-space:nowrap}
-.map .go svg{vertical-align:-2px;transition:transform .2s cubic-bezier(.22,1,.36,1)}
-.map:hover .go svg{transform:translateX(3px)}
-footer{margin-top:3rem;font-size:.85rem;color:var(--fog)}
-footer p{margin:.3rem 0}
-footer a{text-underline-offset:3px;text-decoration-color:var(--hairline)}
-footer a:hover{color:var(--ink);text-decoration-color:currentColor}
+html{-webkit-text-size-adjust:100%;accent-color:var(--color-accent)}
+body{margin:0;background:var(--color-bg);color:var(--color-text);font-family:var(--font-sans);font-size:17px;line-height:1.65;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased}
+::selection{background:color-mix(in srgb,var(--color-accent) 28%,transparent)}
+:focus-visible{outline:2px solid var(--color-accent);outline-offset:3px;border-radius:2px}
+a{color:var(--color-link);text-decoration:underline;text-decoration-color:var(--color-border);text-underline-offset:3px}
+a:hover{color:var(--color-link-hover);text-decoration-color:currentColor}
+.wrapper{max-width:var(--measure-wide);margin:0 auto;padding:0 20px}
+.site-header{display:flex;align-items:center;justify-content:space-between;gap:1em;padding:.9em 20px;margin:0 -20px;border-bottom:1px solid var(--color-border)}
+.site-brand{display:inline-flex;align-items:center;gap:.5em;color:var(--color-text-muted);text-decoration:none;font-size:.95rem}
+.site-brand:hover{color:var(--color-link)}
+.lang{display:flex;gap:1.1em;font-size:.95rem}
+.lang a{color:var(--color-text-muted);text-decoration:none}
+.lang a:hover{color:var(--color-link)}
+.lang a[aria-current="true"]{color:var(--color-text);text-decoration:underline;text-decoration-color:var(--color-accent);text-decoration-thickness:2px;text-underline-offset:6px}
+main{padding:2.4em 0 4em}
+h1,h2{font-family:var(--font-serif);font-weight:600;line-height:1.25;color:var(--color-text)}
+h1{font-size:2rem;margin:0 0 .5em}
+p{margin:0 0 1.1em;max-width:var(--measure)}
+.post-preview{margin:1.8em 0;padding-bottom:1.8em;border-bottom:1px solid var(--color-border);max-width:var(--measure-wide)}
+.post-preview:last-child{border-bottom:none}
+.post-preview h2{font-size:1.3rem;margin:0 0 .2em}
+
+.post-meta{color:var(--color-text-muted);font-size:.88rem;margin:0 0 .7em}
+.site-footer{border-top:1px solid var(--color-border);padding:1.8em 0 3em;color:var(--color-text-muted);font-size:.9rem}
+.site-footer p{margin:0}
+.site-footer a{color:inherit}
 [data-en]{display:none}
 html[lang="en"] [data-fr]{display:none}
 html[lang="en"] [data-en]{display:revert}
-@media (max-width:560px){
-  .map{grid-template-columns:minmax(0,1fr)}
-  .map .go{grid-column:1;grid-row:auto;margin-top:.4rem}
-}
-@media (prefers-reduced-motion:reduce){.map .go svg{transition:none}}
+@media (max-width:640px){body{font-size:16px}h1{font-size:1.6rem}}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div>
-      <h1>Random Maps</h1>
-      <p class="lede">
-        <span data-fr>Des cartes construites à partir de données ouvertes, au gré des curiosités.</span>
-        <span data-en>Maps built from open data, following whatever catches my curiosity.</span>
-      </p>
-    </div>
+<div class="wrapper">
+  <header class="site-header">
+    <a class="site-brand" href="https://gabrielkasmi.github.io/">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10"/></svg>
+      Gabriel Kasmi
+    </a>
     <nav class="lang" aria-label="Langue / Language">
       <a href="?lang=fr" data-l="fr" aria-current="true">FR</a>
       <a href="?lang=en" data-l="en">EN</a>
@@ -71,30 +66,25 @@ html[lang="en"] [data-en]{display:revert}
   </header>
 
   <main>
-    <ul class="maps">
-      <li>
-        <a class="map" href="hiking/" data-map>
-          <h2><span data-fr>Plein soleil sur mon chemin</span><span data-en>Sunshine on my way</span></h2>
-          <p>
-            <span data-fr>Les itinéraires de randonnée en France, croisés avec les installations photovoltaïques détectées à moins de 50&nbsp;m du sentier. Recherche, générateur de randos, profil altimétrique et export GPX.</span>
-            <span data-en>Hiking routes across France, crossed with the solar installations detected within 50&nbsp;m of the trail. Search, hike generator, elevation profile and GPX export.</span>
-          </p>
-          <p class="meta">
-            <span data-fr>France · OpenStreetMap · DeepPVMapper</span>
-            <span data-en>France · OpenStreetMap · DeepPVMapper</span>
-          </p>
-          <span class="go"><span data-fr>Ouvrir</span><span data-en>Open</span> <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></span>
-        </a>
-      </li>
-    </ul>
+    <h1>Random Maps</h1>
+    <p>
+      <span data-fr>Des cartes construites à partir de données ouvertes, au gré des curiosités.</span>
+      <span data-en>Maps built from open data, following whatever catches my curiosity.</span>
+    </p>
+
+    <div class="post-preview">
+      <h2><a href="hiking/" data-map><span data-fr>Plein soleil sur mon chemin</span><span data-en>Sunshine on my way</span></a></h2>
+      <p class="post-meta">France · OpenStreetMap · DeepPVMapper</p>
+      <p>
+        <span data-fr>Les itinéraires de randonnée en France, croisés avec les installations photovoltaïques détectées à moins de 50&nbsp;m du sentier. Recherche, générateur de randos, profil altimétrique et export GPX.</span>
+        <span data-en>Hiking routes across France, crossed with the solar installations detected within 50&nbsp;m of the trail. Search, hike generator, elevation profile and GPX export.</span>
+      </p>
+      <a href="hiking/" data-map><span data-fr>Ouvrir la carte →</span><span data-en>Open the map →</span></a>
+    </div>
   </main>
 
-  <footer>
-    <p>
-      <span data-fr>Par</span><span data-en>By</span>
-      <a href="https://gabrielkasmi.github.io/">Gabriel Kasmi</a> ·
-      <a href="https://github.com/gabrielkasmi/random-maps"><span data-fr>Sources et licences</span><span data-en>Sources and licences</span></a>
-    </p>
+  <footer class="site-footer">
+    <p>&copy; 2026 Gabriel Kasmi · <a href="https://github.com/gabrielkasmi/random-maps"><span data-fr>Sources et licences</span><span data-en>Sources and licences</span></a></p>
   </footer>
 </div>
 <script>
