@@ -1,0 +1,1148 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Plein soleil sur mon chemin</title>
+<meta name="description" content="Itinéraires de randonnée OpenStreetMap × installations photovoltaïques d'OpenPVMapper, dans un couloir de 50 m.">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<style>
+:root{--ink:#1d2733;--ink2:#4a5866;--muted:#738190;--line:#d9dfe5;--bg:#eef1f4;--acc:#e8590c;--acc-bg:#fff2e8;--sel:#0b3d63;--route:#2a5d8f}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:var(--bg);overflow:hidden}
+button,input,select{font:inherit;color:inherit}
+#map{position:absolute;inset:0;background:#dfe6dc}
+.glass{background:rgba(255,255,255,.84);-webkit-backdrop-filter:blur(14px) saturate(1.3);backdrop-filter:blur(14px) saturate(1.3);border:1px solid rgba(255,255,255,.65);border-radius:16px;box-shadow:0 6px 28px rgba(15,30,50,.24)}
+#side{position:absolute;z-index:1000;left:16px;top:16px;bottom:16px;width:404px;display:flex;flex-direction:column;gap:10px;pointer-events:none}
+#side>*{pointer-events:auto}
+#hero{position:relative;z-index:5;flex:none}
+.brand h1{font-size:19px;line-height:1.2;margin:0 0 10px;letter-spacing:-.015em;text-shadow:0 0 14px #fff,0 0 4px #fff}
+.brand h1 i{font-style:normal;color:var(--acc)}
+.brand p{margin:0 0 10px;color:var(--ink2);font-size:13px}
+#hero.compact .brand{display:none}
+.srow{display:flex;gap:6px;align-items:center;position:relative}
+.sbox{flex:1;min-width:0}
+.ibox{position:relative}
+input[type=search]::-webkit-search-cancel-button{display:none}
+.sbox input{box-shadow:0 6px 22px rgba(15,30,50,.25);width:100%;padding:10px 30px 10px 32px;border:1px solid var(--line);border-radius:12px;background:#fff;font-size:15px;outline:0}
+.sbox input:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(232,89,12,.18)}
+.sbox .mag{position:absolute;left:10px;top:50%;transform:translateY(-52%);color:var(--muted);line-height:0;pointer-events:none}
+#qclear{position:absolute;right:6px;top:50%;transform:translateY(-50%);display:flex;align-items:center;border:0;background:none;color:var(--muted);cursor:pointer;padding:4px 7px}
+.tb svg{display:block;margin:auto}
+.tb{display:flex;align-items:center;justify-content:center;color:var(--ink);box-shadow:0 6px 22px rgba(15,30,50,.25);flex:none;width:40px;height:40px;border:1px solid var(--line);border-radius:12px;background:#fff;cursor:pointer;font-size:17px;line-height:1;padding:0}
+.tb:hover,.tb[aria-expanded=true]{border-color:var(--acc);background:var(--acc-bg)}
+.sug{position:absolute;left:0;right:0;top:calc(100% + 6px);background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.2);max-height:min(60vh,420px);overflow:auto;z-index:1600;padding:4px}
+.sug[hidden],.pop[hidden],#panel[hidden],[hidden]{display:none!important}
+.sug .lbl{margin:6px 8px 2px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.sug button{display:flex;gap:9px;align-items:center;width:100%;text-align:left;border:0;background:none;padding:7px 8px;border-radius:8px;cursor:pointer}
+.sug button:hover,.sug button.act{background:var(--acc-bg)}
+.sug .s1{font-weight:600;flex:1;min-width:0}.sug small{color:var(--muted);flex:none;max-width:45%;text-align:right;line-height:1.25}
+.sug .none{padding:8px;color:var(--muted)}
+.chiprow{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:rgba(255,255,255,.9);border-radius:99px;padding:4px 11px;font-size:12.5px;cursor:pointer;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip:hover{border-color:var(--acc);background:var(--acc-bg)}
+.chip.fun{border-style:dashed}
+.pop{position:absolute;right:10px;top:100%;margin-top:6px;width:min(330px,calc(100% - 20px));background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 34px rgba(0,0,0,.24);padding:12px;z-index:1700;max-height:70vh;overflow:auto}
+.pop .lbl{margin:10px 0 5px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink2)}
+.pop .lbl:first-child{margin-top:0}
+.pop label{display:flex;gap:8px;align-items:center;padding:3px 0;cursor:pointer}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:#fff;color:var(--ink2);cursor:pointer;padding:4px 10px;font-size:12.5px}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed=true]{background:var(--ink);color:#fff}
+.legend{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink2);flex-wrap:wrap;margin-top:6px}
+.legend i{display:inline-block;width:16px;height:4px;border-radius:2px}
+.recs{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.recs button{text-align:left;border:1px solid var(--line);background:#fff;border-radius:10px;padding:6px 9px;cursor:pointer}
+.recs button:hover{border-color:var(--acc);background:var(--acc-bg)}
+.recs b{display:block;font-size:11.5px;color:var(--ink2)}
+.recs span{font-weight:700;font-size:13px;font-variant-numeric:tabular-nums}
+.recs small{display:block;color:var(--muted);font-size:11px;line-height:1.3}
+.foot{font-size:11.5px;color:var(--muted);line-height:1.5}.foot a{color:inherit}
+.lang{display:flex;align-items:center;gap:2px;height:40px;padding:0 4px;border-radius:12px!important;box-shadow:0 4px 16px rgba(15,30,50,.2)}
+.lang a{color:var(--ink2);text-decoration:none;padding:6px 8px;border-radius:8px;font-size:13px;font-weight:600}
+.lang a[aria-current=true]{background:var(--ink);color:#fff}
+/* panel */
+#panel{flex:0 1 auto;min-height:0;display:flex;flex-direction:column;background:rgba(255,255,255,.94)}
+.phead{display:flex;align-items:center;gap:8px;padding:8px 10px 0;flex:none}
+.phead .grab{display:none}
+.pback{border:0;background:none;color:var(--sel);font-weight:600;cursor:pointer;padding:4px 6px;border-radius:8px}
+.pback:hover{background:var(--acc-bg)}
+.phead span{flex:1}
+.pclose{margin-left:auto;display:flex;align-items:center;border:0;background:none;color:var(--muted);cursor:pointer;padding:4px 8px;border-radius:8px}
+.pclose:hover{background:#eef1f4}
+.pbody{overflow:auto;min-height:0;padding:4px 14px 14px;overscroll-behavior:contain}
+.pbody h2{margin:2px 0 0;font-size:18px;line-height:1.25;letter-spacing:-.01em}
+.sub{color:var(--ink2);font-size:12.5px;margin-top:2px}
+.note{font-size:11.5px;color:var(--muted);margin:5px 0}
+.hint{color:var(--muted);margin:6px 0}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:10px 0}
+.kpi{background:var(--bg);border-radius:10px;padding:6px 7px;min-width:0}
+.kpi b{display:block;font-size:16px;letter-spacing:-.01em;white-space:nowrap;font-variant-numeric:tabular-nums}
+.kpi span{font-size:11px;color:var(--ink2)}
+.pvban{border:1px solid #f6c9a8;background:linear-gradient(180deg,#fff7ef,#fff);border-radius:14px;padding:10px 12px;margin:8px 0}
+.counter{font-size:14px;color:var(--ink2);font-variant-numeric:tabular-nums}
+.counter b{color:var(--acc);font-size:24px;letter-spacing:-.02em}
+.play{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.btn{font-weight:700;padding:9px 16px;border:0;border-radius:10px;background:var(--acc);color:#fff;cursor:pointer;box-shadow:0 2px 0 #b8430a}
+.btn:active{transform:translateY(1px);box-shadow:none}
+.btn2{padding:7px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;cursor:pointer}
+.btn2:hover{border-color:var(--acc);background:var(--acc-bg)}
+.opt{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:var(--ink2)}
+#prof{width:100%;height:64px;display:block;margin-top:8px}
+#elev{width:100%;height:66px;display:block;margin:4px 0 0}
+table.mem{width:100%;border-collapse:collapse;font-size:12.5px;margin:8px 0}
+table.mem th{font-weight:600;color:var(--ink2);text-align:right;padding:3px 4px;border-bottom:1px solid var(--line)}
+table.mem th:first-child,table.mem td:first-child{text-align:left}
+table.mem td{padding:6px 4px;border-bottom:1px solid #eef1f4;text-align:right;font-variant-numeric:tabular-nums}
+table.mem tr.m{cursor:pointer}table.mem tr.m:hover{background:var(--acc-bg)}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+/* lists */
+.dual{position:relative;height:24px;margin-top:2px}
+.dual .tr{position:absolute;left:0;right:0;top:10px;height:4px;border-radius:2px;background:var(--line)}
+.dual .tr i{position:absolute;top:0;bottom:0;background:var(--acc);border-radius:2px}
+.dual input{position:absolute;left:0;top:0;width:100%;height:24px;margin:0;background:none;pointer-events:none;-webkit-appearance:none;appearance:none}
+.dual input::-webkit-slider-runnable-track{background:none;height:24px}
+.dual input::-moz-range-track{background:none}
+.dual input::-webkit-slider-thumb{-webkit-appearance:none;pointer-events:auto;margin-top:3px;width:18px;height:18px;border-radius:50%;background:#fff;border:2px solid var(--acc);cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.dual input::-moz-range-thumb{pointer-events:auto;width:14px;height:14px;border-radius:50%;background:#fff;border:2px solid var(--acc);cursor:pointer}
+details.refine{border:1px solid var(--line);border-radius:12px;margin:10px 0 6px;background:#fff}
+details.refine summary{cursor:pointer;padding:8px 11px;font-weight:600;font-size:13px;list-style:none}
+details.refine summary::-webkit-details-marker{display:none}
+details.refine summary::after{content:"▾";float:right;color:var(--muted)}
+details.refine[open] summary::after{content:"▴"}
+.rgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;padding:2px 11px 11px}
+.rgrid label{display:flex;flex-direction:column;gap:3px;font-size:11.5px;color:var(--ink2)}
+.rgrid .wide{grid-column:1/-1}
+.rgrid select{padding:5px 6px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:13px;width:100%}
+.rgrid .two{display:flex;gap:4px;align-items:center}
+.rgrid input[type=range]{width:100%;accent-color:var(--acc)}
+.lcount{font-size:12px;color:var(--ink2);margin:6px 0 6px}
+.cards{display:flex;flex-direction:column;gap:6px}
+.card{display:flex;gap:10px;align-items:center;width:100%;text-align:left;border:1px solid var(--line);background:#fff;border-radius:12px;padding:8px 11px;cursor:pointer}
+.card:hover,.card:focus-visible{border-color:var(--acc);background:var(--acc-bg);outline:0}
+.card .cl{flex:1;min-width:0}
+.card b{display:block;font-size:13.5px;line-height:1.3}
+.card .cm{font-size:12px;color:var(--ink2)}
+.card .cn{text-align:right;flex:none;line-height:1.1}
+.card .cn em{display:block;font-style:normal;font-weight:800;font-size:19px;color:var(--acc);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.card .cn small{font-size:10.5px;color:var(--muted)}
+.dot{background:var(--acc);border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 2px rgba(11,61,99,.5)}
+.leaflet-tooltip{font:12.5px/1.4 system-ui,sans-serif}
+.leaflet-control-attribution{font-size:10px}
+
+#veil{display:none;position:absolute;inset:0;z-index:900;-webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px);background:rgba(244,246,249,.5)}
+body.home #veil{display:block}
+body.home #side{left:50%;right:auto;top:30%;bottom:auto;width:min(580px,calc(100% - 24px));transform:translateX(-50%)}
+body.home .brand{text-align:center}
+body.home .brand h1{font-size:26px;margin-bottom:12px}
+#tools{align-items:flex-start;position:absolute;z-index:1100;right:16px;top:16px;display:flex;gap:8px}
+#tools .tb{box-shadow:0 4px 16px rgba(15,30,50,.2)}
+#tools .pop{right:0;left:auto;width:330px;max-width:calc(100vw - 32px)}
+.pop.wide{left:10px;right:10px;width:auto}
+#map.calm .leaflet-tile-pane{filter:saturate(.92) contrast(.9) brightness(1.04)}
+@media (max-width:820px){
+  .lang{height:auto;flex-direction:column;width:40px;padding:3px}
+  .lang a{display:block;width:100%;padding:6px 0;text-align:center;border-radius:8px}
+  #tools{right:8px;top:calc(76px + env(safe-area-inset-top));flex-direction:column}
+  #tools .pop{right:44px;top:0;margin:0;width:min(330px,calc(100vw - 64px));max-height:calc(100vh - 140px)}
+  body.home #tools{top:calc(8px + env(safe-area-inset-top))}
+  body.home .brand h1{font-size:19px}
+  #side{left:8px;right:8px;top:calc(8px + env(safe-area-inset-top));bottom:calc(8px + env(safe-area-inset-bottom));width:auto}
+  #hero{padding:10px}
+  .brand h1{font-size:16px}.brand p{font-size:12.5px;margin-bottom:8px}
+  #panel{margin-top:auto;max-height:50vh}
+  .phead .grab{display:block;flex:1;height:22px;border:0;background:none;cursor:pointer;position:relative}
+  .phead .grab::after{content:"";position:absolute;left:50%;top:9px;width:42px;height:4px;margin-left:-21px;border-radius:2px;background:#c3ccd5}
+  #panel.collapsed .pbody>*:not(.pvban){display:none}
+  .phead span{display:none}
+  .leaflet-control-zoom{display:none}
+}
+</style>
+</head>
+<body>
+<div id="map" role="application" aria-label="Carte"></div>
+<div id="veil"></div>
+<div id="tools">
+  <nav class="lang glass" aria-label="Langue"><a href="?lang=fr" data-l="fr">FR</a><a href="?lang=en" data-l="en">EN</a></nav>
+  <button class="tb glass" id="bLay" aria-expanded="false" aria-controls="popLay" title="Fond de carte"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg></button>
+  <button class="tb glass" id="bInfo" aria-expanded="false" aria-controls="popInfo" title="Infos"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.4"/></svg></button>
+  <div class="pop" id="popLay" hidden>
+    <p class="lbl" id="t-base"></p><div id="baseList"></div>
+    <p class="lbl" id="t-over"></p><label><input type="checkbox" id="wmt"> <span id="t-wmt"></span></label><label><input type="checkbox" id="allc"> <span id="t-allc"></span></label>
+    <p class="lbl" id="t-color"></p><span class="seg" id="colorSeg"><button data-m="neutral" aria-pressed="true"></button><button data-m="density" aria-pressed="false"></button></span>
+    <div class="legend" id="legend" hidden></div>
+  </div>
+    <div class="pop" id="popInfo" hidden>
+    <p class="foot" id="t-disc" style="color:var(--ink);margin:0 0 10px"></p>
+    <p class="foot" id="t-foot"></p>
+  </div>
+</div>
+<div id="side">
+  <section id="hero">
+    <div class="brand"><h1><i>☀</i> <span id="t-title"></span></h1><p id="t-sub" hidden></p></div>
+    <div class="srow">
+      <div class="sbox">
+        <div class="ibox"><span class="mag" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M19.5 19.5l-4.8-4.8"/></svg></span>
+        <input id="q" type="search" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="sug" aria-label="Recherche">
+        <button id="qclear" hidden aria-label="Effacer"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"/></svg></button></div>
+      </div>
+      <button class="tb" id="bIdea" aria-expanded="false" aria-controls="popIdea" title="Suggestions"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/></svg></button>
+      <button class="tb" id="bFun" aria-expanded="false" aria-controls="popFun" title="Curiosités"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M3 21l3-10h12l3 10z"/><path d="M4.7 16h14.6M9.3 11L8 21M14.7 11L16 21M12 11v10"/><circle cx="12" cy="4.2" r="1.8"/><path d="M12 .6v.8M7.6 2.2l.6.6M16.4 2.2l-.6.6" /></svg></button>
+      <div id="sug" class="sug" role="listbox" hidden></div>
+    </div>
+    <div class="pop wide" id="popIdea" hidden><p class="lbl" id="t-famous"></p><div class="chiprow" id="famous"></div></div>
+    <div class="pop wide" id="popFun" hidden><p class="lbl" id="t-curio"></p><div class="chiprow" id="curio"></div><p class="lbl" id="t-rec" style="margin-top:14px"></p><p class="note" id="t-recsub" style="margin:0 0 6px"></p><div class="recs" id="recs"></div></div>
+  </section>
+  <section id="panel" class="glass" hidden></section>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+(function(){
+'use strict';
+document.body.classList.add('home');
+var P=new URLSearchParams(location.search);
+var LANG=P.get('lang')==='en'?'en':'fr';
+var DATA=P.get('data')||'viz_data/'; if(DATA.slice(-1)!=='/')DATA+='/';
+var I={fr:{
+ title:'Plein soleil sur mon chemin',
+ disc:'Les itinéraires, distances, dénivelés et panneaux affichés sont indicatifs : ils proviennent de données ouvertes (OpenStreetMap, IGN, OpenPVMapper) qui peuvent être incomplètes, inexactes ou périmées. Vérifiez toujours votre parcours auprès de sources officielles (cartes IGN, topoguides, fédérations, offices de tourisme), informez-vous de la météo, de l’état des sentiers et des éventuelles fermetures, et suivez les consignes et recommandations des autorités locales. Vous randonnez sous votre seule responsabilité : l’auteur de cet outil ne peut être tenu responsable d’un égarement, d’un accident ou de tout dommage lié à son utilisation.',
+ discShort:'⚠ Indicatif : vérifiez le parcours auprès de sources officielles et suivez les consignes des autorités locales. Vous randonnez sous votre responsabilité.',
+
+ hikeMode:'Randos',wholeMode:'Chemins entiers',hkDist:'Distance de la balade',hkPv:'Panneaux à voir',pv1:'panneau',pvPend:'☀ …',pvTr:'sur ce tronçon',hkStart:'Départ à moins de',hkDpMin:'D+ min.',hkDpMax:'D+ max.',sP2:'Départ le plus proche',sU:'D+ croissant',sV:'D+ décroissant',sL2:'Plus long d’abord',
+ hkHead:'Randos autour de',hkSub:'Tronçons de {x} km, départ à moins de {r} km du centre',startAt:'départ à',passBy:'passe à',towards:'vers',pendingDp:'D+ …',hkNone:'Aucune balade ne correspond. Élargissez la zone de départ, changez la distance ou le D+.',
+ stretchOf:'Tronçon de {a} km sur un chemin de {b} km',fullOne:'Chemin entier',seeFull:'Voir le chemin complet',startLbl:'Départ',endLbl:'Arrivée',
+ compass:['nord','nord-est','est','sud-est','sud','sud-ouest','ouest','nord-ouest'],hkElev:'D+ estimé sur le modèle IGN (échantillonné), à prendre comme indicatif.',hkNoElev:'Dénivelé indisponible pour le moment.',
+
+ ph:'Trouver un parcours à côté de…',phS:'Ville, chemin, région…',
+ famous:'Chemins célèbres',curio:'Curiosités',
+ cMost:'Le plus de panneaux',cDense:'Le plus dense',cRatio:'Panneaux / D+',cZero:'Zéro panneau',cRand:'Au hasard 🎲',
+ hMost:'Les plus fournis en panneaux',hDense:'Les plus denses (panneaux au km)',hRatio:'Le meilleur rapport panneaux / dénivelé',hZero:'Sans un seul panneau',
+ sMost:'Grands itinéraires et chemins nommés, au total.',sDense:'Chemins de 15 km et plus.',sRatio:'Panneaux pour 100 m de D+ (grands itinéraires, dénivelé calculé).',sZero:'Les plus longs chemins (25 km et plus) où l’on n’en croise aucun.',
+ gPlaces:'Lieux',gTrails:'Chemins',nearMe:'Autour de moi',nearMeSub:'avec la localisation de l’appareil',geoDenied:'Localisation indisponible.',
+ kCommune:'commune',kDept:'département',kRegion:'région',
+ base:'Fond de carte',bTopo:'Relief (OpenTopoMap)',bIgn:'Plan IGN (France, épuré)',bOsm:'Standard (OpenStreetMap)',bLight:'Clair (Carto)',over:'Superposition',wmt:'Sentiers balisés (Waymarked Trails)',allc:'Afficher tous les chemins du jeu de données',color:'Couleur des tracés',neutral:'Neutre',density:'Densité',legendTitle:'Panneaux par km :',
+ rec:'Records de France',recSub:'Le chemin qui passe à côté du panneau le plus au nord, au sud, à l’est, à l’ouest, le plus haut, le plus bas.',
+ refine:'Affiner',refineHint:'longueur, D+, panneaux, tri',len:'Longueur',lenUnit:'km',nMin:'Panneaux min.',dpMax:'D+ max.',sortBy:'Trier par',sN:'Panneaux',sD:'Panneaux / km',sL:'Longueur',sR:'Panneaux / D+',sP:'Proximité',reset:'Réinitialiser',any:'tous',
+ radius:'Rayon autour de la commune',inCommune:'dans la commune',plusKm:'jusqu’à {n} km',noContour:'Contour de la commune indisponible : distance depuis son centre.',
+ around:'Autour de',inDep:'Département',inReg:'Région',nRoutes:'chemins',away:'à',noRes:'Aucun chemin ne correspond. Élargissez le rayon ou les filtres.',dpNote:'Le filtre D+ ne retient que les chemins dont le dénivelé est connu (grands itinéraires).',
+ home:'← Accueil',toList:'← Résultats',back:'← L’ensemble',close:'Fermer',fold:'Replier',
+ per100:'/ 100 km',ratioTxt:'{n} pann. / 100 m D+',loading:'Chargement…',top:'{n} premiers affichés',
+ km:'km',pv:'panneaux',kwp:'kWp',m2:'m²',perkm:'pann./km',collect:'▶ Aperçu',stop:'■ Arrêter',
+follow:'Suivre',speed:'Vitesse',collected:'collectés',none:'Aucun panneau dans le couloir de 50 m : un chemin 100 % sans photovoltaïque.',
+ along:'Répartition le long du chemin',noname:'Itinéraire sans nom',
+ recPass:'Vous passerez à {d} du panneau {ph}.',recPh:{north:'le plus au nord de France',south:'le plus au sud de France',east:'le plus à l’est de France',west:'le plus à l’ouest de France',south_mainland:'le plus au sud de France continentale',east_mainland:'le plus à l’est de France continentale',highest:'le plus haut de France',lowest:'le plus bas de France'},
+ records:{north:'Nord',south:'Sud',east:'Est',west:'Ouest',south_mainland:'Sud (continent)',east_mainland:'Est (continent)',highest:'Plus haut',lowest:'Plus bas'},
+ nearest:'chemin le plus proche',of:'de',onroute:'sur un chemin',dept:'dép.',alt:'alt.',open:'Voir cet itinéraire',
+ members:'variantes',excl:'propres',unionN:'panneaux (sans doublon)',chained:'tronçons OSM chaînés',
+ linkNote:'Traits pointillés : liaisons approximatives entre tronçons (≤ 2 km), non comptées dans la longueur.',exclHint:'« propres » : panneaux présents sur cette variante et sur aucune autre.',
+ variant:'Variante',gpx:'⬇ GPX',gpxWpt:'avec les panneaux',osmRel:'Relation OSM',wmtLink:'Trace complète (Waymarked Trails)',link:'🔗 Copier le lien',linked:'Lien copié ✓',
+ gpxNote:'Trace simplifiée (environ 25 m), liaisons approximatives en ligne droite : à vérifier avant de partir. Données © contributeurs OpenStreetMap (ODbL) et OpenPVMapper.',
+ tip:{kw:'kWp',sf:'m²',d:'du chemin',z:'alt.'},
+ elevLoading:'Calcul du dénivelé auprès de l’IGN…',elevCoarse:'Chemin long : altitude relevée tous les {n} m, le dénivelé est sous-estimé.',dplus:'D+ environ',dminus:'D− environ',altRange:'Altitude',elevNote:'Dénivelé estimé sur le modèle IGN RGE ALTI, lissé : à prendre « environ ». Les traits orange sont les panneaux.',
+ foot:'Corridor de 50 m autour des itinéraires <a href="https://www.openstreetmap.org/copyright">© contributeurs OpenStreetMap (ODbL)</a> ; les GR® ne sont pas tous présents dans l’extrait libre. Installations : <a href="https://deeppvmapper.fr">OpenPVMapper</a>, localisées par leur centroïde. Altitudes : IGN RGE ALTI. Fonds : OpenTopoMap, Carto, Waymarked Trails. Les installations sont celles détectées, pas un recensement officiel.'
+},en:{
+ title:'Sunshine on my way',
+ disc:'The routes, distances, ascents and panels shown are indicative only: they come from open data (OpenStreetMap, IGN, OpenPVMapper) that may be incomplete, inaccurate or out of date. Always check your route against official sources (IGN maps, topo-guides, federations, tourist offices), check the weather, trail conditions and possible closures, and follow the instructions and recommendations of the local authorities. You hike at your own risk: the author of this tool cannot be held liable for getting lost, accidents or any damage arising from its use.',
+ discShort:'⚠ Indicative only: check the route against official sources and follow local authorities’ instructions. You hike at your own risk.',
+
+ hikeMode:'Hikes',wholeMode:'Whole trails',hkDist:'Hike length',hkPv:'Panels to see',pv1:'panel',pvPend:'☀ …',pvTr:'on this section',hkStart:'Start within',hkDpMin:'Min. ascent',hkDpMax:'Max. ascent',sP2:'Closest start',sU:'Ascent, low first',sV:'Ascent, high first',sL2:'Longest first',
+ hkHead:'Hikes around',hkSub:'Trail sections of {x} km, starting within {r} km of the centre',startAt:'start',passBy:'passes',towards:'towards',pendingDp:'ascent …',hkNone:'No hike matches. Widen the start area, change the length or the ascent.',
+ stretchOf:'{a} km section of a {b} km trail',fullOne:'Whole trail',seeFull:'See the whole trail',startLbl:'Start',endLbl:'End',
+ compass:['north','north-east','east','south-east','south','south-west','west','north-west'],hkElev:'Ascent estimated on the IGN model (sampled): indicative only.',hkNoElev:'Elevation unavailable for now.',
+
+ ph:'Find a hike near…',phS:'Town, area, trail…',
+ famous:'Famous trails',curio:'Curiosities',
+ cMost:'Most panels',cDense:'Densest',cRatio:'Panels / ascent',cZero:'Zero panels',cRand:'Surprise me 🎲',
+ hMost:'Most panels overall',hDense:'Densest trails (panels per km)',hRatio:'Best panels-to-ascent ratio',hZero:'Not a single panel',
+ sMost:'Big routes and named trails, total count.',sDense:'Trails of 15 km and more.',sRatio:'Panels per 100 m of ascent (big routes, computed gain).',sZero:'The longest trails (25 km and more) where you meet none.',
+ gPlaces:'Places',gTrails:'Trails',nearMe:'Around me',nearMeSub:'using the device location',geoDenied:'Location unavailable.',
+ kCommune:'town',kDept:'département',kRegion:'region',
+ base:'Base map',bTopo:'Terrain (OpenTopoMap)',bIgn:'IGN map (France, cleaner)',bOsm:'Standard (OpenStreetMap)',bLight:'Light (Carto)',over:'Overlay',wmt:'Marked trails (Waymarked Trails)',allc:'Show every trail of the dataset',color:'Line colour',neutral:'Neutral',density:'Density',legendTitle:'Panels per km:',
+ rec:'Records of France',recSub:'The trail passing by the northernmost, southernmost, easternmost, westernmost, highest and lowest panel.',
+ refine:'Refine',refineHint:'length, ascent, panels, sort',len:'Length',lenUnit:'km',nMin:'Min. panels',dpMax:'Max. ascent',sortBy:'Sort by',sN:'Panels',sD:'Panels / km',sL:'Length',sR:'Panels / ascent',sP:'Proximity',reset:'Reset',any:'any',
+ radius:'Radius around the town',inCommune:'inside the town',plusKm:'up to {n} km',noContour:'Town outline unavailable: distance from its centre.',
+ around:'Around',inDep:'Département',inReg:'Region',nRoutes:'trails',away:'at',noRes:'No trail matches. Widen the radius or the filters.',dpNote:'The ascent filter only keeps trails with a known gain (big routes).',
+ home:'← Home',toList:'← Results',back:'← The whole route',close:'Close',fold:'Fold',
+ per100:'/ 100 km',ratioTxt:'{n} panels / 100 m asc.',loading:'Loading…',top:'first {n} shown',
+ km:'km',pv:'panels',kwp:'kWp',m2:'m²',perkm:'pan./km',collect:'▶ Preview',stop:'■ Stop',
+follow:'Follow',speed:'Speed',collected:'collected',none:'No panels within the 50 m corridor: a 100 % PV-free trail.',
+ along:'Distribution along the route',noname:'Unnamed route',
+ recPass:'You will pass {d} from the {ph}.',recPh:{north:'northernmost panel in France',south:'southernmost panel in France',east:'easternmost panel in France',west:'westernmost panel in France',south_mainland:'southernmost panel in mainland France',east_mainland:'easternmost panel in mainland France',highest:'highest panel in France',lowest:'lowest panel in France'},
+ records:{north:'Northernmost',south:'Southernmost',east:'Easternmost',west:'Westernmost',south_mainland:'South (mainland)',east_mainland:'East (mainland)',highest:'Highest',lowest:'Lowest'},
+ nearest:'nearest route',of:'from',onroute:'on a route',dept:'dept.',alt:'alt.',open:'Open this route',
+ members:'variants',excl:'own',unionN:'panels (no duplicates)',chained:'OSM sections chained',
+ linkNote:'Dashed lines: approximate links between sections (≤ 2 km), not counted in the length.',exclHint:'“own”: panels on this variant and on no other.',
+ variant:'Variant',gpx:'⬇ GPX',gpxWpt:'with the panels',osmRel:'OSM relation',wmtLink:'Full trace (Waymarked Trails)',link:'🔗 Copy link',linked:'Link copied ✓',
+ gpxNote:'Simplified trace (about 25 m), approximate straight links: check before you go. Data © OpenStreetMap contributors (ODbL) and OpenPVMapper.',
+ tip:{kw:'kWp',sf:'m²',d:'from route',z:'alt.'},
+ elevLoading:'Computing elevation from IGN…',elevCoarse:'Long route: elevation sampled every {n} m, the gain is underestimated.',dplus:'Gain (about)',dminus:'Loss (about)',altRange:'Elevation',elevNote:'Elevation gain estimated on the IGN RGE ALTI model, smoothed: take it as approximate. Orange ticks are panels.',
+ foot:'50 m corridor around <a href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors (ODbL)</a> routes; not every GR® is in the open extract. Installations: <a href="https://deeppvmapper.fr">OpenPVMapper</a>, located by centroid. Elevations: IGN RGE ALTI. Maps: OpenTopoMap, Carto, Waymarked Trails. Detected installations, not an official census.'
+}}[LANG];
+document.documentElement.lang=LANG;
+function $(i){return document.getElementById(i)}
+function fmt(n,d){return Number(n).toLocaleString(LANG==='fr'?'fr-FR':'en-GB',{maximumFractionDigits:d||0})}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function getJSON(u){return fetch(u).then(function(r){if(!r.ok)throw new Error(u+' '+r.status);return r.json()})}
+function title(r){return r.name||r.ref||I.noname}
+function norm(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')}
+function hav(a,b){var R=6371000,t=Math.PI/180,dl=(b[0]-a[0])*t,dp=(b[1]-a[1])*t,x=Math.sin(dp/2)*Math.sin(dp/2)+Math.cos(a[1]*t)*Math.cos(b[1]*t)*Math.sin(dl/2)*Math.sin(dl/2);return 2*R*Math.asin(Math.sqrt(x))}
+function store(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
+var MOBILE=function(){return window.innerWidth<=820};
+
+/* static texts */
+$('t-title').textContent=I.title;$('q').placeholder=window.innerWidth<=820?I.phS:I.ph;document.title=I.title;
+$('t-famous').textContent=I.famous;$('t-curio').textContent=I.curio;$('t-base').textContent=I.base;$('t-over').textContent=I.over;$('t-wmt').textContent=I.wmt;$('t-allc').textContent=I.allc;$('t-color').textContent=I.color;$('t-rec').textContent=I.rec;$('t-recsub').textContent=I.recSub;$('t-foot').innerHTML=I.foot;$('t-disc').textContent='⚠ '+I.disc;
+document.querySelectorAll('.lang a').forEach(function(a){a.setAttribute('aria-current',a.dataset.l===LANG);a.href='?lang='+a.dataset.l+(P.get('data')?'&data='+encodeURIComponent(P.get('data')):'')});
+var cs=$('colorSeg').querySelectorAll('button');cs[0].textContent=I.neutral;cs[1].textContent=I.density;
+
+/* ---------- map and base layers */
+var FR=[[41.2,-5.3],[51.2,9.7]];
+var map=L.map('map',{zoomControl:false,preferCanvas:true,minZoom:5,worldCopyJump:false});
+L.control.zoom({position:'bottomright'}).addTo(map);
+var OSMA='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+var BASES={
+ topo:{n:I.bTopo,mk:function(){return L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{subdomains:'abc',maxNativeZoom:17,maxZoom:19,attribution:OSMA+', SRTM · <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)'})}},
+ ign:{n:I.bIgn,mk:function(){return L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image/png',{maxZoom:19,attribution:'© <a href="https://geoservices.ign.fr">IGN</a> Plan IGN'})}},
+ osm:{n:I.bOsm,mk:function(){return L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:OSMA})}},
+ light:{n:I.bLight,mk:function(){return L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:19,attribution:OSMA+' · © <a href="https://carto.com/attributions">CARTO</a>'})}}
+};
+var baseKey=store('pvhike-base');if(!BASES[baseKey])baseKey='topo';
+map.createPane('wmt');map.getPane('wmt').style.zIndex=250;
+var baseLayer=null,wmtLayer=L.tileLayer('https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png',{pane:'wmt',maxZoom:19,opacity:.85,attribution:'© <a href="https://hiking.waymarkedtrails.org">Waymarked Trails</a>'});
+var lite=false;
+function topoLite(){return L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{subdomains:'abc',maxNativeZoom:14,maxZoom:19,attribution:OSMA+', SRTM · <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)'})}
+function refreshBase(){
+  var want=baseKey==='topo'&&!document.body.classList.contains('home')&&map.getZoom()<=16;
+  if(want===lite)return;lite=want;
+  if(baseLayer)map.removeLayer(baseLayer);baseLayer=(want?topoLite():BASES.topo.mk()).addTo(map);baseLayer.bringToBack();
+}
+function setBase(k){baseKey=k;lite=false;store('pvhike-base',k);if(baseLayer)map.removeLayer(baseLayer);baseLayer=BASES[k].mk().addTo(map);baseLayer.bringToBack();refreshBase();
+  $('baseList').querySelectorAll('input').forEach(function(i){i.checked=(i.value===k)})}
+$('baseList').innerHTML=Object.keys(BASES).map(function(k){return '<label><input type="radio" name="base" value="'+k+'"> '+esc(BASES[k].n)+'</label>'}).join('');
+$('baseList').querySelectorAll('input').forEach(function(i){i.addEventListener('change',function(){setBase(i.value)})});
+$('allc').addEventListener('change',function(){this.checked?ovLayer.addTo(map):map.removeLayer(ovLayer)});
+$('wmt').addEventListener('change',function(){this.checked?wmtLayer.addTo(map):map.removeLayer(wmtLayer)});
+map.on('zoomend',function(){refreshBase()});
+setBase(baseKey);
+function fit(b,maxZ){
+  var o={maxZoom:maxZ||15},sheet=!$('panel').hidden;
+  if(MOBILE()){o.paddingTopLeft=[16,$('hero').offsetHeight+24];o.paddingBottomRight=[16,sheet&&!$('panel').classList.contains('collapsed')?Math.round($('panel').offsetHeight)+20:16]}
+  else if(document.body.classList.contains('home')){o.paddingTopLeft=[20,20];o.paddingBottomRight=[20,20]}
+  else{o.paddingTopLeft=[452,40];o.paddingBottomRight=[56,40]}
+  map.fitBounds(b,o);
+}
+fit(FR,6);
+var canvas=L.canvas({tolerance:7,padding:.3});
+var ovLayer=L.layerGroup(),selLayer=L.layerGroup().addTo(map),recLayer=L.layerGroup().addTo(map),hiLayer=L.layerGroup().addTo(map),hovLayer=L.layerGroup().addTo(map),exLayer=L.layerGroup().addTo(map);
+var mode='neutral',ovPolys=[];
+var ROUTE_C=getComputedStyle(document.documentElement).getPropertyValue('--route').trim()||'#2a5d8f';
+var COL=['#9aa5b1','#fdd34d','#f59f00','#e8590c','#a61e4d'];
+function dcol(p){return p<=0?COL[0]:p<0.5?COL[1]:p<2?COL[2]:p<5?COL[3]:COL[4]}
+function style(o){return mode==='neutral'?{color:ROUTE_C,weight:1.7,opacity:.72}:{color:dcol(o.ppk),weight:o.ppk>0?2.4:1.3,opacity:o.ppk>0?.9:.45}}
+function drawOverview(rs){
+  rs.slice().sort(function(a,b){return a[3]-b[3]}).forEach(function(r){
+    var o={id:r[0],km:r[1],n:r[2],ppk:r[3]};
+    var ll=r[4].map(function(f){var a=[];for(var i=0;i<f.length;i+=2)a.push([f[i+1],f[i]]);return a});
+    var pl=L.polyline(ll,Object.assign({renderer:canvas,interactive:true},style(o))).addTo(ovLayer);
+    pl._o=o;ovPolys.push(pl);
+    pl.on('click',function(e){L.DomEvent.stopPropagation(e);selectRoute(o.id)});
+    pl.on('mouseover',function(e){pl.setStyle({weight:5,opacity:1});pl.bindTooltip(o.n+' '+I.pv+' · '+fmt(o.km,1)+' '+I.km,{sticky:true}).openTooltip(e.latlng)});
+    pl.on('mouseout',function(){pl.setStyle(style(o))});
+  });
+}
+function restyle(){
+  ovPolys.forEach(function(p){p.setStyle(style(p._o))});
+  var lg=$('legend');
+  if(mode==='density'){lg.hidden=false;var lb=['0','< 0,5','< 2','< 5','≥ 5'];lg.innerHTML='<span>'+I.legendTitle+'</span>'+COL.map(function(c,i){return '<i style="background:'+c+'"></i>'+lb[i]}).join(' ')}
+  else lg.hidden=true;
+}
+cs.forEach(function(b){b.addEventListener('click',function(){mode=b.dataset.m;cs.forEach(function(x){x.setAttribute('aria-pressed',x===b)});restyle()})});
+
+/* ---------- popovers */
+var POPS=[['bLay','popLay'],['bInfo','popInfo'],['bIdea','popIdea'],['bFun','popFun']];
+function closePops(except){POPS.forEach(function(p){if(p[1]!==except){$(p[1]).hidden=true;$(p[0]).setAttribute('aria-expanded','false')}})}
+POPS.forEach(function(p){$(p[0]).addEventListener('click',function(e){e.stopPropagation();var h=$(p[1]).hidden;closePops(h?p[1]:null);$(p[1]).hidden=!h;this.setAttribute('aria-expanded',h);hideSug()})});
+document.addEventListener('click',function(e){if(!e.target.closest('.pop')&&!e.target.closest('.tb'))closePops();if(!e.target.closest('.srow'))hideSug()});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){closePops();hideSug()}});
+
+/* ---------- view state, side panel */
+document.body.classList.add('home');
+var view='home',Lspec=null,cur=null,curCol=null,anim=null;
+function setView(v){
+  view=v;$('hero').classList.toggle('compact',v!=='home');
+  document.body.classList.toggle('home',v==='home');$('map').classList.toggle('calm',v!=='home');if(typeof refreshBase==='function')refreshBase();
+  hiLayer.clearLayers();hovLayer.clearLayers();
+}
+function setPanel(html,back){
+  var p=$('panel');p.hidden=false;p.classList.remove('collapsed');
+  p.innerHTML='<div class="phead">'+(back?'<button class="pback" id="pback">'+esc(back.label)+'</button>':'')+'<span></span><button class="grab" id="grab" aria-label="'+esc(I.fold)+'"></button><button class="pclose" id="pclose" aria-label="'+esc(I.close)+'"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"/></svg></button></div><div class="pbody" id="pbody">'+html+'</div>';
+  if(back)$('pback').addEventListener('click',back.fn);
+  $('pclose').addEventListener('click',goHome);
+  $('grab').addEventListener('click',function(){p.classList.toggle('collapsed')});
+}
+function hidePanel(){$('panel').hidden=true;$('panel').innerHTML=''}
+function goHome(){renderHome()}
+function backTarget(){
+  if(curCol&&view==='route')return{label:I.back,fn:function(){selectCollection(curCol)}};
+  if(Lspec)return{label:I.toList,fn:function(){selLayer.clearLayers();stopAnim();showList(Lspec,true)}};
+  return{label:I.home,fn:goHome};
+}
+function setHash(h){try{history.replaceState(null,'',location.pathname+location.search+(h||''))}catch(e){}}
+
+/* ---------- route detail */
+var chunkCache={};
+function loadRoute(id){
+  var c=('00'+(id%128)).slice(-3);
+  if(!chunkCache[c])chunkCache[c]=getJSON(DATA+'routes/'+c+'.json');
+  return chunkCache[c].then(function(ch){return ch[String(id)]});
+}
+var recCtx=null;
+function selectRoute(id,opts){
+  recCtx=(opts&&opts.rec)||null;stopAnim();setView('route');recLayer.clearLayers();map.closePopup();
+  return loadRoute(id).then(function(r){
+    if(!r)return; cur=r; curCol=(opts&&opts.col)||null; setHash('#r'+id); drawRoute(r,opts||{}); renderPanel(r);
+    fit(L.latLngBounds([].concat.apply([],r.parts.map(ll))),15);
+    loadElev(r).then(function(ok){if(ok){if(cur===r&&!anim)renderPanel(r)}else if(!ELEV[r.id])liveElev(r)});
+  }).catch(function(e){console.error(e);setPanel('<p class="hint">Erreur de chargement.</p>',backTarget())});
+}
+function ll(p){return p.map(function(c){return [c[1],c[0]]})}
+function drawRoute(r){
+  selLayer.clearLayers();
+  var lines=r.parts.map(ll);
+  lines.forEach(function(l){L.polyline(l,{color:'#fff',weight:8,opacity:.95,interactive:false}).addTo(selLayer)});
+  lines.forEach(function(l,i){var lk=r.plink&&r.plink[i];L.polyline(l,{color:'#0b3d63',weight:lk?2.5:4,opacity:lk?.8:1,dashArray:lk?'6 8':null,interactive:false}).addTo(selLayer)});
+  r._m=r.panels.map(function(p){
+    var rad=Math.max(4,Math.min(13,3+Math.sqrt(p[3]||2)*1.6));
+    var m=L.circleMarker([p[1],p[0]],{radius:rad,color:'#fff',weight:1.5,fillColor:'#e8590c',fillOpacity:.95}).addTo(selLayer);
+    m.bindTooltip((p[3]!=null?fmt(p[3],1)+' '+I.tip.kw+' · ':'')+(p[4]!=null?fmt(p[4])+' '+I.tip.sf+' · ':'')+p[5]+' m '+I.tip.d+(p[6]!=null?' · '+I.tip.z+' '+fmt(p[6])+' m':''));
+    return m;
+  });
+  var tot=0;r._cum=[];r._off=[];
+  r.parts.forEach(function(p,i){
+    var c=[0];for(var k=1;k<p.length;k++)c.push(c[k-1]+hav(p[k-1],p[k]));
+    var sc=c[c.length-1]>0?(r.plen[i]/c[c.length-1]):1;c=c.map(function(v){return v*sc});
+    r._cum.push(c);r._off.push(tot);tot+=r.plen[i];
+  });
+  r._tot=tot||1;
+}
+function posAt(r,ch){
+  var i=r._off.length-1;while(i>0&&ch<r._off[i])i--;
+  var c=r._cum[i],p=r.parts[i],d=Math.max(0,Math.min(ch-r._off[i],c[c.length-1])),lo=0,hi=c.length-1;
+  while(hi-lo>1){var mid=(lo+hi)>>1;if(c[mid]<=d)lo=mid;else hi=mid}
+  var span=(c[hi]-c[lo])||1,t=(d-c[lo])/span;
+  return [p[lo][1]+(p[hi][1]-p[lo][1])*t,p[lo][0]+(p[hi][0]-p[lo][0])*t];
+}
+function renderPanel(r){
+  var kwp=r.kwp,ppk=r.km>0?r.n/r.km:0,E=ELEV[r.id];
+  var h='<h2>'+esc(title(r))+'</h2><div class="sub">'+esc([r.ref&&r.name?r.ref:'',r.op,r.net?r.net.toUpperCase():'',r.merged>1?r.merged+' '+I.chained:''].filter(Boolean).join(' · '))+'</div>'+
+   '<div class="kpis"><div class="kpi"><b>'+fmt(r.km,1)+'</b><span>'+I.km+'</span></div><div class="kpi"><b>'+(E?fmt(E.dp)+' m':(r.km>=8?'…':'—'))+'</b><span>'+I.dplus+'</span></div><div class="kpi"><b>'+fmt(ppk,1)+'</b><span>'+I.perkm+'</span></div><div class="kpi"><b>'+fmt(kwp,0)+'</b><span>'+I.kwp+'</span></div></div>';
+  var rn=recCtx&&!recCtx.r.within_50m&&recCtx.r.nearest_route.id===r.id?recCtx:null;
+  if(rn){var ki=h.indexOf('<div class="kpi"><b>'+fmt(ppk,1)+'</b>');if(ki>0){var ke=h.indexOf('</div></div>',h.indexOf(I.kwp+'</span>',ki))+12;h=h.slice(0,ki)+'</div>'+h.slice(ke)}}
+  if(rn){var dm=rn.r.nearest_route.dist_m;h+='<div class="pvban"><div class="counter" style="font-size:14px">☀ '+esc(I.recPass.replace('{d}',dm>=1000?fmt(dm/1000,1)+' km':fmt(dm)+' m').replace('{ph}',I.recPh[rn.lab]))+'</div></div>'}
+  else if(r.n===0){h+='<div class="pvban"><div class="counter"><b>0</b> '+I.pv+'</div><p class="hint" style="margin:4px 0 0">'+I.none+'</p></div>'}
+  else{
+    h+='<div class="pvban"><div class="counter" id="cnt"></div>'+
+      '<svg id="prof" viewBox="0 0 300 64" preserveAspectRatio="none" role="img" aria-label="'+I.along+'"></svg>'+
+      '<div class="play"><button class="btn" id="go">'+I.collect+'</button>'+spdSeg()+''+
+      '<label class="opt"><input type="checkbox" id="follow" checked> '+I.follow+'</label></div></div>';
+  }
+  if(!E&&r.km>=8)h+='<div class="note" id="elevst">'+I.elevLoading+'</div>';
+  if(E)h+='<svg id="elev" viewBox="0 0 300 70" preserveAspectRatio="none" role="img" aria-label="'+I.altRange+'"></svg><div class="note">'+I.altRange+' '+fmt(E.zmin)+'–'+fmt(E.zmax)+' m · '+I.dminus+' '+fmt(E.dm)+' m. '+I.elevNote+(E.live?' '+I.elevCoarse.replace('{n}',E.live):'')+'</div>';
+  if(r.plink&&r.plink.indexOf(1)>=0)h+='<p class="note">'+I.linkNote+'</p>';
+  h+='<div class="play"><button class="btn2" id="gpx">'+I.gpx+'</button><label class="opt"><input type="checkbox" id="gpxw" checked> '+I.gpxWpt+'</label><button class="btn2" id="lnk" style="margin-left:auto">'+I.link+'</button></div>'+
+     '<div class="note" style="color:var(--ink2)">'+I.discShort+'</div>'+
+     '<div class="note"><a href="https://www.openstreetmap.org/relation/'+r.id+'" target="_blank" rel="noopener">'+I.osmRel+'</a> · <a href="https://hiking.waymarkedtrails.org/#route?id='+r.id+'" target="_blank" rel="noopener">'+I.wmtLink+'</a></div>';
+  setPanel(h,backTarget());
+  $('gpx').addEventListener('click',exportGPX);$('lnk').addEventListener('click',copyLink);
+  drawElev(r,-1);
+  if(r.n>0&&!rn){
+    drawProfile(r,-1);setCounter(r.n,kwp,true);
+    bindSpd();
+    $('go').addEventListener('click',function(){anim?stopAnim():startAnim(r)});
+  }
+}
+function copyLink(){
+  var b=$('lnk'),done=function(){b.textContent=I.linked;setTimeout(function(){b.textContent=I.link},1800)};
+  try{navigator.clipboard.writeText(location.href).then(done,function(){prompt('',location.href)})}catch(e){prompt('',location.href)}
+}
+function drawProfile(r,at){
+  var s=$('prof');if(!s)return;var N=60,b=new Array(N).fill(0);
+  r.panels.forEach(function(p){b[Math.min(N-1,Math.floor(p[2]/r._tot*N))]+=1});
+  var mx=Math.max.apply(null,b)||1,w=300/N,h='';
+  b.forEach(function(v,i){var bh=v/mx*56;h+='<rect x="'+(i*w+.5)+'" y="'+(60-bh)+'" width="'+(w-1)+'" height="'+bh+'" fill="'+(at>=0&&(i+.5)/N*r._tot>at?'#e3d6cb':'#e8590c')+'"/>'});
+  h+='<line x1="0" x2="300" y1="60.5" y2="60.5" stroke="#9aa5b1"/>';
+  if(at>=0)h+='<line x1="'+(at/r._tot*300)+'" x2="'+(at/r._tot*300)+'" y1="2" y2="62" stroke="#0b3d63" stroke-width="2"/>';
+  s.innerHTML=h;
+}
+function setCounter(n,k,done){var c=$('cnt');if(c)c.innerHTML='<b>'+fmt(n)+'</b> '+I.pv+(done?'':' '+I.collected)+' · <b style="font-size:15px">'+fmt(k,1)+'</b> '+I.kwp}
+
+/* ---------- collection animation */
+var mover=null;
+var SPD=1,BASE=800;   /* m/s at x1: constant rate, so long trails take longer */
+function spdSeg(){return '<span class="seg" id="dur" role="group" aria-label="'+I.speed+'">'+[1,2,4,8].map(function(v){return '<button data-s="'+v+'" aria-pressed="'+(v===SPD)+'">×'+v+'</button>'}).join('')+'</span>'}
+function bindSpd(){$('dur').querySelectorAll('button').forEach(function(b){b.addEventListener('click',function(){SPD=+b.dataset.s;$('dur').querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',x===b)})})})}
+function startAnim(r){
+  var follow=$('follow').checked,n=0,k=0,idx=0,last=performance.now(),acc=0;
+  if(MOBILE())$('panel').classList.add('collapsed');
+  r._m.forEach(function(m){m.setStyle({fillColor:'#fff',fillOpacity:.6,color:'#9aa5b1'})});
+  if(!mover)mover=L.marker([0,0],{icon:L.divIcon({className:'',html:'<div class="dot" style="width:16px;height:16px"></div>',iconSize:[16,16],iconAnchor:[8,8]}),interactive:false,zIndexOffset:1000});
+  mover.addTo(selLayer);$('go').textContent=I.stop;
+  if(map.getZoom()<12&&follow){var p0=posAt(r,0);map.setView(p0,13,{animate:false})}
+  function frame(now){
+    var dt=Math.min(.1,(now-last)/1000);last=now;acc+=BASE*SPD*dt;var f=Math.min(1,acc/r._tot),ch=f*r._tot,pos=posAt(r,ch);
+    mover.setLatLng(pos);
+    while(idx<r.panels.length&&r.panels[idx][2]<=ch){var p=r.panels[idx];r._m[idx].setStyle({fillColor:'#e8590c',fillOpacity:.95,color:'#fff'});r._m[idx].bringToFront();n++;k+=p[3]||0;idx++}
+    setCounter(n,k,false);drawProfile(r,ch);drawElev(r,ch);
+    if(follow)map.setView(pos,map.getZoom(),{animate:false});
+    if(f<1)anim=requestAnimationFrame(frame);else{finishAnim(r)}
+  }
+  anim=requestAnimationFrame(frame);
+}
+function finishAnim(r){
+  anim=null;if(mover)selLayer.removeLayer(mover);
+  r._m.forEach(function(m){m.setStyle({fillColor:'#e8590c',fillOpacity:.95,color:'#fff'})});
+  var g=$('go');if(g)g.textContent=I.collect;
+  $('panel').classList.remove('collapsed');
+  drawProfile(r,-1);drawElev(r,-1);setCounter(r.n,r.kwp,true);
+}
+function stopAnim(){if(anim){cancelAnimationFrame(anim);if(cur)finishAnim(cur)}anim=null}
+
+/* ---------- GPX */
+function xml(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function exportGPX(){
+  var r=cur;if(!r)return;var w=$('gpxw')&&$('gpxw').checked;
+  var x='<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="OpenPVMapper hiking" xmlns="http://www.topografix.com/GPX/1/1"><metadata><name>'+xml(title(r))+'</name><desc>'+xml(I.gpxNote+' '+I.disc)+'</desc></metadata>\n';
+  if(w)r.panels.forEach(function(p){x+='<wpt lat="'+p[1]+'" lon="'+p[0]+'">'+(p[6]!=null?'<ele>'+p[6]+'</ele>':'')+'<name>PV'+(p[3]!=null?' '+p[3]+' kWp':'')+'</name><desc>'+xml((p[4]!=null?p[4]+' m² · ':'')+p[5]+' m '+I.tip.d+' · km '+(p[2]/1000).toFixed(1))+'</desc></wpt>\n'});
+  x+='<trk><name>'+xml(title(r))+'</name>';
+  var E=ELEV[r.id];
+  r.parts.forEach(function(pt,pi){x+='<trkseg>'+pt.map(function(c,k){var ele=E&&r._cum?'<ele>'+Math.round(zAt(E,r._off[pi]+r._cum[pi][k],r._tot))+'</ele>':'';return '<trkpt lat="'+c[1]+'" lon="'+c[0]+'">'+ele+'</trkpt>'}).join('')+'</trkseg>'});
+  x+='</trk></gpx>';
+  var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([x],{type:'application/gpx+xml'}));
+  a.download=(title(r).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,50)||'route')+'.gpx';
+  document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},500);
+}
+
+/* ---------- collections */
+var COLS=[],COLBY={},PAL=['#e8590c','#1c7ed6','#2f9e44','#ae3ec9','#f08c00','#0c8599','#c92a2a','#5f3dc4','#868e96'];
+function selectCollection(id){
+  var c=COLBY[id];if(!c)return;
+  stopAnim();setView('col');curCol=id;cur=null;selLayer.clearLayers();recLayer.clearLayers();map.closePopup();setHash('#c-'+id);var all=[];
+  c.members.forEach(function(m,i){m.geom.forEach(function(f){var l=[];for(var k=0;k<f.length;k+=2)l.push([f[k+1],f[k]]);all=all.concat(l);
+    L.polyline(l,{color:'#fff',weight:7,opacity:.9,interactive:false}).addTo(selLayer);
+    L.polyline(l,{color:PAL[i%PAL.length],weight:3.5,opacity:.95,interactive:false}).addTo(selLayer)})});
+  var hasEl=c.members.some(function(m){return ELEV[m.id]}),dsum=collDp(c);
+  var rows=c.members.map(function(m,i){return '<tr class="m" data-id="'+m.id+'"><td><span class="sw" style="background:'+PAL[i%PAL.length]+'"></span>'+esc(m.name||m.ref||I.noname)+'</td><td>'+fmt(m.km)+'</td>'+(hasEl?'<td>'+(ELEV[m.id]?fmt(ELEV[m.id].dp):'—')+'</td>':'')+'<td>'+fmt(m.n)+'</td><td>'+fmt(m.excl)+'</td></tr>'}).join('');
+  setPanel('<h2>'+esc(c.name[LANG])+'</h2><div class="sub">'+c.members.length+' '+I.members+'</div><div class="kpis"><div class="kpi"><b>'+fmt(c.km)+'</b><span>'+I.km+'</span></div><div class="kpi"><b>'+(dsum!=null?fmt(dsum)+' m':'—')+'</b><span>'+I.dplus+'</span></div><div class="kpi"><b>'+fmt(c.km>0?c.n_union/c.km:0,1)+'</b><span>'+I.perkm+'</span></div><div class="kpi"><b>'+fmt(c.n_union)+'</b><span>'+I.pv+'</span></div></div>'+
+    '<table class="mem"><tr><th>'+I.variant+'</th><th>'+I.km+'</th>'+(hasEl?'<th>D+</th>':'')+'<th>'+I.pv+'</th><th>'+I.excl+'</th></tr>'+rows+'</table><p class="note">'+I.exclHint+' '+I.unionN+'.</p>'+
+    '<div class="play"><button class="btn2" id="lnk" style="margin-left:auto">'+I.link+'</button></div>',Lspec?{label:I.toList,fn:function(){selLayer.clearLayers();showList(Lspec,true)}}:{label:I.home,fn:goHome});
+  $('lnk').addEventListener('click',copyLink);
+  $('pbody').querySelectorAll('tr.m').forEach(function(tr){tr.addEventListener('click',function(){selectRoute(+tr.dataset.id,{col:id})})});
+  if(all.length)fit(L.latLngBounds(all),13);
+}
+
+/* ---------- records (popover) */
+function renderRecords(recs){
+  var box=$('recs'),first={};recs.forEach(function(r){if(r.rank===1)first[r.label]=r});
+  ['north','south_mainland','east_mainland','west','south','east','highest','lowest'].forEach(function(lab){
+    var r=first[lab];if(!r)return;
+    var b=document.createElement('button');
+    var sub=r.within_50m?I.onroute:(I.away+' ')+fmt(r.nearest_route.dist_m>=1000?r.nearest_route.dist_m/1000:r.nearest_route.dist_m,r.nearest_route.dist_m>=1000?1:0)+(r.nearest_route.dist_m>=1000?' km':' m')+' '+(I.of?I.of+' ':'')+I.nearest;
+    var main=lab==='highest'||lab==='lowest'?fmt(r.z,lab==='lowest'?1:0)+' m':fmt(Math.abs(lab.indexOf('east')===0||lab==='west'?r.lon:r.lat),2)+'°';
+    b.innerHTML='<b>'+esc(I.records[lab])+'</b><span>'+esc(main)+'</span><small>'+esc(I.dept+' '+r.dpt+' · '+sub)+'</small>';
+    b.addEventListener('click',function(){closePops();openRecord(lab,recs)});
+    box.appendChild(b);
+  });
+}
+function openRecord(lab,recs){
+  var rs=recs.filter(function(r){return r.label===lab}).sort(function(a,b){return a.rank-b.rank}),r=rs[0];if(!r)return;
+  selectRoute(r.nearest_route.id,{rec:{lab:lab,r:r}}).then(function(){
+    recLayer.clearLayers();
+    L.circleMarker([r.lat,r.lon],{radius:11,color:'#fff',weight:2.5,fillColor:'#c92a2a',fillOpacity:1}).bindTooltip(I.records[lab]+(r.kWp!=null?' · '+fmt(r.kWp,1)+' '+I.kwp:'')+' · '+I.dept+' '+r.dpt).addTo(recLayer);
+  });
+}
+
+/* ---------- elevation */
+var ELEV={},ECH={};
+function zAt(e,ch,tot){var z=e.z,x=Math.max(0,Math.min(1,ch/tot))*(z.length-1),i=Math.floor(x);return i>=z.length-1?z[z.length-1]:z[i]+(z[i+1]-z[i])*(x-i)}
+function loadElev(r){
+  if(ELEV[r.id])return Promise.resolve(false);
+  var c=('00'+(r.id%128)).slice(-3);
+  if(!ECH[c])ECH[c]=getJSON(DATA+'elevation/'+c+'.json').catch(function(){return {}});
+  return ECH[c].then(function(d){var e=d[String(r.id)];if(e){ELEV[r.id]=e;return true}return false});
+}
+function liveElev(r){
+  if(r.km<8||ELEV[r.id]||!r._tot)return;
+  var key='pvhike-elev1-'+r.id;
+  try{var c=localStorage.getItem(key);if(c){ELEV[r.id]=JSON.parse(c);if(cur===r&&!anim)renderPanel(r);return}}catch(e){}
+  var tot=r._tot,S=Math.max(100,tot/900),n=Math.max(2,Math.round(tot/S)+1),pts=[],B=150,batches=[],out=new Array(n),next=0;
+  for(var k=0;k<n;k++){var ch=k*tot/(n-1),p=posAt(r,ch);pts.push([p[1],p[0]])}
+  for(var i=0;i<n;i+=B)batches.push(pts.slice(i,i+B));
+  function one(bi){
+    var b=batches[bi],u='https://data.geopf.fr/altimetrie/1.0/calcul/alti/rest/elevation.json?lon='+b.map(function(p){return p[0].toFixed(5)}).join('|')+'&lat='+b.map(function(p){return p[1].toFixed(5)}).join('|')+'&resource=ign_rge_alti_wld&zonly=true&delimiter=|';
+    return getJSON(u).catch(function(){return getJSON(u)}).then(function(d){d.elevations.forEach(function(v,j){out[bi*B+j]=(v<-10||v>5000)?NaN:v})});
+  }
+  function worker(){if(next>=batches.length)return Promise.resolve();var bi=next++;return one(bi).then(worker)}
+  Promise.all([worker(),worker(),worker()]).then(function(){
+    var z=out.slice(),good=[];z.forEach(function(v,i){if(!isNaN(v))good.push(i)});if(good.length<n*0.7)throw new Error('no data');
+    for(var i2=0;i2<n;i2++)if(isNaN(z[i2])){var a=good.filter(function(g){return g<i2}).pop(),b=good.filter(function(g){return g>i2})[0];z[i2]=a==null?z[b]:b==null?z[a]:z[a]+(z[b]-z[a])*(i2-a)/(b-a)}
+    var m=z.map(function(v,i){var a=z[Math.max(0,i-1)],c=z[Math.min(n-1,i+1)];return [a,v,c].sort(function(x,y){return x-y})[1]});
+    if(S<=150)m=m.map(function(v,i){return (m[Math.max(0,i-1)]+v+m[Math.min(n-1,i+1)])/3});
+    var ref=m[0],dp=0,dm=0;m.forEach(function(v){if(v-ref>=3){dp+=v-ref;ref=v}else if(ref-v>=3){dm+=ref-v;ref=v}});
+    var N=Math.min(240,n),pr=[];for(var q=0;q<N;q++){var x=q/(N-1)*(n-1),f=Math.floor(x),g=Math.min(n-1,f+1);pr.push(Math.round(m[f]+(m[g]-m[f])*(x-f)))}
+    var e={dp:Math.round(dp),dm:Math.round(dm),zmin:Math.round(Math.min.apply(null,m)),zmax:Math.round(Math.max.apply(null,m)),tot:Math.round(tot),z:pr,live:S>150?Math.round(S):0};
+    ELEV[r.id]=e;try{localStorage.setItem(key,JSON.stringify(e))}catch(x){}
+    if(cur===r&&!anim)renderPanel(r);
+  }).catch(function(){var el=$('elevst');if(el)el.remove()});
+}
+function collDp(c){var s=0;for(var i=0;i<c.members.length;i++){var e=ELEV[c.members[i].id];if(!e)return null;s+=e.dp}return s}
+function drawElev(r,at){
+  var s=$('elev'),e=ELEV[r.id];if(!s||!e)return;
+  var z=e.z,lo=e.zmin,rg=Math.max(1,e.zmax-lo),W=300,H=70,pd=5,N=z.length,pth='';
+  function Y(v){return H-pd-(v-lo)/rg*(H-2*pd)}
+  for(var i=0;i<N;i++)pth+=(i?'L':'M')+(i/(N-1)*W).toFixed(1)+' '+Y(z[i]).toFixed(1);
+  var h='<path d="'+pth+'L'+W+' '+H+'L0 '+H+'Z" fill="#dbe7f1"/><path d="'+pth+'" fill="none" stroke="#4b6a88" stroke-width="1.4" vector-effect="non-scaling-stroke"/>';
+  r.panels.forEach(function(p){var x=Math.min(W,p[2]/r._tot*W);h+='<line x1="'+x.toFixed(1)+'" x2="'+x.toFixed(1)+'" y1="'+(Y(zAt(e,p[2],r._tot))-5).toFixed(1)+'" y2="'+(Y(zAt(e,p[2],r._tot))).toFixed(1)+'" stroke="#e8590c" stroke-width="1.6" vector-effect="non-scaling-stroke"/>'});
+  if(at>=0){var xa=at/r._tot*W;h+='<line x1="'+xa+'" x2="'+xa+'" y1="0" y2="'+H+'" stroke="#0b3d63" stroke-width="2" vector-effect="non-scaling-stroke"/>'}
+  s.innerHTML=h;
+}
+
+/* ---------- catalogue of items (collections + named routes) */
+var OV=[],EX=null,INAME={},index=[],ITEMS=null;
+var REGIONS={'Auvergne-Rhône-Alpes':'01,03,07,15,26,38,42,43,63,69,73,74','Bourgogne-Franche-Comté':'21,25,39,58,70,71,89,90','Bretagne':'22,29,35,56','Centre-Val de Loire':'18,28,36,37,41,45','Corse':'2A,2B,20','Grand Est':'08,10,51,52,54,55,57,67,68,88','Hauts-de-France':'02,59,60,62,80','Île-de-France':'75,77,78,91,92,93,94,95','Normandie':'14,27,50,61,76','Nouvelle-Aquitaine':'16,17,19,23,24,33,40,47,64,79,86,87','Occitanie':'09,11,12,30,31,32,34,46,48,65,66,81,82','Pays de la Loire':'44,49,53,72,85','Provence-Alpes-Côte d’Azur':'04,05,06,13,83,84'};
+function ready(){return OV.length&&COLS.length&&EX&&index.length}
+function ensure(){if(!ready()){setPanel('<p class="hint">'+I.loading+'</p>',{label:I.home,fn:goHome});return false}return true}
+function frOf(k){var v=(EX.f||{})[k];return v==null?1:v}
+function items(){
+  if(ITEMS)return ITEMS;ITEMS=[];var mem={};
+  COLS.forEach(function(c){c.members.forEach(function(m){mem[m.id]=1});
+    ITEMS.push({t:'c',id:c.id,label:c.name[LANG],km:c.km,n:c.n_union,parts:[].concat.apply([],c.members.map(function(m){return m.geom})),deps:(EX.c[c.id]||'').split(',').filter(Boolean),fr:frOf('c:'+c.id)})});
+  OV.forEach(function(r){if(mem[r[0]])return;if(frOf(String(r[0]))<0.3)return;var nm=INAME[r[0]]||[];if(!nm[0]&&!nm[1])return;var lab=(nm[1]&&nm[0]&&nm[1]!==nm[0]?nm[1]+' · ':'')+(nm[0]||nm[1]);
+    ITEMS.push({t:'r',id:r[0],label:lab,km:r[1],n:r[2],parts:r[4],deps:(EX.r[String(r[0])]||'').split(',').filter(Boolean),fr:frOf(String(r[0]))})});
+  return ITEMS;
+}
+function bb(it){if(it._b)return it._b;var a=1e9,b=1e9,c=-1e9,d=-1e9;it.parts.forEach(function(f){for(var i=0;i<f.length;i+=2){var x=f[i],y=f[i+1];if(x<a)a=x;if(x>c)c=x;if(y<b)b=y;if(y>d)d=y}});return(it._b=[a,b,c,d])}
+function distTo(parts,lon0,lat0){
+  var kx=Math.cos(lat0*Math.PI/180)*111320,ky=110540,best=1e18;
+  for(var p=0;p<parts.length;p++){var f=parts[p];
+    if(f.length===2){var qx=(f[0]-lon0)*kx,qy=(f[1]-lat0)*ky,q=qx*qx+qy*qy;if(q<best)best=q;continue}
+    for(var i=0;i<f.length-2;i+=2){
+      var ax=(f[i]-lon0)*kx,ay=(f[i+1]-lat0)*ky,bx=(f[i+2]-lon0)*kx,by=(f[i+3]-lat0)*ky,dx=bx-ax,dy=by-ay,L2=dx*dx+dy*dy,t=L2?Math.max(0,Math.min(1,-(ax*dx+ay*dy)/L2)):0,px=ax+t*dx,py=ay+t*dy,d=px*px+py*py;
+      if(d<best)best=d}}
+  return Math.sqrt(best);
+}
+function dpOf(it){if(it.t==='c'){var c=COLBY[it.id];return c?collDp(c):null}var e=ELEV[it.id];return e?e.dp:null}
+function ratio(it){var d=dpOf(it);return d>0?it.n/d*100:-1}
+
+/* ---------- list with refine panel */
+var F={kmMin:0,kmMax:1e9,nMin:0,dpMax:1e9,sort:'n'},refineOpen=null,radiusKm=5;
+function filt(base){
+  return base.filter(function(it){
+    if(it.km<F.kmMin||it.km>F.kmMax||it.n<F.nMin)return false;
+    if(F.dpMax<1e9){var d=dpOf(it);if(d==null||d>F.dpMax)return false}
+    if(F.sort==='d'&&it.km<5&&it.t!=='c')return false;
+    if(F.sort==='r'&&!(ratio(it)>=0))return false;
+    return true});
+}
+function sortList(a){
+  var s=F.sort;
+  return a.sort(function(x,y){
+    if(s==='d')return (y.n/y.km-x.n/x.km)||(y.n-x.n);
+    if(s==='l')return (y.km-x.km)||(y.n-x.n);
+    if(s==='r')return ratio(y)-ratio(x);
+    if(s==='p')return (x.d||0)-(y.d||0);
+    return (y.n-x.n)||(y.km-x.km)});
+}
+function rowHTML(it,k){
+  if(it.t==='s')return hikeRow(it,k);
+  var per=it.km>0?it.n/it.km*100:0,dp=dpOf(it);
+  var meta=[fmt(it.km)+' '+I.km,fmt(per)+' '+I.per100,dp!=null?'D+ ≈ '+fmt(dp)+' m':null,it.d!=null?(it.d<1?I.inCommune:I.away+' '+fmt(it.d/1000,1)+' '+I.km):null,F.sort==='r'&&ratio(it)>=0?I.ratioTxt.replace('{n}',fmt(ratio(it),1)):null].filter(Boolean).join(' · ');
+  return '<button class="card" data-i="'+k+'"><span class="cl"><b>'+(it.t==='c'?'★ ':'')+esc(it.label)+'</b><span class="cm">'+esc(meta)+'</span></span><span class="cn"><em>'+fmt(it.n)+'</em><small>'+I.pv+'</small></span></button>';
+}
+function line(parts,color,w,op,layer,it){parts.forEach(function(f){var l=[];for(var i=0;i<f.length;i+=2)l.push([f[i+1],f[i]]);
+  var o={color:color,weight:w,opacity:op,interactive:!!it};if(it)o.renderer=canvas;
+  var pl=L.polyline(l,o).addTo(layer);
+  if(it){pl.on('click',function(e){L.DomEvent.stopPropagation(e);openItem(it)});
+    pl.on('mouseover',function(e){pl.setStyle({weight:w+3,color:'#0b3d63'});pl.bindTooltip(it.label+' · '+fmt(it.n)+' '+I.pv,{sticky:true}).openTooltip(e.latlng)});
+    pl.on('mouseout',function(){pl.setStyle({weight:w,color:color})})}})}
+function hilite(res){hiLayer.clearLayers();res.forEach(function(it){line(it.parts,'#fff',8,.95,hiLayer)});res.forEach(function(it){line(it.parts,'#e8590c',4.5,1,hiLayer,it)})}
+function openItem(it){it.t==='s'?selectStretch(it):it.t==='c'?selectCollection(it.id):selectRoute(it.id)}
+function opts(arr,sel){return arr.map(function(a){return '<option value="'+a[0]+'"'+(String(a[0])===String(sel)?' selected':'')+'>'+esc(a[1])+'</option>'}).join('')}
+function showList(spec,keepF){
+  if(spec.hike)return showHikePanel(spec);
+  Lspec=spec;stopAnim();cur=null;curCol=null;selLayer.clearLayers();recLayer.clearLayers();map.closePopup();setView('list');setHash('');
+  if(!keepF)F={kmMin:0,kmMax:1e9,nMin:0,dpMax:1e9,sort:spec.sort||'n'};
+  var sorts=[['n',I.sN],['d',I.sD],['l',I.sL],['r',I.sR]];if(spec.city)sorts.push(['p',I.sP]);
+  var any=I.any;
+  var h=(spec.g?modeSeg():'')+'<h2>'+esc(spec.head)+'</h2><div class="sub">'+esc(spec.sub||'')+'</div>'+
+   '<details class="refine" id="refine"><summary>⚙ '+I.refine+' <span style="font-weight:400;color:var(--muted)">· '+I.refineHint+'</span></summary><div class="rgrid">'+
+   '<label>'+I.len+' ('+I.lenUnit+')<span class="two"><select id="fkmin">'+opts([[0,'0'],[5,'5'],[10,'10'],[20,'20'],[50,'50'],[100,'100']],F.kmMin)+'</select>–<select id="fkmax">'+opts([[1e9,'∞'],[10,'10'],[20,'20'],[50,'50'],[100,'100'],[200,'200']],F.kmMax)+'</select></span></label>'+
+   '<label>'+I.nMin+'<select id="fn">'+opts([[0,any],[1,'1'],[5,'5'],[20,'20'],[50,'50'],[100,'100']],F.nMin)+'</select></label>'+
+   '<label>'+I.dpMax+'<select id="fdp">'+opts([[1e9,any],[300,'300 m'],[600,'600 m'],[1000,'1 000 m'],[1500,'1 500 m'],[2500,'2 500 m']],F.dpMax)+'</select></label>'+
+   '<label>'+I.sortBy+'<select id="fsort">'+opts(sorts,F.sort)+'</select></label>'+
+   (spec.city?'<label class="wide">'+I.radius+' : <b id="fradt">'+radLabel()+'</b><input type="range" id="frad" min="0" max="10" step="1" value="'+radiusKm+'"></label>':'')+
+   '<div class="wide"><button class="btn2" id="freset">'+I.reset+'</button></div></div></details>'+
+   '<div class="lcount" id="lcount"></div><div class="cards" id="lres"></div>';
+  setPanel(h,{label:I.home,fn:goHome});if(spec.g)bindMode(spec.g);
+  var d=$('refine');d.open=refineOpen==null?false:refineOpen;d.addEventListener('toggle',function(){refineOpen=d.open});
+  function read(){F.kmMin=+$('fkmin').value;F.kmMax=+$('fkmax').value;F.nMin=+$('fn').value;F.dpMax=+$('fdp').value;F.sort=$('fsort').value;renderList()}
+  ['fkmin','fkmax','fn','fdp','fsort'].forEach(function(i){$(i).addEventListener('change',read)});
+  $('freset').addEventListener('click',function(){showList(spec)});
+  if(spec.city){var fr=$('frad');fr.addEventListener('input',function(){$('fradt').textContent=(+fr.value===0?I.inCommune:I.plusKm.replace('{n}',fr.value))});
+    fr.addEventListener('change',function(){radiusKm=+fr.value;if(spec.recompute)spec.recompute()})}
+  renderList();
+}
+function renderList(){
+  var spec=Lspec;if(!spec||!$('lres'))return;
+  var res=sortList(filt(spec.base)),top=res.slice(0,40);
+  $('lcount').textContent=res.length+' '+I.nRoutes+(res.length>top.length?' · '+I.top.replace('{n}',top.length):'')+(F.dpMax<1e9?' · '+I.dpNote:'');
+  $('lres').innerHTML=top.length?top.map(function(it,k){return rowHTML(it,k)}).join(''):'<p class="hint">'+esc(I.noRes)+'</p>';
+  hilite(top.slice(0,25));
+  $('lres').querySelectorAll('.card').forEach(function(b){var it=top[+b.dataset.i];
+    b.addEventListener('click',function(){openItem(it)});
+    b.addEventListener('mouseenter',function(){hovLayer.clearLayers();line(it.parts,'#0b3d63',6,1,hovLayer)});
+    b.addEventListener('mouseleave',function(){hovLayer.clearLayers()})});
+}
+function radLabel(){return radiusKm===0?I.inCommune:I.plusKm.replace('{n}',radiusKm)}
+function fitItems(arr,maxZ){
+  if(!arr.length)return;var a=1e9,b=1e9,c=-1e9,d=-1e9;
+  arr.forEach(function(x){var q=bb(x);a=Math.min(a,q[0]);b=Math.min(b,q[1]);c=Math.max(c,q[2]);d=Math.max(d,q[3])});
+  fit([[b,a],[d,c]],maxZ||11);
+}
+
+/* ---------- places: commune, département, région, around me */
+function ringsXY(contour,lon0,lat0){
+  var kx=Math.cos(lat0*Math.PI/180)*111320,ky=110540,polys=contour.type==='MultiPolygon'?contour.coordinates:[contour.coordinates],out=[];
+  polys.forEach(function(pg){var r=pg[0],step=Math.max(1,Math.floor(r.length/250)),a=[];for(var i=0;i<r.length;i+=step)a.push([(r[i][0]-lon0)*kx,(r[i][1]-lat0)*ky]);a.push(a[0]);out.push(a)});
+  return out;
+}
+function inRing(x,y,r){var c=false;for(var i=0,j=r.length-1;i<r.length;j=i++){if(((r[i][1]>y)!==(r[j][1]>y))&&(x<(r[j][0]-r[i][0])*(y-r[i][1])/(r[j][1]-r[i][1])+r[i][0]))c=!c}return c}
+function cr(ax,ay,bx,by,cx,cy){return(bx-ax)*(cy-ay)-(by-ay)*(cx-ax)}
+function segX(a,b,c,d){var d1=cr(c[0],c[1],d[0],d[1],a[0],a[1]),d2=cr(c[0],c[1],d[0],d[1],b[0],b[1]),d3=cr(a[0],a[1],b[0],b[1],c[0],c[1]),d4=cr(a[0],a[1],b[0],b[1],d[0],d[1]);return((d1>0)!==(d2>0))&&((d3>0)!==(d4>0))}
+function pSeg(px,py,ax,ay,bx,by){var dx=bx-ax,dy=by-ay,L2=dx*dx+dy*dy,t=L2?Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/L2)):0,qx=ax+t*dx-px,qy=ay+t*dy-py;return qx*qx+qy*qy}
+function distToRings(parts,rings,lon0,lat0){
+  var kx=Math.cos(lat0*Math.PI/180)*111320,ky=110540,best=1e18;
+  for(var p=0;p<parts.length;p++){var f=parts[p],P=[];for(var i=0;i<f.length;i+=2)P.push([(f[i]-lon0)*kx,(f[i+1]-lat0)*ky]);
+    for(var i2=0;i2<P.length;i2++){for(var q=0;q<rings.length;q++)if(inRing(P[i2][0],P[i2][1],rings[q]))return 0}
+    for(var i3=0;i3<P.length-1;i3++){var a=P[i3],b=P[i3+1];
+      for(var q2=0;q2<rings.length;q2++){var r=rings[q2];
+        for(var k=0;k<r.length-1;k++){var c=r[k],d=r[k+1];
+          if(segX(a,b,c,d))return 0;
+          var m=Math.min(pSeg(a[0],a[1],c[0],c[1],d[0],d[1]),pSeg(b[0],b[1],c[0],c[1],d[0],d[1]),pSeg(c[0],c[1],a[0],a[1],b[0],b[1]),pSeg(d[0],d[1],a[0],a[1],b[0],b[1]));
+          if(m<best)best=m}}}}
+  return Math.sqrt(best);
+}
+function exploreCity(g){
+  if(!ensure())return;items();
+  if(cityMode==='hike')return exploreHikes(g);
+  function compute(){
+    var lon=g.lon,lat=g.lat,R=radiusKm*1000,rings=g.contour?ringsXY(g.contour,lon,lat):null,
+        e=rings||g.exact?0:1500,RR=R+e,x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+    if(rings){rings.forEach(function(r){r.forEach(function(c){x0=Math.min(x0,c[0]);x1=Math.max(x1,c[0]);y0=Math.min(y0,c[1]);y1=Math.max(y1,c[1])})})}else{x0=x1=y0=y1=0}
+    var kx=Math.cos(lat*Math.PI/180)*111320,ky=110540,res=[];
+    ITEMS.forEach(function(it){var b=bb(it),bx0=(b[0]-lon)*kx,bx1=(b[2]-lon)*kx,by0=(b[1]-lat)*ky,by1=(b[3]-lat)*ky;
+      if(bx1<x0-RR||bx0>x1+RR||by1<y0-RR||by0>y1+RR)return;
+      var d=rings?distToRings(it.parts,rings,lon,lat):Math.max(0,distTo(it.parts,lon,lat)-e);
+      if(d<=R)res.push({t:it.t,id:it.id,label:it.label,km:it.km,n:it.n,parts:it.parts,d:d})});
+    exLayer.clearLayers();var bounds;
+    if(g.contour){var gl=L.geoJSON({type:'Feature',geometry:g.contour},{style:{color:'#0b3d63',weight:2,fillOpacity:.06},interactive:false}).addTo(exLayer);bounds=gl.getBounds()}
+    else{bounds=L.circle([lat,lon],{radius:Math.max(R,e,800)}).getBounds();L.circle([lat,lon],{radius:Math.max(RR,300),color:'#0b3d63',weight:1.5,fillOpacity:.04,interactive:false}).addTo(exLayer)}
+    if(R>0)bounds=bounds.pad(R/Math.max(1,bounds.getNorthEast().distanceTo(bounds.getSouthWest())/2));
+    return{res:res,bounds:bounds};
+  }
+  var out=compute();
+  var spec={g:g,head:I.around+' '+g.label,sub:radLabel()+(g.contour||g.exact?'':' · '+I.noContour),base:out.res,city:true,sort:'n',
+    recompute:function(){var o=compute();spec.base=o.res;spec.sub=radLabel()+(g.contour||g.exact?'':' · '+I.noContour);showList(spec,true);fit(o.bounds,13)}};
+  showList(spec);fit(out.bounds,13);
+}
+function exploreArea(kind,label,codes){
+  if(!ensure())return;items();exLayer.clearLayers();
+  var base=ITEMS.filter(function(it){return it.deps.some(function(c){return codes.indexOf(c)>=0})}).map(function(it){return{t:it.t,id:it.id,label:it.label,km:it.km,n:it.n,parts:it.parts}});
+  var spec={head:(kind==='dept'?I.inDep:I.inReg)+' · '+label,sub:base.length+' '+I.nRoutes,base:base,sort:'n'};
+  F={kmMin:0,kmMax:1e9,nMin:0,dpMax:1e9,sort:'n'};
+  showList(spec);
+  var top=sortList(filt(base)).filter(function(x){return x.t==='r'});if(!top.length)top=sortList(filt(base));
+  fitItems(top.slice(0,kind==='region'?30:15),kind==='region'?9:11);
+}
+function exploreDept(code){exploreArea('dept',code+' · '+(EX.names[code]||code),[code])}
+function nearMe(){
+  if(!navigator.geolocation){alert(I.geoDenied);return}
+  navigator.geolocation.getCurrentPosition(function(p){exploreCity({label:I.nearMe.toLowerCase(),lon:p.coords.longitude,lat:p.coords.latitude,exact:true})},function(){hideSug();var s=$('sug');s.innerHTML='<div class="none">'+esc(I.geoDenied)+'</div>';s.hidden=false},{timeout:8000});
+}
+function geocode(q){
+  var u0='https://geo.api.gouv.fr/communes?nom='+encodeURIComponent(q)+'&fields=nom,code,departement,centre&boost=population&limit=6',
+      u1='https://data.geopf.fr/geocodage/search?q='+encodeURIComponent(q)+'&index=address&type=municipality&limit=6';
+  return getJSON(u0).then(function(d){return d.map(function(c){return{label:c.nom,ctx:(c.departement?c.departement.code+' · '+c.departement.nom:''),lon:c.centre.coordinates[0],lat:c.centre.coordinates[1],code:c.code}})})
+   .catch(function(){return getJSON(u1).then(function(d){return(d.features||[]).map(function(f){var p=f.properties||{};return{label:p.city||p.name||p.label,ctx:p.context||'',lon:f.geometry.coordinates[0],lat:f.geometry.coordinates[1]}})})});
+}
+function pickCity(g){
+  if(!g.code){exploreCity(g);return}
+  getJSON('https://geo.api.gouv.fr/communes/'+g.code+'?fields=contour').then(function(d){g.contour=d.contour;exploreCity(g)}).catch(function(){exploreCity(g)});
+}
+
+
+/* ---------- hikes: sections of trails around a point */
+var cityMode='hike',HK={dmin:8,dmax:12,pmin:0,pmax:60,r:3,dpMin:0,dpMax:1e9,sort:'p'},hkTok=0,curS=null;
+function modeSeg(){return '<div class="seg" id="modeSeg" style="margin:2px 0 8px"><button data-m="hike" aria-pressed="'+(cityMode==='hike')+'">'+I.hikeMode+'</button><button data-m="whole" aria-pressed="'+(cityMode==='whole')+'">'+I.wholeMode+'</button></div>'}
+function bindMode(g){var m=$('modeSeg');if(!m)return;m.querySelectorAll('button').forEach(function(b){b.addEventListener('click',function(){if(cityMode===b.dataset.m)return;cityMode=b.dataset.m;exploreCity(g)})})}
+function mkChains(parts){
+  var cs=[];
+  parts.forEach(function(f){
+    if(f.length<4)return;var pts=[];for(var i=0;i<f.length;i+=2)pts.push([f[i],f[i+1]]);
+    var done=false;
+    for(var k=0;k<cs.length&&!done;k++){var c=cs[k],a=c[0],b=c[c.length-1],p0=pts[0],p1=pts[pts.length-1];
+      if(hav(b,p0)<=300){cs[k]=c.concat(pts);done=true}
+      else if(hav(b,p1)<=300){cs[k]=c.concat(pts.slice().reverse());done=true}
+      else if(hav(a,p1)<=300){cs[k]=pts.concat(c);done=true}
+      else if(hav(a,p0)<=300){cs[k]=pts.slice().reverse().concat(c);done=true}}
+    if(!done)cs.push(pts);
+  });
+  return cs.map(function(pts){var cum=[0];for(var i=1;i<pts.length;i++)cum.push(cum[i-1]+hav(pts[i-1],pts[i]));return{pts:pts,cum:cum}});
+}
+function extractStretch(ch,i0,dir,len){
+  var pts=[ch.pts[i0]],cum=[0],i=i0,acc=0;
+  for(;;){var j=i+dir;if(j<0||j>=ch.pts.length)break;
+    var seg=Math.abs(ch.cum[j]-ch.cum[i]);
+    if(acc+seg>=len){var t=(len-acc)/(seg||1),a=ch.pts[i],b=ch.pts[j];pts.push([a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]);cum.push(len);acc=len;break}
+    acc+=seg;pts.push(ch.pts[j]);cum.push(acc);i=j}
+  return{pts:pts,cum:cum,len:acc};
+}
+function bearingName(a,b){var t=Math.PI/180,y=Math.sin((b[0]-a[0])*t)*Math.cos(b[1]*t),x=Math.cos(a[1]*t)*Math.sin(b[1]*t)-Math.sin(a[1]*t)*Math.cos(b[1]*t)*Math.cos((b[0]-a[0])*t),d=(Math.atan2(y,x)/t+360)%360;return I.compass[Math.round(d/45)%8]}
+function hikesFor(it,g,Rz,rc,X,lo){
+  var out=[],kx=Math.cos(g.lat*Math.PI/180)*111320,ky=110540,hi=X;
+  var chains=it._ch||(it._ch=mkChains(it.parts));
+  chains.forEach(function(ch){
+    var best=-1,bd=1e18;
+    for(var j=0;j<ch.pts.length;j++){var dx=(ch.pts[j][0]-g.lon)*kx,dy=(ch.pts[j][1]-g.lat)*ky,d=dx*dx+dy*dy;if(d<bd){bd=d;best=j}}
+    bd=Math.sqrt(bd);if(bd>Rz)return;
+    var total=ch.cum[ch.cum.length-1],dshow=Math.max(0,bd-rc);
+    function push(st,kind,dir){
+      var flat=[];st.pts.forEach(function(p){flat.push(p[0],p[1])});
+      out.push({t:'s',id:it.id,it:it,label:it.label,kind:kind,km:st.len/1000,n:0,parts:[flat],pts:st.pts,cum:st.cum,len:st.len,d:dshow,total:total/1000,bear:bearingName(st.pts[0],st.pts[st.pts.length-1]),dir:dir,e:undefined});
+    }
+    [1,-1].forEach(function(dir){
+      var avail=dir>0?total-ch.cum[best]:ch.cum[best];if(avail<lo)return;
+      push(extractStretch(ch,best,dir,Math.min(X,avail)),'start',dir);
+    });
+    if(total>=lo&&total<=hi)push({pts:ch.pts,cum:ch.cum,len:total},'full',0);
+  });
+  return out;
+}
+function hikesCompute(g){
+  var X=HK.dmax*1000,LO=HK.dmin*1000,rc=g.exact?0:g.contour?(function(){var c=g.contour,co=c.type==='MultiPolygon'?c.coordinates[0][0]:c.coordinates[0],a=1e9,b=1e9,e=-1e9,f=-1e9;co.forEach(function(p){a=Math.min(a,p[0]);e=Math.max(e,p[0]);b=Math.min(b,p[1]);f=Math.max(f,p[1])});return((e-a)*Math.cos(g.lat*Math.PI/180)*111320+(f-b)*110540)/4})():1500;
+  var Rz=HK.r*1000+rc,kx=Math.cos(g.lat*Math.PI/180)*111320,ky=110540,res=[];
+  ITEMS.forEach(function(it){var b=bb(it),bx0=(b[0]-g.lon)*kx,bx1=(b[2]-g.lon)*kx,by0=(b[1]-g.lat)*ky,by1=(b[3]-g.lat)*ky;
+    if(bx1<-Rz||bx0>Rz||by1<-Rz||by0>Rz)return;
+    hikesFor(it,g,Rz,rc,X,LO).forEach(function(h){res.push(h)})});
+  res.sort(function(a,b){return a.d-b.d});
+  return{res:res.slice(0,150),Rz:Rz,rc:rc};
+}
+function drawZone(g,Rz,rc){
+  exLayer.clearLayers();
+  if(g.contour)L.geoJSON({type:'Feature',geometry:g.contour},{style:{color:'#0b3d63',weight:2,fillOpacity:.06},interactive:false}).addTo(exLayer);
+  else L.circleMarker([g.lat,g.lon],{radius:6,color:'#fff',weight:2,fillColor:'#0b3d63',fillOpacity:1,interactive:false}).addTo(exLayer);
+  if(Rz>rc+50)L.circle([g.lat,g.lon],{radius:Rz,color:'#0b3d63',weight:1.2,dashArray:'4 6',fillOpacity:.03,interactive:false}).addTo(exLayer);
+}
+function exploreHikes(g){
+  var o=hikesCompute(g);
+  var spec={hike:true,g:g,head:I.hkHead+' '+g.label,base:o.res,o:o};
+  drawZone(g,o.Rz,o.rc);
+  showHikePanel(spec);
+  var tops=o.res.slice(0,12),b=L.latLngBounds([[g.lat,g.lon]]);
+  tops.forEach(function(h){h.pts.forEach(function(p){b.extend([p[1],p[0]])})});
+  fit(b.pad(.05),14);
+  elevQueue(spec);
+}
+function showHikePanel(spec,fromBack){
+  var g=spec.g;Lspec=spec;stopAnim();cur=null;curCol=null;curS=null;selLayer.clearLayers();recLayer.clearLayers();map.closePopup();setView('list');setHash('');
+  drawZone(g,spec.o.Rz,spec.o.rc);
+  var sorts=[['p',I.sP2],['n',I.sN],['u',I.sU],['v',I.sV],['l',I.sL2]];
+  var h=modeSeg()+'<h2>'+esc(spec.head)+'</h2><div class="sub" id="hksub"></div>'+
+   '<details class="refine" id="refine" open><summary>⚙ '+I.refine+'</summary><div class="rgrid">'+
+   '<label class="wide">'+I.hkDist+' : <b id="fdt"></b>'+dualHTML('fdd',3,40,1,HK.dmin,HK.dmax)+'</label>'+
+   '<label class="wide">'+I.hkPv+' : <b id="fpt"></b>'+dualHTML('fpd',0,60,1,HK.pmin,HK.pmax)+'</label>'+
+   '<label class="wide">'+I.hkStart+' : <b id="fst"></b><input type="range" id="fr" min="0" max="10" step="1" value="'+HK.r+'"></label>'+
+   '<label>'+I.hkDpMin+'<select id="fdmin">'+opts([[0,I.any],[100,'100 m'],[300,'300 m'],[500,'500 m'],[800,'800 m'],[1200,'1 200 m']],HK.dpMin)+'</select></label>'+
+   '<label>'+I.hkDpMax+'<select id="fdmax">'+opts([[1e9,I.any],[150,'150 m'],[300,'300 m'],[500,'500 m'],[800,'800 m'],[1200,'1 200 m'],[2000,'2 000 m']],HK.dpMax)+'</select></label>'+
+   '<label class="wide">'+I.sortBy+'<select id="fsort">'+opts(sorts,HK.sort)+'</select></label>'+
+   '</div></details><div class="lcount" id="lcount"></div><div class="cards" id="lres"></div><p class="note" id="hknote"></p>';
+  setPanel(h,{label:I.home,fn:goHome});bindMode(g);
+  function labels(){
+    var dl=HK.dmin===HK.dmax?HK.dmin:HK.dmin+'–'+HK.dmax;
+    $('fdt').textContent=dl+' '+I.km;
+    $('fpt').textContent=(HK.pmin===0&&HK.pmax>=60)?I.any:(HK.pmin+(HK.pmax>=60?'+':'–'+HK.pmax)+' '+I.pv);
+    $('fst').textContent=HK.r===0?I.inCommune:HK.r+' '+I.km;$('hksub').textContent=I.hkSub.replace('{x}',dl).replace('{r}',HK.r)}
+  labels();
+  dualBind('fdd',function(a,b){HK.dmin=a;HK.dmax=b;labels()},function(a,b){HK.dmin=a;HK.dmax=b;labels();recompute()});
+  dualBind('fpd',function(a,b){HK.pmin=a;HK.pmax=b;labels()},function(a,b){HK.pmin=a;HK.pmax=b;labels();renderHikes();elevQueue(spec)});
+  $('fr').addEventListener('input',function(){HK.r=+this.value;labels()});
+  function recompute(){exploreHikes(g)}
+  $('fr').addEventListener('change',recompute);
+  ['fdmin','fdmax','fsort'].forEach(function(i){$(i).addEventListener('change',function(){HK.dpMin=+$('fdmin').value;HK.dpMax=+$('fdmax').value;HK.sort=$('fsort').value;renderHikes()})});
+  renderHikes();
+}
+function dualHTML(id,min,max,step,lo,hi){return '<div class="dual" id="'+id+'"><div class="tr"><i></i></div><input type="range" min="'+min+'" max="'+max+'" step="'+step+'" value="'+lo+'" aria-label="min"><input type="range" min="'+min+'" max="'+max+'" step="'+step+'" value="'+hi+'" aria-label="max"></div>'}
+function dualBind(id,onInput,onChange){
+  var d=$(id),a=d.querySelectorAll('input'),lo=a[0],hi=a[1],fill=d.querySelector('i'),mn=+lo.min,mx=+lo.max;
+  function paint(){var l=+lo.value,h=+hi.value;fill.style.left=((l-mn)/(mx-mn)*100)+'%';fill.style.right=(100-(h-mn)/(mx-mn)*100)+'%';lo.style.zIndex=l>mn+(mx-mn)/2?3:1}
+  function fix(src){if(+lo.value>+hi.value){if(src===lo)lo.value=hi.value;else hi.value=lo.value}}
+  [lo,hi].forEach(function(el){el.addEventListener('input',function(){fix(el);paint();onInput(+lo.value,+hi.value)});el.addEventListener('change',function(){fix(el);paint();onChange(+lo.value,+hi.value)})});
+  paint();
+}
+function pFilterOn(){return HK.pmin>0||HK.pmax<60}
+function hikeVisible(s){
+  var dp=s.e&&s.e.dp;if(dp!=null&&(dp<HK.dpMin||dp>HK.dpMax))return false;
+  if(s.np!=null&&(s.np<HK.pmin||(HK.pmax<60&&s.np>HK.pmax)))return false;
+  return true}
+function renderHikes(){
+  var spec=Lspec;if(!spec||!spec.hike||!$('lres'))return;
+  var X=(HK.dmin+HK.dmax)/2,res=spec.base.filter(hikeVisible);
+  var key=function(s){return s.e&&s.e.dp!=null?s.e.dp:null};
+  res.sort(function(a,b){
+    if(HK.sort==='u'||HK.sort==='v'){var ka=key(a),kb=key(b);if(ka==null&&kb==null)return a.d-b.d;if(ka==null)return 1;if(kb==null)return -1;return HK.sort==='u'?ka-kb:kb-ka}
+    if(HK.sort==='n'){var na=a.np,nb=b.np;if(na==null&&nb==null)return a.d-b.d;if(na==null)return 1;if(nb==null)return -1;return nb-na}
+    if(HK.sort==='l')return b.km-a.km||a.d-b.d;
+    return a.d-b.d});
+  var top=res.slice(0,40);
+  $('lcount').textContent=res.length+' '+(LANG==='fr'?'balades':'hikes')+(res.length>top.length?' · '+I.top.replace('{n}',top.length):'');
+  $('lres').innerHTML=top.length?top.map(function(s,k){return hikeRow(s,k)}).join(''):'<p class="hint">'+esc(I.hkNone)+'</p>';
+  hilite(top.slice(0,25));
+  $('lres').querySelectorAll('.card').forEach(function(b){var s=top[+b.dataset.i];
+    b.addEventListener('click',function(){selectStretch(s)});
+    b.addEventListener('mouseenter',function(){hovLayer.clearLayers();line(s.parts,'#0b3d63',7,1,hovLayer)});
+    b.addEventListener('mouseleave',function(){hovLayer.clearLayers()})});
+  var f=spec.base.filter(function(s){return s.e===false}).length,ok=spec.base.filter(function(s){return s.e}).length;
+  $('hknote').textContent=ok?I.hkElev:(f?I.hkNoElev:'');
+}
+function hikeRow(s,k){
+  var dp=s.e?s.e.dp:null,dm=s.e?s.e.dm:null;
+  var meta=[dp!=null?'D+ ≈ '+fmt(dp)+' m':(s.e===false?null:I.pendingDp),dm!=null?'D− ≈ '+fmt(dm)+' m':null,s.np===undefined?I.pvPend:(s.np!=null?'☀ '+fmt(s.np)+' '+(s.np>1?I.pv:I.pv1):null),(s.kind==='full'?I.passBy:I.startAt)+' '+(s.d<100?'0':fmt(s.d/1000,1))+' '+I.km,s.kind==='full'?I.fullOne:I.towards+' '+s.bear].filter(Boolean).join(' · ');
+  return '<button class="card" data-i="'+k+'"><span class="cl"><b>'+esc(s.label)+'</b><span class="cm">'+esc(meta)+'</span></span><span class="cn"><em>'+fmt(s.km,s.km<10?1:0)+'</em><small>'+I.km+'</small></span></button>';
+}
+/* elevation of a section: one IGN request of at most 150 points, throttled */
+function ignZ(pts){
+  var u='https://data.geopf.fr/altimetrie/1.0/calcul/alti/rest/elevation.json?lon='+pts.map(function(p){return p[0].toFixed(5)}).join('|')+'&lat='+pts.map(function(p){return p[1].toFixed(5)}).join('|')+'&resource=ign_rge_alti_wld&zonly=true&delimiter=|';
+  return getJSON(u).catch(function(){return getJSON(u)}).then(function(d){return d.elevations.map(function(v){return(v<-10||v>5000)?NaN:v})});
+}
+function sampleAlong(pts,cum,n){
+  var len=cum[cum.length-1],out=[],j=0;
+  for(var k=0;k<n;k++){var t=k*len/(n-1);while(j<cum.length-2&&cum[j+1]<t)j++;var sp=(cum[j+1]-cum[j])||1,u=Math.max(0,Math.min(1,(t-cum[j])/sp)),a=pts[j],b=pts[j+1];out.push([a[0]+(b[0]-a[0])*u,a[1]+(b[1]-a[1])*u])}
+  return out;
+}
+function elevStats(z,S,len){
+  var n=z.length,good=[];z.forEach(function(v,i){if(!isNaN(v))good.push(i)});if(good.length<n*.7)return null;
+  z=z.slice();
+  for(var i=0;i<n;i++)if(isNaN(z[i])){var a=good.filter(function(g){return g<i}).pop(),b=good.filter(function(g){return g>i})[0];z[i]=a==null?z[b]:b==null?z[a]:z[a]+(z[b]-z[a])*(i-a)/(b-a)}
+  var m=z.map(function(v,i){var a=z[Math.max(0,i-1)],c=z[Math.min(n-1,i+1)];return [a,v,c].sort(function(x,y){return x-y})[1]});
+  if(S<=150)m=m.map(function(v,i){return(m[Math.max(0,i-1)]+v+m[Math.min(n-1,i+1)])/3});
+  var ref=m[0],dp=0,dm=0;m.forEach(function(v){if(v-ref>=3){dp+=v-ref;ref=v}else if(ref-v>=3){dm+=ref-v;ref=v}});
+  return{dp:Math.round(dp),dm:Math.round(dm),zmin:Math.round(Math.min.apply(null,m)),zmax:Math.round(Math.max.apply(null,m)),tot:Math.round(len),z:m.map(Math.round)};
+}
+function stretchKey(s){return 'pvhike-st1-'+s.id+'|'+s.pts[0][0].toFixed(4)+','+s.pts[0][1].toFixed(4)+'|'+s.dir+'|'+Math.round(s.len/100)}
+function fetchStretchElev(s){
+  if(s.e)return Promise.resolve(s.e);
+  try{var c=localStorage.getItem(stretchKey(s));if(c){s.e=JSON.parse(c);return Promise.resolve(s.e)}}catch(x){}
+  var S=Math.max(100,s.len/149),n=Math.max(2,Math.floor(s.len/S)+1),pts=sampleAlong(s.pts,s.cum,n);
+  return ignZ(pts).then(function(z){
+    var e=elevStats(z,S,s.len);if(!e){s.e=false;return false}
+    if(e.z.length>120){var N=120,pr=[];for(var q=0;q<N;q++)pr.push(e.z[Math.round(q/(N-1)*(e.z.length-1))]);e.z=pr}
+    s.e=e;try{localStorage.setItem(stretchKey(s),JSON.stringify(e))}catch(x){}return e;
+  }).catch(function(){s.e=false;return false});
+}
+var rTimer=null;function scheduleRender(){clearTimeout(rTimer);rTimer=setTimeout(renderHikes,150)}
+function elevQueue(spec){
+  var tok=++hkTok,wantAll=pFilterOn(),q=[];
+  spec.base.forEach(function(s,i){if(i<24||wantAll)q.push({s:s,elev:i<24})});
+  var k=0;
+  function step(){
+    if(tok!==hkTok||k>=q.length)return Promise.resolve();
+    var x=q[k++],s=x.s;
+    return refineStretch(s).then(function(){
+      if(tok!==hkTok)return;scheduleRender();
+      if(x.elev&&s.e===undefined)return fetchStretchElev(s).then(function(){return new Promise(function(r){setTimeout(r,450)})});
+    }).then(function(){if(tok===hkTok){scheduleRender();if(curS===s)renderStretch(s)}}).then(step);
+  }
+  step();step();
+}
+/* section detail: overview geometry is coarse, so the section is re-cut on the fine route geometry when opened */
+function refineStretch(s){
+  if(s._rp)return s._rp.then(function(){return false});
+  s.np=null;
+  var rid=s.id;
+  if(s.it.t==='c'){var c=COLBY[s.it.id],best=null,bd=1e18;if(c)c.members.forEach(function(m){var d=distTo(m.geom,s.pts[0][0],s.pts[0][1]);if(d<bd){bd=d;best=m}});if(!best)return Promise.resolve(false);rid=best.id}
+  s._rp=loadRoute(rid).then(function(r){
+    if(!r)return false;
+    var chains=mkChains(r.parts.map(function(p){var f=[];p.forEach(function(c){f.push(c[0],c[1])});return f}));
+    var o0=s.pts[0],o1=s.pts[s.pts.length-1],bi=-1,bj=-1,bd=1e18;
+    chains.forEach(function(ch,ci){ch.pts.forEach(function(p,j){var d=hav(o0,p);if(d<bd){bd=d;bi=ci;bj=j}})});
+    if(bi<0||bd>800)return false;
+    var ch=chains[bi],st;
+    if(s.kind==='full'){st={pts:ch.pts,cum:ch.cum,len:ch.cum[ch.cum.length-1]};
+      if(hav(st.pts[0],o0)>hav(st.pts[st.pts.length-1],o0)){var L2=st.len;st={pts:st.pts.slice().reverse(),cum:st.cum.map(function(v){return L2-v}).reverse(),len:L2}}}
+    else{var a=extractStretch(ch,bj,1,s.len),b=extractStretch(ch,bj,-1,s.len);
+      st=hav(a.pts[a.pts.length-1],o1)<=hav(b.pts[b.pts.length-1],o1)?a:b}
+    if(st.len<s.len*.95)return false;
+    var flat=[];st.pts.forEach(function(p){flat.push(p[0],p[1])});
+    s.pts=st.pts;s.cum=st.cum;s.len=st.len;s.km=st.len/1000;s.parts=[flat];s.fine=true;s.e=undefined;s.pan=projectPanels(r.panels||[],st.pts,st.cum);s.np=s.pan.length;s._pr=null;
+    return true;
+  }).catch(function(){return false});
+  return s._rp;
+}
+function projectPanels(panels,pts,cum){
+  var kx=Math.cos(pts[0][1]*Math.PI/180)*111320,ky=110540,a=1e9,b=1e9,c=-1e9,d=-1e9,out=[],pad=.002;
+  pts.forEach(function(p){a=Math.min(a,p[0]);c=Math.max(c,p[0]);b=Math.min(b,p[1]);d=Math.max(d,p[1])});
+  panels.forEach(function(p){
+    if(p[0]<a-pad||p[0]>c+pad||p[1]<b-pad||p[1]>d+pad)return;
+    var px=p[0]*kx,py=p[1]*ky,best=1e18,bc=0;
+    for(var i=0;i<pts.length-1;i++){var ax=pts[i][0]*kx,ay=pts[i][1]*ky,dx=pts[i+1][0]*kx-ax,dy=pts[i+1][1]*ky-ay,L2=dx*dx+dy*dy,t=L2?Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/L2)):0,qx=ax+t*dx-px,qy=ay+t*dy-py,dd=qx*qx+qy*qy;if(dd<best){best=dd;bc=cum[i]+t*(cum[i+1]-cum[i])}}
+    if(best<=3600)out.push([p[0],p[1],bc,p[3],p[4],Math.round(Math.sqrt(best)),p[6]]);
+  });
+  out.sort(function(x,y){return x[2]-y[2]});return out;
+}
+function pseudoOf(s){
+  if(s._pr)return s._pr;var pan=s.pan||[],k=0;pan.forEach(function(p){k+=p[3]||0});
+  return(s._pr={id:'st',parts:[s.pts],plen:[s.len],panels:pan,n:pan.length,kwp:k,km:s.km,name:s.label});
+}
+function drawStretch(s){
+  var pr=pseudoOf(s);drawRoute(pr);cur=pr.n>=0?pr:null;
+  var l=s.pts.map(function(p){return[p[1],p[0]]});
+  L.circleMarker(l[0],{radius:8,color:'#fff',weight:2.5,fillColor:'#2f9e44',fillOpacity:1}).bindTooltip(I.startLbl).addTo(selLayer);
+  if(s.kind==='start')L.circleMarker(l[l.length-1],{radius:7,color:'#fff',weight:2.5,fillColor:'#c92a2a',fillOpacity:1}).bindTooltip(I.endLbl).addTo(selLayer);
+  return l;
+}
+function selectStretch(s){
+  stopAnim();setView('stretch');cur=null;curCol=null;curS=s;recLayer.clearLayers();map.closePopup();setHash('');
+  var l=drawStretch(s);
+  renderStretch(s);fit(L.latLngBounds(l),15);
+  refineStretch(s).then(function(ch){
+    if(curS!==s)return;
+    if(ch){drawStretch(s);renderStretch(s)}
+    if(!s.e)fetchStretchElev(s).then(function(){if(curS===s)renderStretch(s);scheduleRender()});
+  });
+  return;
+}
+function drawProfZ(id,e){
+  var sv=$(id);if(!sv||!e)return;var z=e.z,lo=e.zmin,rg=Math.max(1,e.zmax-lo),W=300,H=70,pd=5,N=z.length,p='';
+  for(var i=0;i<N;i++)p+=(i?'L':'M')+(i/(N-1)*W).toFixed(1)+' '+(H-pd-(z[i]-lo)/rg*(H-2*pd)).toFixed(1);
+  sv.innerHTML='<path d="'+p+'L'+W+' '+H+'L0 '+H+'Z" fill="#dbe7f1"/><path d="'+p+'" fill="none" stroke="#4b6a88" stroke-width="1.6" vector-effect="non-scaling-stroke"/>';
+}
+function renderStretch(s){
+  if(anim&&cur===s._pr)return;
+  var e=s.e,pr=pseudoOf(s);
+  var h='<h2>'+esc(s.label)+'</h2><div class="sub">'+(s.kind==='full'?I.fullOne:I.stretchOf.replace('{a}',fmt(s.km,1)).replace('{b}',fmt(s.total,0)))+' · '+(s.kind==='full'?I.passBy:I.startAt)+' '+(s.d<100?'0':fmt(s.d/1000,1))+' '+I.km+'</div>'+
+   '<div class="kpis"><div class="kpi"><b>'+fmt(s.km,1)+'</b><span>'+I.km+'</span></div><div class="kpi"><b>'+(e?fmt(e.dp)+' m':'…')+'</b><span>'+I.dplus+'</span></div><div class="kpi"><b>'+(e?fmt(e.dm)+' m':'…')+'</b><span>'+I.dminus+'</span></div><div class="kpi"><b>'+(e?fmt(e.zmax)+' m':'…')+'</b><span>'+(LANG==='fr'?'alt. max':'max alt.')+'</span></div></div>'+
+   (e?'<svg id="elev" viewBox="0 0 300 70" preserveAspectRatio="none" role="img" aria-label="'+I.altRange+'"></svg><div class="note">'+I.altRange+' '+fmt(e.zmin)+'–'+fmt(e.zmax)+' m. '+I.hkElev+'</div>':(e===false?'<div class="note">'+I.hkNoElev+'</div>':'<div class="note">'+I.elevLoading+'</div>'))+
+   (s.np>0?'<div class="pvban"><div class="counter" id="cnt"></div><svg id="prof" viewBox="0 0 300 64" preserveAspectRatio="none" role="img" aria-label="'+I.along+'"></svg><div class="play"><button class="btn" id="go">'+I.collect+'</button>'+spdSeg()+'<label class="opt"><input type="checkbox" id="follow" checked> '+I.follow+'</label></div></div>':(s.np===0?'<div class="note">☀ 0 '+I.pv+' '+I.pvTr+'</div>':''))+
+   '<div class="play"><button class="btn" id="gpx">'+I.gpx+'</button><button class="btn2" id="full">'+I.seeFull+'</button></div>'+
+   '<div class="note">'+I.gpxNote+'</div><div class="note" style="color:var(--ink2)">'+I.discShort+'</div>';
+  setPanel(h,backTarget());
+  drawProfZ('elev',e);
+  if(s.np>0){cur=pr;drawProfile(pr,-1);setCounter(pr.n,pr.kwp,true);bindSpd();
+    $('go').addEventListener('click',function(){anim?stopAnim():startAnim(pr)})}
+  $('gpx').addEventListener('click',function(){exportStretchGPX(s)});
+  $('full').addEventListener('click',function(){s.it.t==='c'?selectCollection(s.it.id):selectRoute(s.it.id)});
+}
+function exportStretchGPX(s){
+  var e=s.e,name=s.label+' ('+fmt(s.km,1)+' km)';
+  var x='<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="OpenPVMapper hiking" xmlns="http://www.topografix.com/GPX/1/1"><metadata><name>'+xml(name)+'</name><desc>'+xml(I.gpxNote+' '+I.disc)+'</desc></metadata>\n'+(s.pan||[]).map(function(p){return '<wpt lat="'+p[1]+'" lon="'+p[0]+'"><name>PV'+(p[3]!=null?' '+p[3]+' kWp':'')+'</name></wpt>\n'}).join('')+'<trk><name>'+xml(name)+'</name><trkseg>'+
+   s.pts.map(function(c,k){var ele=e?'<ele>'+Math.round(zAt(e,s.cum[k],s.len||1))+'</ele>':'';return '<trkpt lat="'+c[1].toFixed(6)+'" lon="'+c[0].toFixed(6)+'">'+ele+'</trkpt>'}).join('')+'</trkseg></trk></gpx>';
+  var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([x],{type:'application/gpx+xml'}));
+  a.download=(s.label.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40)||'rando')+'-'+Math.round(s.km)+'km.gpx';
+  document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},500);
+}
+
+/* ---------- unified search */
+var sugList=[],sugAct=-1,gSeq=0,gTimer=null;
+function hideSug(){var s=$('sug');s.hidden=true;$('q').setAttribute('aria-expanded','false');sugAct=-1}
+function localTrails(q){
+  var words=q.split(/\s+/),out=[];
+  for(var i=0;i<index.length;i++){var it=index[i],t=norm((it[1]||'')+' '+(it[2]||''));if(words.every(function(w){return t.indexOf(w)>=0}))out.push({it:it,pre:t.indexOf(q)===0||norm(it[1]||'').indexOf(q)===0?1:0,col:typeof it[0]==='string'?1:0})}
+  out.sort(function(a,b){return b.col-a.col||b.pre-a.pre||b.it[4]-a.it[4]||b.it[3]-a.it[3]});
+  return out.slice(0,5).map(function(o){var it=o.it,isC=typeof it[0]==='string';
+    return{label:(isC?'★ ':'')+(it[2]&&!isC?it[2]+' · ':'')+(it[1]||I.noname),sub:fmt(it[3],0)+' '+I.km+' · '+fmt(it[4])+' '+I.pv,fn:function(){isC?selectCollection(it[0].slice(2)):selectRoute(it[0])}}});
+}
+function localAreas(q,raw){
+  var out=[];
+  if(EX){
+    Object.keys(EX.names).sort().forEach(function(c){if(out.length<3&&(norm(EX.names[c]).indexOf(q)>=0||c===raw.toUpperCase()))out.push({label:EX.names[c],sub:I.kDept+' '+c,fn:function(){exploreDept(c)}})});
+    Object.keys(REGIONS).forEach(function(rn){if(norm(rn).indexOf(q)>=0)out.push({label:rn,sub:I.kRegion,fn:function(){exploreArea('region',rn,REGIONS[rn].split(','))}})});
+  }
+  return out;
+}
+function renderSug(groups){
+  sugList=[];var h='';
+  groups.forEach(function(g){if(!g.items.length)return;h+='<p class="lbl">'+esc(g.h)+'</p>';g.items.forEach(function(it){sugList.push(it);h+='<button data-k="'+(sugList.length-1)+'" role="option"><span class="s1">'+esc(it.label)+'</span><small>'+esc(it.sub||'')+'</small></button>'})});
+  var s=$('sug');s.innerHTML=h||'<div class="none">—</div>';s.hidden=false;$('q').setAttribute('aria-expanded','true');sugAct=-1;
+  s.querySelectorAll('button').forEach(function(b){b.addEventListener('click',function(){choose(sugList[+b.dataset.k])})});
+}
+function choose(it){if(!it)return;hideSug();$('q').value='';$('qclear').hidden=true;if(MOBILE())$('q').blur();it.fn()}
+function defaultSug(){renderSug([{h:I.gPlaces,items:[{label:'📍 '+I.nearMe,sub:I.nearMeSub,fn:nearMe}]}])}
+function onQ(){
+  var raw=$('q').value.trim(),q=norm(raw);$('qclear').hidden=!raw;
+  clearTimeout(gTimer);
+  if(q.length<2){defaultSug();return}
+  var seq=++gSeq,trails=localTrails(q),areas=localAreas(q,raw);
+  function paint(coms){renderSug([{h:I.gPlaces,items:coms.concat(areas)},{h:I.gTrails,items:trails}])}
+  paint([]);
+  gTimer=setTimeout(function(){geocode(raw).then(function(rs){
+    if(seq!==gSeq)return;
+    paint(rs.slice(0,4).map(function(g){return{label:g.label,sub:I.kCommune+(g.ctx?' · '+g.ctx:''),fn:function(){pickCity(g)}}}));
+  }).catch(function(){})},220);
+}
+$('q').addEventListener('input',onQ);
+$('q').addEventListener('focus',function(){closePops();if(!this.value.trim())defaultSug();else onQ()});
+$('q').addEventListener('keydown',function(e){
+  var bs=$('sug').querySelectorAll('button');
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){if(!bs.length)return;e.preventDefault();sugAct=(sugAct+(e.key==='ArrowDown'?1:-1)+bs.length)%bs.length;bs.forEach(function(b,i){b.classList.toggle('act',i===sugAct)});bs[sugAct].scrollIntoView({block:'nearest'})}
+  else if(e.key==='Enter'){e.preventDefault();choose(sugList[sugAct>=0?sugAct:0])}
+});
+$('qclear').addEventListener('click',function(){$('q').value='';$('qclear').hidden=true;$('q').focus()});
+
+/* ---------- home, suggestions, curiosities */
+var FAMOUS=['saint-jacques','gr70','tmb','gr20','gr10','gr34','francigena','gtj','gtv','gr5','gr223'];
+function shortName(n){return n.replace(/\s*\(.*$/,'')}
+function renderFamous(){
+  var box=$('famous');box.innerHTML='';
+  FAMOUS.filter(function(id){return COLBY[id]}).slice(0,9).forEach(function(id){
+    var b=document.createElement('button');b.className='chip';b.textContent=shortName(COLBY[id].name[LANG]);b.title=COLBY[id].name[LANG];
+    b.addEventListener('click',function(){closePops();selectCollection(id)});box.appendChild(b);
+  });
+}
+var CUR=[['most','cMost'],['dense','cDense'],['ratio','cRatio'],['zero','cZero'],['rand','cRand']];
+(function(){var box=$('curio');CUR.forEach(function(c){var b=document.createElement('button');b.className='chip fun';b.textContent=I[c[1]];b.addEventListener('click',function(){closePops();curio(c[0])});box.appendChild(b)})})();
+function curio(k){
+  if(!ensure())return;items();var all=ITEMS.filter(function(it){return it.deps.length>0&&it.fr>=0.85}),spec;
+  if(k==='rand'){var pool=all.filter(function(it){return it.km>=10&&it.km<=150&&it.n>=1});openItem(pool[Math.floor(Math.random()*pool.length)]);return}
+  exLayer.clearLayers();
+  if(k==='most')spec={head:I.hMost,sub:I.sMost,base:all.slice(),sort:'n'};
+  if(k==='dense')spec={head:I.hDense,sub:I.sDense,base:all.filter(function(it){return it.km>=15}),sort:'d'};
+  if(k==='ratio')spec={head:I.hRatio,sub:I.sRatio,base:all.filter(function(it){return ratio(it)>=0}),sort:'r'};
+  if(k==='zero')spec={head:I.hZero,sub:I.sZero,base:all.filter(function(it){return it.n===0&&it.km>=25}),sort:'l'};
+  F={kmMin:0,kmMax:1e9,nMin:0,dpMax:1e9,sort:spec.sort};
+  showList(spec);
+  var top=sortList(filt(spec.base)).slice(0,15);fitItems(top,6);
+}
+function renderHome(){
+  stopAnim();cur=null;curCol=null;Lspec=null;setView('home');setHash('');
+  selLayer.clearLayers();recLayer.clearLayers();exLayer.clearLayers();map.closePopup();hidePanel();
+  fit(FR,6);
+}
+
+/* ---------- boot */
+getJSON(DATA+'overview.json').then(function(d){OV=d.routes;drawOverview(d.routes);restyle()}).catch(console.error);
+getJSON(DATA+'index.json').then(function(d){index=d;d.forEach(function(it){if(typeof it[0]==='number')INAME[it[0]]=[it[1],it[2]]})}).catch(console.error);
+getJSON(DATA+'elevation.json').then(function(d){ELEV=d}).catch(function(){});
+getJSON(DATA+'explore.json').then(function(d){EX=d}).catch(function(){});
+getJSON(DATA+'records.json').then(renderRecords).catch(console.error);
+getJSON(DATA+'collections.json').then(function(d){
+  COLS=d;d.forEach(function(c){COLBY[c.id]=c});renderFamous();
+  var m=/^#c-(.+)$/.exec(location.hash);
+  if(m&&COLBY[m[1]])selectCollection(m[1]);else if(view==='home')renderHome();
+}).catch(function(){});
+(function(){var m=/^#r(\d+)$/.exec(location.hash);if(m)selectRoute(+m[1])})();
+window._app={get hkBase(){return Lspec&&Lspec.base},get curS(){return curS},exploreHikes:exploreHikes,selectStretch:selectStretch,setMode:function(m){cityMode=m},HK:HK,liveElev:liveElev,setElev:function(d){ELEV=d},exploreCity:exploreCity,pickCity:pickCity,exploreDept:exploreDept,exploreArea:exploreArea,curio:curio,renderHome:renderHome,selectCollection:selectCollection,selectRoute:selectRoute,map:map,get cur(){return cur},get view(){return view}};
+})();
+</script>
+</body>
+</html>

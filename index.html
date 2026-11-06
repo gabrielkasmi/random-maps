@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Random Maps</title>
+<meta name="description" content="Cartes construites à partir de données ouvertes, par Gabriel Kasmi. Maps built from open data, by Gabriel Kasmi.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%231d2733'/><path d='M6 22l6-9 5 6 3-4 6 7' fill='none' stroke='%23e8590c' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+<style>
+:root{
+  --ink:#1d2733;--ink-soft:#4a5866;--fog:#66717d;--hairline:#d9dfe5;--paper:#fbfaf7;--sun:#c24a09;--sun-wash:#fff2e8;
+  --serif:"Iowan Old Style","Palatino Linotype","Book Antiqua",Palatino,Georgia,serif;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root{--ink:#eef1f4;--ink-soft:#b7c0c9;--fog:#8d98a4;--hairline:#2c3540;--paper:#11161c;--sun:#f08a4b;--sun-wash:#2a1a10;color-scheme:dark}
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;accent-color:var(--sun)}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
+::selection{background:color-mix(in srgb,var(--sun) 25%,transparent)}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--sun);outline-offset:3px;border-radius:3px}
+.wrap{max-width:44rem;margin:0 auto;padding:clamp(2.5rem,8vw,5.5rem) 20px 3rem}
+header{display:flex;justify-content:space-between;align-items:flex-start;gap:1.5rem}
+h1{font-family:var(--serif);font-weight:600;font-size:clamp(2.2rem,6vw,3.1rem);line-height:1.05;letter-spacing:-0.02em;margin:0}
+.lede{color:var(--ink-soft);font-size:1.05rem;max-width:34rem;margin:1rem 0 0}
+.lang{display:flex;gap:2px;padding:3px;border:1px solid var(--hairline);border-radius:999px;flex-shrink:0;margin-top:.5rem}
+.lang a{font-size:.8rem;font-weight:600;letter-spacing:.04em;text-decoration:none;color:var(--ink-soft);padding:.3em .75em;border-radius:999px}
+.lang a:hover{color:var(--ink)}
+.lang a[aria-current="true"]{background:var(--ink);color:var(--paper)}
+.maps{list-style:none;margin:3.5rem 0 0;padding:0;border-top:1px solid var(--hairline)}
+.maps li{border-bottom:1px solid var(--hairline)}
+.map{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.35rem 1.5rem;padding:1.6rem 0;text-decoration:none}
+.map h2{font-family:var(--serif);font-weight:600;font-size:1.45rem;line-height:1.2;margin:0;grid-column:1}
+.map:hover h2{color:var(--sun)}
+.map p{margin:0;color:var(--ink-soft);grid-column:1;max-width:34rem}
+.map .meta{font-size:.85rem;color:var(--fog);font-variant-numeric:tabular-nums}
+.map .go{grid-column:2;grid-row:1;align-self:baseline;font-size:.9rem;font-weight:600;color:var(--sun);white-space:nowrap}
+.map .go svg{vertical-align:-2px;transition:transform .2s cubic-bezier(.22,1,.36,1)}
+.map:hover .go svg{transform:translateX(3px)}
+footer{margin-top:3rem;font-size:.85rem;color:var(--fog)}
+footer p{margin:.3rem 0}
+footer a{text-underline-offset:3px;text-decoration-color:var(--hairline)}
+footer a:hover{color:var(--ink);text-decoration-color:currentColor}
+[data-en]{display:none}
+html[lang="en"] [data-fr]{display:none}
+html[lang="en"] [data-en]{display:revert}
+@media (max-width:560px){
+  .map{grid-template-columns:minmax(0,1fr)}
+  .map .go{grid-column:1;grid-row:auto;margin-top:.4rem}
+}
+@media (prefers-reduced-motion:reduce){.map .go svg{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Random Maps</h1>
+      <p class="lede">
+        <span data-fr>Des cartes construites à partir de données ouvertes, au gré des curiosités.</span>
+        <span data-en>Maps built from open data, following whatever catches my curiosity.</span>
+      </p>
+    </div>
+    <nav class="lang" aria-label="Langue / Language">
+      <a href="?lang=fr" data-l="fr" aria-current="true">FR</a>
+      <a href="?lang=en" data-l="en">EN</a>
+    </nav>
+  </header>
+
+  <main>
+    <ul class="maps">
+      <li>
+        <a class="map" href="hiking/" data-map>
+          <h2><span data-fr>Plein soleil sur mon chemin</span><span data-en>Sunshine on my way</span></h2>
+          <p>
+            <span data-fr>Les itinéraires de randonnée en France, croisés avec les installations photovoltaïques détectées à moins de 50&nbsp;m du sentier. Recherche, générateur de randos, profil altimétrique et export GPX.</span>
+            <span data-en>Hiking routes across France, crossed with the solar installations detected within 50&nbsp;m of the trail. Search, hike generator, elevation profile and GPX export.</span>
+          </p>
+          <p class="meta">
+            <span data-fr>France · OpenStreetMap · DeepPVMapper</span>
+            <span data-en>France · OpenStreetMap · DeepPVMapper</span>
+          </p>
+          <span class="go"><span data-fr>Ouvrir</span><span data-en>Open</span> <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></span>
+        </a>
+      </li>
+    </ul>
+  </main>
+
+  <footer>
+    <p>
+      <span data-fr>Par</span><span data-en>By</span>
+      <a href="https://gabrielkasmi.github.io/">Gabriel Kasmi</a> ·
+      <a href="https://github.com/gabrielkasmi/random-maps"><span data-fr>Sources et licences</span><span data-en>Sources and licences</span></a>
+    </p>
+  </footer>
+</div>
+<script>
+(function(){
+  var lang=new URLSearchParams(location.search).get('lang')==='en'?'en':'fr';
+  document.documentElement.lang=lang;
+  document.querySelectorAll('.lang a').forEach(function(a){a.setAttribute('aria-current',a.dataset.l===lang)});
+  document.querySelectorAll('[data-map]').forEach(function(a){a.href=a.getAttribute('href')+'?lang='+lang});
+})();
+</script>
+</body>
+</html>

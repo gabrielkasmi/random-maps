@@ -1,0 +1,398 @@
+[
+  {
+    "label": "north",
+    "array_id": "gen_528097a17367b14a",
+    "insee": "59107",
+    "dpt": "59",
+    "kWp": 2.06,
+    "lon": 2.52088,
+    "lat": 51.07922,
+    "z": null,
+    "nearest_route": {
+      "id": 3790605,
+      "name": null,
+      "ref": null,
+      "dist_m": 78
+    },
+    "within_50m": false,
+    "rank": 1
+  },
+  {
+    "label": "north",
+    "array_id": "gen_6b4f09a8796c8a21",
+    "insee": "59107",
+    "dpt": "59",
+    "kWp": 2.75,
+    "lon": 2.51189,
+    "lat": 51.07813,
+    "z": null,
+    "nearest_route": {
+      "id": 2139379,
+      "name": "Sentier du Littoral",
+      "ref": "GR 120",
+      "dist_m": 65
+    },
+    "within_50m": false,
+    "rank": 2
+  },
+  {
+    "label": "south",
+    "array_id": "gen_37d9a063e3bd1d76",
+    "insee": "2A041",
+    "dpt": "2A",
+    "kWp": null,
+    "lon": 9.21073,
+    "lat": 41.37287,
+    "z": null,
+    "nearest_route": {
+      "id": 16822282,
+      "name": "Boucle Capicciolu Gurgazu",
+      "ref": null,
+      "dist_m": 2110
+    },
+    "within_50m": false,
+    "rank": 1
+  },
+  {
+    "label": "south",
+    "array_id": "gen_603cccf29b61e2f2",
+    "insee": "2A041",
+    "dpt": "2A",
+    "kWp": null,
+    "lon": 9.18978,
+    "lat": 41.37557,
+    "z": null,
+    "nearest_route": {
+      "id": 16822282,
+      "name": "Boucle Capicciolu Gurgazu",
+      "ref": null,
+      "dist_m": 2601
+    },
+    "within_50m": false,
+    "rank": 2
+  },
+  {
+    "label": "south",
+    "array_id": "146044.0",
+    "insee": "2A041",
+    "dpt": "2A",
+    "kWp": 4.76,
+    "lon": 9.19652,
+    "lat": 41.37693,
+    "z": null,
+    "nearest_route": {
+      "id": 16822282,
+      "name": "Boucle Capicciolu Gurgazu",
+      "ref": null,
+      "dist_m": 2114
+    },
+    "within_50m": false,
+    "rank": 3
+  },
+  {
+    "label": "east",
+    "array_id": "147664.0",
+    "insee": "2B143",
+    "dpt": "2B",
+    "kWp": 2.39,
+    "lon": 9.55397,
+    "lat": 42.19955,
+    "z": null,
+    "nearest_route": {
+      "id": 13747098,
+      "name": "Balade littorale de Terrenzana",
+      "ref": "BL",
+      "dist_m": 5127
+    },
+    "within_50m": false,
+    "rank": 1
+  },
+  {
+    "label": "east",
+    "array_id": "147399.0",
+    "insee": "2B057",
+    "dpt": "2B",
+    "kWp": 6.04,
+    "lon": 9.5518,
+    "lat": 42.24562,
+    "z": null,
+    "nearest_route": {
+      "id": 14721154,
+      "name": "Boucle 1 - Costa Verde",
+      "ref": "CV1",
+      "dist_m": 9156
+    },
+    "within_50m": false,
+    "rank": 2
+  },
+  {
+    "label": "east",
+    "array_id": "147668.0",
+    "insee": "2B143",
+    "dpt": "2B",
+    "kWp": 3.16,
+    "lon": 9.55111,
+    "lat": 42.22983,
+    "z": null,
+    "nearest_route": {
+      "id": 13747098,
+      "name": "Balade littorale de Terrenzana",
+      "ref": "BL",
+      "dist_m": 8405
+    },
+    "within_50m": false,
+    "rank": 3
+  },
+  {
+    "label": "west",
+    "array_id": "gen_385a211bcca995e5",
+    "insee": "29155",
+    "dpt": "29",
+    "kWp": 6.85,
+    "lon": -5.10034,
+    "lat": 48.45801,
+    "z": null,
+    "nearest_route": {
+      "id": 3928668,
+      "name": "L'Île de Molène",
+      "ref": null,
+      "dist_m": 11893
+    },
+    "within_50m": false,
+    "rank": 1
+  },
+  {
+    "label": "west",
+    "array_id": "gen_3b6883316c29adfa",
+    "insee": "29155",
+    "dpt": "29",
+    "kWp": 53.97,
+    "lon": -5.09999,
+    "lat": 48.45872,
+    "z": null,
+    "nearest_route": {
+      "id": 3928668,
+      "name": "L'Île de Molène",
+      "ref": null,
+      "dist_m": 11916
+    },
+    "within_50m": false,
+    "rank": 2
+  },
+  {
+    "label": "south_mainland",
+    "array_id": "424544.0",
+    "insee": "66061",
+    "dpt": "66",
+    "kWp": 2.44,
+    "lon": 2.65262,
+    "lat": 42.34759,
+    "z": null,
+    "nearest_route": {
+      "id": 8171769,
+      "name": "Ruta dels 4 refugis de Tramuntana. Etapa: Refugi Les Salines <=> Refugi Bassegoda <=> Albanyà",
+      "ref": "R4RT",
+      "dist_m": 1730
+    },
+    "within_50m": false,
+    "rank": 1
+  },
+  {
+    "label": "south_mainland",
+    "array_id": "425250.0",
+    "insee": "66091",
+    "dpt": "66",
+    "kWp": 2.51,
+    "lon": 2.52538,
+    "lat": 42.35418,
+    "z": null,
+    "nearest_route": {
+      "id": 21117593,
+      "name": "Col de Malrems - Prades",
+      "ref": "GR-T83",
+      "dist_m": 680
+    },
+    "within_50m": false,
+    "rank": 2
+  },
+  {
+    "label": "south_mainland",
+    "array_id": "gen_ed822d56e917d793",
+    "insee": "66091",
+    "dpt": "66",
+    "kWp": 2.64,
+    "lon": 2.51744,
+    "lat": 42.35544,
+    "z": null,
+    "nearest_route": {
+      "id": 9853466,
+      "name": "Camins de l'exili",
+      "ref": null,
+      "dist_m": 139
+    },
+    "within_50m": false,
+    "rank": 3
+  },
+  {
+    "label": "east_mainland",
+    "array_id": "435596.0",
+    "insee": "67261",
+    "dpt": "67",
+    "kWp": 3.34,
+    "lon": 8.1935,
+    "lat": 48.97502,
+    "z": null,
+    "nearest_route": {
+      "id": 10227739,
+      "name": null,
+      "ref": null,
+      "dist_m": 968
+    },
+    "within_50m": false,
+    "rank": 1
+  },
+  {
+    "label": "east_mainland",
+    "array_id": "gen_8bf303c97a139e0c",
+    "insee": "67261",
+    "dpt": "67",
+    "kWp": 3.75,
+    "lon": 8.19034,
+    "lat": 48.97447,
+    "z": null,
+    "nearest_route": {
+      "id": 10227739,
+      "name": null,
+      "ref": null,
+      "dist_m": 753
+    },
+    "within_50m": false,
+    "rank": 2
+  },
+  {
+    "label": "east_mainland",
+    "array_id": "435595.0",
+    "insee": "67261",
+    "dpt": "67",
+    "kWp": 3.15,
+    "lon": 8.18989,
+    "lat": 48.97439,
+    "z": null,
+    "nearest_route": {
+      "id": 10227739,
+      "name": null,
+      "ref": null,
+      "dist_m": 721
+    },
+    "within_50m": false,
+    "rank": 3
+  },
+  {
+    "label": "highest",
+    "array_id": "23748.0",
+    "insee": "05063",
+    "dpt": "05",
+    "kWp": 5.95,
+    "lon": 6.32466,
+    "lat": 45.01127,
+    "z": 3409.2,
+    "nearest_route": {
+      "id": 19527067,
+      "name": "La Brèche Pacave depuis La Grave",
+      "ref": "CA17",
+      "dist_m": 2285
+    },
+    "within_50m": false,
+    "rank": 1
+  },
+  {
+    "label": "highest",
+    "array_id": "25385.0",
+    "insee": "05181",
+    "dpt": "05",
+    "kWp": 3.31,
+    "lon": 6.34514,
+    "lat": 44.96887,
+    "z": 3164.1,
+    "nearest_route": {
+      "id": 19556979,
+      "name": "Le tour du pays de la Meije",
+      "ref": "TPM",
+      "dist_m": 4324
+    },
+    "within_50m": false,
+    "rank": 2
+  },
+  {
+    "label": "highest",
+    "array_id": "gen_ab3e13f7faebc7a4",
+    "insee": "05157",
+    "dpt": "05",
+    "kWp": 4.26,
+    "lon": 6.90703,
+    "lat": 44.69706,
+    "z": 2786.7,
+    "nearest_route": {
+      "id": 19171496,
+      "name": "Traversier - Observatoire Château Renard",
+      "ref": null,
+      "dist_m": 41
+    },
+    "within_50m": true,
+    "rank": 3
+  },
+  {
+    "label": "lowest",
+    "array_id": "381514.0",
+    "insee": "59260",
+    "dpt": "59",
+    "kWp": 5.03,
+    "lon": 2.55038,
+    "lat": 51.01281,
+    "z": -1.3,
+    "nearest_route": {
+      "id": 20011008,
+      "name": "E2 West Sectie GR 5A",
+      "ref": "E2",
+      "dist_m": 1906
+    },
+    "within_50m": false,
+    "rank": 1
+  },
+  {
+    "label": "lowest",
+    "array_id": "gen_aeb69189e12f5528",
+    "insee": "59260",
+    "dpt": "59",
+    "kWp": 3.89,
+    "lon": 2.55039,
+    "lat": 51.00639,
+    "z": -1.2,
+    "nearest_route": {
+      "id": 20011008,
+      "name": "E2 West Sectie GR 5A",
+      "ref": "E2",
+      "dist_m": 2348
+    },
+    "within_50m": false,
+    "rank": 2
+  },
+  {
+    "label": "lowest",
+    "array_id": "381516.0",
+    "insee": "59260",
+    "dpt": "59",
+    "kWp": 18.64,
+    "lon": 2.52904,
+    "lat": 51.01991,
+    "z": -1.2,
+    "nearest_route": {
+      "id": 20011008,
+      "name": "E2 West Sectie GR 5A",
+      "ref": "E2",
+      "dist_m": 3120
+    },
+    "within_50m": false,
+    "rank": 3
+  }
+]
