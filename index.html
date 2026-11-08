@@ -38,9 +38,17 @@ main{padding:2.4em 0 4em}
 h1,h2{font-family:var(--font-serif);font-weight:600;line-height:1.25;color:var(--color-text)}
 h1{font-size:2rem;margin:0 0 .5em}
 p{margin:0 0 1.1em;max-width:var(--measure)}
-.post-preview{margin:1.8em 0;padding-bottom:1.8em;border-bottom:1px solid var(--color-border);max-width:var(--measure-wide)}
-.post-preview:last-child{border-bottom:none}
-.post-preview h2{font-size:1.3rem;margin:0 0 .2em}
+.maps{list-style:none;margin:2em 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15.5rem),1fr));gap:1.6em 1.4em}
+.card{position:relative;display:flex;flex-direction:column}
+.card img{display:block;width:100%;height:auto;aspect-ratio:4/3;object-fit:cover;border-radius:6px;border:1px solid var(--color-border);background:var(--color-bg-raised);transition:transform .2s ease,box-shadow .2s ease}
+.card:hover img{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.12)}
+.card h2{font-size:1.15rem;margin:.75em 0 .4em}
+.card h2 a{text-decoration:none;color:var(--color-text)}
+.card h2 a::after{content:"";position:absolute;inset:0;border-radius:6px} /* whole card clickable */
+.card:hover h2 a{color:var(--color-link)}
+.card p{font-size:.93rem;margin:0}
+.tag{color:var(--color-accent);font-weight:600}
+@media (prefers-reduced-motion:reduce){.card img{transition:none}.card:hover img{transform:none}}
 
 .post-meta{color:var(--color-text-muted);font-size:.88rem;margin:0 0 .7em}
 .site-footer{border-top:1px solid var(--color-border);padding:1.8em 0 3em;color:var(--color-text-muted);font-size:.9rem}
@@ -72,15 +80,24 @@ html[lang="en"] [data-en]{display:revert}
       <span data-en>Maps built from open data, following whatever catches my curiosity.</span>
     </p>
 
-    <div class="post-preview">
-      <h2><a href="hiking/" data-map><span data-fr>Plein soleil sur mon chemin</span><span data-en>Sunshine on my way</span></a></h2>
-      <p class="post-meta">France · OpenStreetMap · DeepPVMapper</p>
-      <p>
-        <span data-fr>Les itinéraires de randonnée en France, croisés avec les installations photovoltaïques détectées à moins de 50&nbsp;m du sentier. Recherche, générateur de randos, profil altimétrique et export GPX.</span>
-        <span data-en>Hiking routes across France, crossed with the solar installations detected within 50&nbsp;m of the trail. Search, hike generator, elevation profile and GPX export.</span>
-      </p>
-      <a href="hiking/" data-map><span data-fr>Ouvrir la carte →</span><span data-en>Open the map →</span></a>
-    </div>
+    <ul class="maps">
+      <li class="card">
+        <img src="thumbs/pv-density.webp" width="800" height="600" alt="" loading="lazy">
+        <h2><a href="pv-density/" data-map><span data-fr>Où sont les panneaux solaires en toiture&nbsp;?</span><span data-en>Where are the rooftop solar panels?</span></a></h2>
+        <p>
+          <span data-fr><span class="tag">#30DayMapChallenge</span> — Le photovoltaïque en toiture recensé dans OpenPVMapper, agrégé sur une grille de carreaux et croisé avec les données INSEE. Aussi sur <a href="https://deeppvmapper.fr/fr/content/data.html#aggregated" style="position:relative;z-index:1">deeppvmapper.fr</a>.</span>
+          <span data-en><span class="tag">#30DayMapChallenge</span> — Rooftop solar recorded in OpenPVMapper, aggregated on a square grid and crossed with INSEE data. Also on <a href="https://deeppvmapper.fr/content/data.html#aggregated" style="position:relative;z-index:1">deeppvmapper.fr</a>.</span>
+        </p>
+      </li>
+      <li class="card">
+        <img src="thumbs/hiking.webp" width="800" height="600" alt="" loading="lazy">
+        <h2><a href="hiking/" data-map><span data-fr>Plein soleil sur mon chemin</span><span data-en>Sunshine on my way</span></a></h2>
+        <p>
+          <span data-fr><span class="tag">#30DayMapChallenge</span> — Les itinéraires de randonnée en France, croisés avec les installations photovoltaïques détectées à moins de 50&nbsp;m du sentier.</span>
+          <span data-en><span class="tag">#30DayMapChallenge</span> — Hiking routes across France, crossed with the solar installations detected within 50&nbsp;m of the trail.</span>
+        </p>
+      </li>
+    </ul>
   </main>
 
   <footer class="site-footer">

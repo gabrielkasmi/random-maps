@@ -1,0 +1,216 @@
+{
+ "lang": "en",
+ "locale": "en-GB",
+ "oldBrowser": "This browser is too old to display the map.",
+ "loading": "Loading data…",
+ "loadErr": "The data could not be loaded. Please try again later.",
+ "mapAria": "Map of rooftop PV installations across mainland France, aggregated on a square grid",
+ "lead": "{n} installations detected on aerial imagery ({gwp} GWp estimated), aggregated on square cells of 2 km or more. Drag the slider: cell size and colours are recomputed on the fly.",
+ "res": "Cell size",
+ "resOne": "1 single cell",
+ "resOneTick": "1 cell",
+ "resHint": "Each cell groups {k} × {k} INSEE 1 km cells ({area} km²).",
+ "resHintOne": "A single cell covers the whole country: you read the national value (mean or total).",
+ "nCells": "{n} cells displayed.",
+ "variable": "Mapped variable",
+ "variableRose": "Mapped variable (pink)",
+ "normBy": "Normalise by",
+ "tilesErr": "Map tiles could not be loaded (no connection, or refused by the tile server).",
+ "adv": "Advanced options",
+ "advBiv": "cross-tabulation on",
+ "advHc": "corroborated detections",
+ "advHint": "Cross PV with an explanatory variable (INSEE, power classes), filter by power class and by reliability, colour scale, opacity.",
+ "clsLabel": "Power classes kept",
+ "clsHint": "Filters the number of installations and the capacity of the mapped variable. The classes are also available as explanatory variables.",
+ "hc": "Keep corroborated detections only (≥ 2 sources)",
+ "hcTitle": "{n} installations, {gwp} GWp",
+ "display": "Display",
+ "dispOne": "PV only",
+ "dispBiv": "Cross with a variable",
+ "explVar": "Explanatory variable (blue)",
+ "scale": "Colour scale",
+ "scLog": "Log",
+ "scLin": "Linear",
+ "scQuant": "Quantiles",
+ "scaleHint": {
+  "log": "Colours orders of magnitude: useful when a few cells concentrate most of the value.",
+  "lin": "Range between the 2nd and 98th percentiles, values beyond are saturated.",
+  "quant": "Each colour covers as many cells: shows the ranking, not the gaps."
+ },
+ "scatterTitle": "Relationship between the two variables",
+ "scatterAria": "Density of cells in the plane of the two variables",
+ "rho": "Spearman ρ = {rho}",
+ "rhoTail": " over {n} cells{sample}. Rank correlation: it describes an association, not a causal link.",
+ "rhoSample": " (sample of {n})",
+ "log": "log",
+ "opacity": "Data opacity",
+ "exportTitle": "Export",
+ "png": "PNG image",
+ "csv": "CSV data",
+ "csvTitle": "One row per displayed cell",
+ "geo": "GeoJSON",
+ "geoTitle": "Cells as polygons (WGS 84), for QGIS",
+ "exportHint": "Exported data are those of the displayed map (resolution, variables and detections kept).",
+ "preparing": "Preparing…",
+ "zin": "Zoom in",
+ "zout": "Zoom out",
+ "zfit": "Reset view",
+ "wheelHint": "Use Ctrl + scroll to zoom",
+ "capOne": "A single cell",
+ "capK": "{k} km cells",
+ "capHc": "corroborated detections",
+ "noteZero": "zero value: darkest colour",
+ "noteZero2": "two zero values: lightest cell",
+ "noteGrey": "grey: ratio not computed (denominator too small)",
+ "tipOne": "A single cell: the whole country",
+ "tipK": "{k} × {k} km cell",
+ "tipInst": "Installations",
+ "tipPop": "Population",
+ "quantNote": "rank scale (quantiles)",
+ "bivTitle": "Cell terciles",
+ "thrInd": "inhabitants",
+ "thrMen": "households",
+ "thrUnit": "units",
+ "thrNote": "Computed on cells with at least {thr} {what}.",
+ "unitSnv": "€/year",
+ "kwpPerCap": {
+  "label": "Capacity per inhabitant",
+  "unit": "W/inhab."
+ },
+ "fmt": {
+  "pct": "{short} (% {pct})",
+  "per": "{short} {per}"
+ },
+ "groups": {
+  "pv": "Photovoltaics",
+  "cls": "Power classes",
+  "pop": "Population and income",
+  "hh": "Households"
+ },
+ "classes": [
+  {
+   "long": "0 to 3 kWp",
+   "short": "0–3 kWp"
+  },
+  {
+   "long": "3 to 9 kWp",
+   "short": "3–9 kWp"
+  },
+  {
+   "long": "9 to 36 kWp",
+   "short": "9–36 kWp"
+  },
+  {
+   "long": "36 to 250 kWp",
+   "short": "36–250 kWp"
+  },
+  {
+   "long": "more than 250 kWp",
+   "short": "> 250 kWp"
+  }
+ ],
+ "clsInst": "Installations of {c}",
+ "clsInstShort": "Installations {s}",
+ "clsKwp": "Capacity of installations of {c}",
+ "clsKwpShort": "Capacity {s}",
+ "meas": {
+  "n": {
+   "label": "Number of installations",
+   "short": "Installations",
+   "unit": "installations"
+  },
+  "kwp": {
+   "label": "Installed capacity",
+   "short": "Capacity",
+   "unit": "kWp"
+  },
+  "ind": {
+   "label": "Population",
+   "short": "Population",
+   "unit": "inhab."
+  },
+  "snv": {
+   "label": "Mean living standard (€ per year)",
+   "short": "Living standard",
+   "unit": "€/year"
+  },
+  "men": {
+   "label": "Households",
+   "short": "Households",
+   "unit": "households"
+  },
+  "men_pauv": {
+   "label": "Households in poverty",
+   "short": "Poor households",
+   "unit": "households"
+  },
+  "men_prop": {
+   "label": "Owner households",
+   "short": "Owners",
+   "unit": "households"
+  },
+  "men_mais": {
+   "label": "Households in houses",
+   "short": "Households in houses",
+   "unit": "households"
+  }
+ },
+ "den": {
+  "none": {
+   "label": "None (value per cell)"
+  },
+  "ind": {
+   "label": "Population",
+   "short": "population",
+   "per": "/ 1,000 inhab.",
+   "perLab": "per 1,000 inhabitants",
+   "pctLab": "of the population"
+  },
+  "men": {
+   "label": "Households",
+   "short": "households",
+   "per": "/ 100 households",
+   "perLab": "per 100 households",
+   "pctLab": "of households"
+  },
+  "mais": {
+   "label": "Households in houses",
+   "short": "households in houses",
+   "per": "/ 100 households in houses",
+   "perLab": "per 100 households in houses",
+   "pctLab": "of households in houses"
+  },
+  "rev": {
+   "label": "Income (cumulated living standard)",
+   "short": "income",
+   "per": "/ M€ of living standard",
+   "perLab": "per million euros of cumulated living standard",
+   "pctLab": "of the living standard"
+  },
+  "pvall": {
+   "label": "All installations",
+   "short": "all installations",
+   "per": "/ installation",
+   "perLab": "per installation",
+   "pctLab": "of installations"
+  },
+  "kall": {
+   "label": "Total capacity",
+   "short": "total capacity",
+   "per": "/ kWp",
+   "perLab": "per kWp",
+   "pctLab": "of the installed capacity"
+  }
+ },
+ "pngSub": "Mainland France · cells of {k} × {k} km",
+ "pngHc": " · corroborated detections (≥ 2 sources)",
+ "pngCredit1": "Installations: DeepPVMapper / OpenPVMapper — Gabriel Kasmi (CC BY 4.0), deeppvmapper.fr",
+ "pngCredit2": "Population, income: INSEE, Filosofi 2021, 1 km grid · LAEA grid (EPSG:3035)",
+ "pngBase": " · Background: {a}",
+ "foot1": "Detection is partial (precision ≈ 75 %, estimated recall ≈ 0.6): no detection does not mean no panels. Capacity, tilt and orientation are model estimates.",
+ "foot2": "Installations: DeepPVMapper / OpenPVMapper — Gabriel Kasmi, CC BY 4.0. Population, households, income: INSEE, Filosofi 2021, 1 km grid (64 % of cells are imputed). LAEA grid (EPSG:3035).",
+ "geoAll": "all",
+ "geoHc": "corroborated (≥ 2 sources)",
+ "geoGrid": "INSPIRE cells aggregated, EPSG:3035 (LAEA); geometry exported in WGS 84",
+ "geoSrc": "DeepPVMapper / OpenPVMapper (CC BY 4.0), deeppvmapper.fr; INSEE Filosofi 2021, 1 km grid"
+}

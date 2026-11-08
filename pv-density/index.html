@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Où sont les panneaux solaires en toiture ?</title>
+<meta name="description" content="Le photovoltaïque en toiture recensé dans OpenPVMapper, agrégé sur une grille de carreaux et croisé avec les données INSEE. Rooftop solar from OpenPVMapper on a square grid, crossed with INSEE data.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23181818'/%3E%3Cg fill='%23e8a33d'%3E%3Crect x='20' y='20' width='16' height='16' rx='2'/%3E%3Crect x='42' y='20' width='16' height='16' rx='2'/%3E%3Crect x='64' y='20' width='16' height='16' rx='2'/%3E%3Crect x='20' y='42' width='16' height='16' rx='2'/%3E%3Crect x='42' y='42' width='16' height='16' rx='2'/%3E%3Crect x='64' y='42' width='16' height='16' rx='2'/%3E%3Crect x='20' y='64' width='16' height='16' rx='2'/%3E%3Crect x='42' y='64' width='16' height='16' rx='2'/%3E%3Crect x='64' y='64' width='16' height='16' rx='2'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="stylesheet" href="aggmap/aggmap.css">
+<style>
+/* Page frame only. The viewer itself (aggmap/) is copied unchanged from deeppvmapper.fr — see scripts/sync-aggmap.py. */
+:root{--bg:#fff;--text:#18181b;--muted:#6b7280;--border:#e4e4e7;--link:#9c6209;--link-hover:#7a4d07;
+  --font-serif:"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,"Times New Roman",serif;
+  --font-sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:var(--link);text-underline-offset:3px;text-decoration-color:var(--border)}
+a:hover{color:var(--link-hover);text-decoration-color:currentColor}
+:focus-visible{outline:2px solid var(--link);outline-offset:3px;border-radius:2px}
+.wrap{max-width:1400px;margin:0 auto;padding:0 20px}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:1em;padding:.8em 0;border-bottom:1px solid var(--border)}
+.back{color:var(--muted);text-decoration:none;font-size:.95rem;white-space:nowrap}
+.back:hover{color:var(--link)}
+.lang{display:flex;gap:1.1em;font-size:.95rem}
+.lang a{color:var(--muted);text-decoration:none}
+.lang a:hover{color:var(--link)}
+.lang a[aria-current="true"]{color:var(--text);text-decoration:underline;text-decoration-color:var(--link);text-decoration-thickness:2px;text-underline-offset:6px}
+/* let the full viewer use the page width and most of the viewport height */
+.aggmap.aggmap--full{max-width:none;margin:14px 0 20px}
+@media (min-width:861px){.aggmap--full .am-stage{height:clamp(460px,calc(100vh - 100px),900px)}}
+@media (max-width:640px){</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="bar">
+    <a class="back" id="back" href="../">← Random Maps</a>
+    <nav class="lang" aria-label="Langue / Language"><a href="?lang=fr" data-l="fr">FR</a><a href="?lang=en" data-l="en">EN</a></nav>
+  </header>
+
+  <div class="aggmap aggmap--full" id="am" data-mode="full" data-base="data/"></div>
+
+</div>
+<script>
+(function(){
+  var lang=new URLSearchParams(location.search).get('lang')==='en'?'en':'fr';
+  var T={
+    fr:{title:'Où sont les panneaux solaires en toiture ?'},
+    en:{title:'Where are the rooftop solar panels?'}
+  }[lang];
+  document.documentElement.lang=lang;
+  document.title=T.title;
+  document.getElementById('back').href='../?lang='+lang;
+  document.querySelectorAll('.lang a').forEach(function(a){a.setAttribute('aria-current',a.dataset.l===lang)});
+
+  // The viewer reads its texts from a <script class="am-i18n"> inside its root, so inject them before loading it.
+  // Local text overrides (kept here so that scripts/sync-aggmap.py can refresh the site's texts without losing them).
+  var OVR={
+    fr:{lead:'Faites glisser le curseur : la taille du carreau et les couleurs se recalculent.'},
+    en:{lead:'Drag the slider: cell size and colours are recomputed on the fly.'}
+  }[lang];
+  fetch('aggmap/i18n.'+lang+'.json').then(function(r){return r.json()}).then(function(I){
+    for(var k in OVR) I[k]=OVR[k];
+    var s=document.createElement('script'); s.type='application/json'; s.className='am-i18n'; s.textContent=JSON.stringify(I);
+    document.getElementById('am').appendChild(s);
+    var js=document.createElement('script'); js.src='aggmap/aggmap.js'; document.body.appendChild(js);
+  });
+})();
+</script>
+</body>
+</html>

@@ -21,6 +21,10 @@ button,input,select{font:inherit;color:inherit}
 .brand h1 i{font-style:normal;color:var(--acc)}
 .brand p{margin:0 0 10px;color:var(--ink2);font-size:13px}
 #hero.compact .brand{display:none}
+.rmback{display:none;position:absolute;z-index:1100;left:16px;top:16px;height:40px;align-items:center;padding:0 12px;border-radius:12px!important;box-shadow:0 4px 16px rgba(15,30,50,.2);font-size:13px;font-weight:600;color:var(--ink2);text-decoration:none}
+.rmback:hover{color:var(--acc)}
+body.home .rmback{display:flex}
+@media (max-width:820px){body.home .rmback{left:8px;top:calc(8px + env(safe-area-inset-top))}}
 .srow{display:flex;gap:6px;align-items:center;position:relative}
 .sbox{flex:1;min-width:0}
 .ibox{position:relative}
@@ -164,6 +168,7 @@ body.home .brand h1{font-size:26px;margin-bottom:12px}
 <body>
 <div id="map" role="application" aria-label="Carte"></div>
 <div id="veil"></div>
+<a class="rmback glass" id="rmback" href="../">← Random Maps</a>
 <div id="tools">
   <nav class="lang glass" aria-label="Langue"><a href="?lang=fr" data-l="fr">FR</a><a href="?lang=en" data-l="en">EN</a></nav>
   <button class="tb glass" id="bLay" aria-expanded="false" aria-controls="popLay" title="Fond de carte"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg></button>
@@ -294,7 +299,7 @@ var MOBILE=function(){return window.innerWidth<=820};
 /* static texts */
 $('t-title').textContent=I.title;$('q').placeholder=window.innerWidth<=820?I.phS:I.ph;document.title=I.title;
 $('t-famous').textContent=I.famous;$('t-curio').textContent=I.curio;$('t-base').textContent=I.base;$('t-over').textContent=I.over;$('t-wmt').textContent=I.wmt;$('t-allc').textContent=I.allc;$('t-color').textContent=I.color;$('t-rec').textContent=I.rec;$('t-recsub').textContent=I.recSub;$('t-foot').innerHTML=I.foot;$('t-disc').textContent='⚠ '+I.disc;
-document.querySelectorAll('.lang a').forEach(function(a){a.setAttribute('aria-current',a.dataset.l===LANG);a.href='?lang='+a.dataset.l+(P.get('data')?'&data='+encodeURIComponent(P.get('data')):'')});
+$('rmback').href='../?lang='+LANG;document.querySelectorAll('.lang a').forEach(function(a){a.setAttribute('aria-current',a.dataset.l===LANG);a.href='?lang='+a.dataset.l+(P.get('data')?'&data='+encodeURIComponent(P.get('data')):'')});
 var cs=$('colorSeg').querySelectorAll('button');cs[0].textContent=I.neutral;cs[1].textContent=I.density;
 
 /* ---------- map and base layers */
