@@ -1,0 +1,881 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Le match des surfaces</title>
+<meta name="description" content="Le match des surfaces : panneaux solaires, terrains de foot, piscines, rugby… dans chaque commune de France, laquelle prend le plus de place ? The surface showdown: solar panels, football pitches, pools, rugby… in every French commune, which takes up the most room?">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23181818'/%3E%3Cg fill='%23e8a33d'%3E%3Crect x='20' y='20' width='16' height='16' rx='2'/%3E%3Crect x='42' y='20' width='16' height='16' rx='2'/%3E%3Crect x='64' y='20' width='16' height='16' rx='2'/%3E%3Crect x='20' y='42' width='16' height='16' rx='2'/%3E%3Crect x='42' y='42' width='16' height='16' rx='2'/%3E%3Crect x='64' y='42' width='16' height='16' rx='2'/%3E%3Crect x='20' y='64' width='16' height='16' rx='2'/%3E%3Crect x='42' y='64' width='16' height='16' rx='2'/%3E%3Crect x='64' y='64' width='16' height='16' rx='2'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<style>
+/* World: VUE DU CIEL. France as an aerial photograph; each commune takes the material of its winning surface
+   as it looks from a plane (solar cells, mown pitch, pool water, clay court, asphalt…).
+   Ground = OpenStreetMap standard tiles at every zoom (user preference over IGN imagery: more legible). UI = dark field bands, cream cards, and a material "nuancier"
+   strip that is both the legend and the filter. Archivo; tabular figures. */
+@font-face{font-family:"Archivo";font-weight:400;font-display:swap;src:url(fonts/archivo-400.woff2) format("woff2")}
+@font-face{font-family:"Archivo";font-weight:600;font-display:swap;src:url(fonts/archivo-600.woff2) format("woff2")}
+@font-face{font-family:"Archivo";font-weight:800;font-display:swap;src:url(fonts/archivo-800.woff2) format("woff2")}
+@font-face{font-family:"Archivo Narrow";font-weight:800;font-display:swap;src:url(fonts/archivo-800-cond.woff2) format("woff2")}
+:root{
+  --field:#1f221f;--field-2:#2b2f2a;--field-line:#3c413b;--field-soft:#a9ab9f;
+  --cream:#f4f2ea;--cream-2:#e9e6da;--cream-line:#d8d4c6;--ink:#1f221f;--ink-soft:#64655b;
+  --water:#2fb3d6;
+  --sans:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;--narrow:"Archivo Narrow","Archivo",sans-serif;
+  --safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px);
+  --ease:cubic-bezier(.16,1,.3,1);
+  --strip-h:84px;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--field);color:var(--cream);font:15px/1.45 var(--sans);-webkit-font-smoothing:antialiased;overflow:hidden}
+::selection{background:var(--water);color:var(--ink)}
+:focus-visible{outline:2px solid var(--cream);outline-offset:2px}
+.card :focus-visible{outline-color:var(--ink)}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+[hidden]{display:none!important}
+.tnum{font-variant-numeric:tabular-nums}
+.ico{display:block;flex:none}
+
+#map{position:fixed;inset:0;background:var(--field)}
+.leaflet-container{font:inherit;background:var(--field)}
+.leaflet-tile-pane{filter:saturate(.75)}
+.leaflet-control-attribution{font:11px/1.4 var(--sans);background:rgba(31,34,31,.78)!important;color:var(--field-soft)}
+.leaflet-control-attribution a{color:var(--cream)}
+.leaflet-bottom{bottom:var(--strip-h)}
+.leaflet-bar{border:0!important;box-shadow:none!important;border-radius:0!important}
+.leaflet-bar a{border-radius:0!important;background:var(--field)!important;color:var(--cream)!important;font:600 20px/34px var(--sans)!important;width:34px!important;height:34px!important;border-bottom-color:var(--field-line)!important}
+.leaflet-bar a:hover{background:var(--field-2)!important}
+
+/* ---------- Top band ---------- */
+.top{position:fixed;left:0;right:0;top:0;z-index:1000;background:var(--field);padding:calc(10px + var(--safe-t)) 16px 14px}
+.top-row{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px;font-weight:600}
+.top-row a,.top-row button{color:var(--field-soft);text-decoration:none;background:none;border:0;padding:6px 0;font:inherit}
+.top-row a:hover,.top-row button:hover{color:var(--cream)}
+.top-right{display:flex;align-items:center;gap:16px}
+.lang a[aria-current="true"]{color:var(--cream);text-decoration:underline;text-underline-offset:4px}
+h1{margin:6px 0 0;font:800 clamp(25px,6.6vw,34px)/1.02 var(--sans);letter-spacing:-.025em;text-wrap:balance;max-width:16ch}
+.sub{margin:8px 0 0;font-size:14.5px;line-height:1.4;color:var(--field-soft);max-width:44ch}
+.seg{display:flex;gap:3px;margin-top:12px;padding:3px;background:var(--field-2)}
+.seg button{flex:1;height:30px;border:0;background:none;color:var(--field-soft);font:800 12.5px var(--narrow);letter-spacing:.05em;text-transform:uppercase}
+.seg button:hover{color:var(--cream)}
+.seg button[aria-checked="true"]{background:var(--cream);color:var(--ink)}
+.search{position:relative;margin-top:8px}
+.search input{width:100%;height:42px;border:0;background:var(--cream);color:var(--ink);padding:0 12px 0 38px;font:600 16px var(--sans);border-radius:0;-webkit-appearance:none;appearance:none;caret-color:var(--ink)}
+.search input::placeholder{color:var(--ink-soft);font-weight:400}
+.search .ico{position:absolute;left:11px;top:12px;pointer-events:none;color:var(--ink)}
+.results{position:absolute;left:0;right:0;top:100%;margin:0;padding:0;list-style:none;background:var(--cream);color:var(--ink);border-top:1px solid var(--cream-line);max-height:50vh;overflow:auto;z-index:2}
+.results li{padding:10px 12px;display:flex;justify-content:space-between;gap:8px;cursor:pointer;border-top:1px solid var(--cream-line)}
+.results li:first-child{border-top:0}
+.results li[aria-selected="true"],.results li:hover{background:var(--cream-2)}
+.results small{color:var(--ink-soft)}
+.results .empty{cursor:default;color:var(--ink-soft)}
+
+/* ---------- Drawer: the nuancier strip is legend + filter; slide it up for the regional surfaces ---------- */
+.drawer{position:fixed;left:0;right:0;bottom:0;z-index:1002;background:var(--field);padding-bottom:var(--safe-b);transform:translateY(var(--drawer-y,0px));transition:transform .45s var(--ease)}
+.drawer.dragging{transition:none}
+.grab{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:30px;border:0;background:none;color:var(--field-soft);font:800 11.5px var(--narrow);letter-spacing:.06em;text-transform:uppercase;padding:0;touch-action:none}
+.grab:hover{color:var(--cream)}
+.grab svg{transition:transform .35s var(--ease)}
+.drawer.open .grab svg{transform:rotate(180deg)}
+.hint .grab{animation:nudge 1.1s var(--ease) 4;color:var(--cream)}
+@keyframes nudge{40%{transform:translateY(-5px)}}
+.strip{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;touch-action:pan-x}
+.strip::-webkit-scrollbar{display:none}
+.sw{flex:1 0 88px;display:flex;flex-direction:column;background:var(--field);border:0;padding:0;text-align:left;color:var(--cream);min-width:0}
+.sw i{display:block;height:40px;transition:filter .2s,opacity .2s}
+.sw span{display:block;padding:6px 8px 0;font:800 12px/1.15 var(--narrow);letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sw small{display:block;padding:2px 8px 8px;font:400 11.5px/1.2 var(--sans);color:var(--field-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.sw:hover span{color:#fff;text-decoration:underline;text-underline-offset:3px}
+.sw[aria-pressed="false"] i{filter:grayscale(1);opacity:.28}
+.sw[aria-pressed="false"] span{color:var(--field-soft)}
+.more-t{padding:14px 10px 6px;font:800 11.5px var(--narrow);letter-spacing:.06em;text-transform:uppercase;color:var(--field-soft)}
+
+/* ---------- Cream card ---------- */
+.card{position:fixed;left:12px;right:12px;bottom:calc(var(--strip-h) + 12px);z-index:1000;background:var(--cream);color:var(--ink);padding:14px 16px;max-height:calc(100vh - var(--card-top,300px) - var(--strip-h) - 24px);display:flex;flex-direction:column}
+.card-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.card h2{margin:0;font:800 19px/1.15 var(--sans);letter-spacing:-.01em}
+.card h2 small{font-weight:400;color:var(--ink-soft);font-size:14px;letter-spacing:0}
+.x{background:none;border:0;color:var(--ink-soft);padding:4px;margin:-4px -6px -4px 0}
+.x:hover{color:var(--ink)}
+.card-body{overflow:auto;margin:10px -16px 0;padding:0 16px;scrollbar-width:thin;scrollbar-color:var(--cream-line) transparent}
+.card-body.more{-webkit-mask-image:linear-gradient(#000 calc(100% - 32px),transparent);mask-image:linear-gradient(#000 calc(100% - 32px),transparent)}
+.lead{margin:0 0 10px;font-size:15px;line-height:1.4;max-width:60ch}
+.lead b{font-weight:800}
+.stack{display:flex;height:22px;gap:2px;margin:0 0 10px}
+.stack i{display:block;min-width:2px;transition:flex-grow .7s var(--ease)}
+.rows{list-style:none;margin:0;padding:0}
+.row{display:grid;grid-template-columns:22px 1fr auto;align-items:center;column-gap:10px;padding:7px 0;border-top:1px solid var(--cream-line)}
+.row:first-child{border-top:0}
+.row .tx{width:22px;height:22px}
+.row .nm{font-weight:600;min-width:0}
+.row .nm small{display:block;font-weight:400;color:var(--ink-soft);font-size:13px}
+.row .val{font:800 16px var(--sans);text-align:right;white-space:nowrap}
+.row .val small{display:block;font:400 12.5px var(--sans);color:var(--ink-soft)}
+.row .bar{grid-column:2/4;height:8px;margin-top:5px;background:var(--cream-2)}
+.row .bar i{display:block;height:100%}
+.row.out .nm,.row.out .val{color:var(--ink-soft)}
+.row.out .tx,.row.out .bar i{filter:grayscale(1);opacity:.45}
+.row.first .val{font-size:20px}
+.rec{cursor:pointer}
+.rec:hover .nm{text-decoration:underline;text-underline-offset:3px}
+.section-t{margin:14px 0 2px;font:800 13px var(--narrow);letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft)}
+.actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.btn{height:36px;padding:0 13px;border:1.5px solid var(--ink);background:transparent;color:var(--ink);font:600 14px/1 var(--sans);border-radius:0;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{background:var(--cream-2)}
+.btn.dark{background:var(--ink);color:var(--cream)}
+.btn.dark:hover{background:var(--field-2)}
+
+/* Rankings inside the drawer */
+#more{max-height:min(62vh,560px);overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--field-line) transparent}
+.palm-wrap{padding:0 10px 14px;max-width:760px}
+.palm-wrap .more-t{padding-left:0}
+.chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;touch-action:pan-x;padding-bottom:2px}
+.chip{flex:none;display:flex;align-items:center;gap:6px;height:32px;padding:0 10px 0 6px;border:1.5px solid var(--field-line);background:none;color:var(--field-soft);font:800 12.5px var(--narrow)}
+.chip .tx{width:16px;height:16px}
+.chip[aria-selected="true"]{border-color:var(--cream);color:var(--cream)}
+.palm-hint,.palm-none{margin:8px 0 4px;font-size:13px;color:var(--field-soft)}
+.palm{list-style:none;margin:0;padding:0}
+.palm button{width:100%;display:grid;grid-template-columns:24px 1fr auto;align-items:center;gap:10px;padding:8px 0;border:0;border-top:1px solid var(--field-line);background:none;color:var(--cream);text-align:left}
+.palm li:first-child button{border-top:0}
+.palm button:hover .nm{text-decoration:underline;text-underline-offset:3px}
+.palm .rk{font:800 15px var(--sans);color:var(--field-soft)}
+.palm .nm{font-weight:600;min-width:0}
+.palm .nm small{font-weight:400;color:var(--field-soft)}
+.palm .vs{display:block;font-size:12.5px}
+.palm .vs.lose{color:#f2b8a8}
+.palm .val{font:800 15px var(--sans);white-space:nowrap}
+.palm-more{margin-top:8px;height:34px;padding:0 12px;border:1.5px solid var(--field-line);background:none;color:var(--cream);font:600 13.5px var(--sans)}
+.palm-more:hover{border-color:var(--cream)}
+
+/* Tucked detail card -> small tab */
+.card{transition:transform .45s var(--ease),opacity .3s}
+.card.tucked{transform:translateY(calc(100% + 24px));opacity:0;pointer-events:none}
+.head-btns{display:flex;gap:2px;margin:-4px -6px -4px 0}
+.head-btns .x{margin:0}
+.tab{position:fixed;left:12px;bottom:calc(var(--strip-h) + 12px);z-index:1000;height:40px;max-width:min(60vw,320px);display:flex;align-items:center;gap:8px;padding:0 12px 0 10px;border:0;background:var(--cream);color:var(--ink);font:800 14px var(--sans)}
+.tab span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tab:hover{background:var(--cream-2)}
+/* First-visit how-to */
+.tuto{position:fixed;left:12px;right:12px;bottom:calc(var(--strip-h) + 14px);z-index:1003;background:var(--cream);color:var(--ink);padding:16px 16px 14px;max-width:420px}
+.tuto::after{content:"";position:absolute;left:36px;bottom:-9px;border:9px solid transparent;border-bottom:0;border-top-color:var(--cream)}
+.tuto h2{margin:0;font:800 19px/1.15 var(--sans);letter-spacing:-.01em}
+.tuto ol{list-style:none;margin:12px 0 14px;padding:0;display:grid;gap:10px}
+.tuto li{display:grid;grid-template-columns:24px 1fr;gap:10px;font-size:14.5px;line-height:1.4}
+.tuto li b{width:24px;height:24px;display:grid;place-items:center;background:var(--ink);color:var(--cream);font:800 13px var(--sans)}
+.tuto .btn{float:none}
+
+/* Info sheet */
+.info{position:fixed;inset:0;z-index:1100;background:rgba(15,17,15,.55);display:flex;align-items:flex-end;justify-content:center}
+.info-card{background:var(--cream);color:var(--ink);width:min(100%,560px);max-height:86vh;overflow:auto;padding:0 20px calc(24px + var(--safe-b))}
+.info-head{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 -20px 14px;padding:14px 20px;background:var(--field);color:var(--cream)}
+.info-card h2{margin:0;font:800 22px/1.1 var(--sans);letter-spacing:-.01em}
+.info-card h3{margin:16px 0 4px;font:800 13px var(--narrow);letter-spacing:.04em;text-transform:uppercase}
+.info-card p,.info-card li{font-size:14px;line-height:1.55;margin:0 0 8px;max-width:65ch}
+.info-card ul{padding-left:18px;margin:0 0 8px}
+.info-card a{color:var(--ink)}
+.info-card code{font-size:.86em;background:var(--cream-2);padding:0 3px}
+.info-card .close{flex:none;background:var(--cream);color:var(--ink);border:0;height:32px;padding:0 12px;font:600 14px var(--sans)}
+
+.tag{position:fixed;z-index:1001;pointer-events:none;background:var(--field);color:var(--cream);padding:7px 10px;font:400 13px/1.3 var(--sans);transform:translate(12px,12px);white-space:nowrap}
+.tag b{font-weight:800}
+.loading{position:fixed;inset:0;z-index:998;display:grid;place-items:center;pointer-events:none;font:600 16px var(--sans);color:var(--field-soft)}
+.loading.err{color:#f2b8a8;pointer-events:auto}
+
+@media (max-width:600px){.sub{display:none}h1{max-width:none;font-size:24px}}
+@media (max-width:859px){
+  .leaflet-control-zoom{display:none}
+  .leaflet-bottom{bottom:calc(var(--strip-h) + var(--card-h,0px) + 12px)}
+  .card{max-height:50vh}
+}
+@media (min-width:860px){
+  .top{right:auto;width:420px;padding:16px 20px 18px}
+  .card{left:16px;right:auto;width:388px}
+  .sw{flex:1 0 96px}
+  .card.tucked{transform:translateX(calc(-100% - 24px))}
+  .tab{left:16px}
+  .tuto{left:16px;right:auto;width:388px}
+  .info{align-items:center}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M15.5 15.5L21 21" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square"/></symbol>
+  <symbol id="i-tuck" viewBox="0 0 24 24"><path d="M5 19h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="square"/></symbol>
+  <symbol id="i-bars" viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h6" stroke="currentColor" stroke-width="2.6" stroke-linecap="square"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 3v12M7 8l5-5 5 5M5 13v8h14v-8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></symbol>
+</svg>
+
+<div id="map" role="application" aria-label="Carte des communes"></div>
+
+<header class="top" id="top">
+  <div class="top-row">
+    <a data-back href="../">← Random Maps</a>
+    <div class="top-right">
+      <button type="button" id="helpBtn" data-t="helpBtn">Aide</button>
+      <button type="button" id="infoBtn" data-t="infoBtn">Sources</button>
+      <nav class="lang" aria-label="Langue / Language"><a href="?lang=fr" data-l="fr">FR</a> <a href="?lang=en" data-l="en">EN</a></nav>
+    </div>
+  </div>
+  <h1 id="h1"></h1>
+  <p class="sub" data-t="sub"></p>
+  <div class="seg" id="seg" role="radiogroup"><button type="button" role="radio" data-lv="com"></button><button type="button" role="radio" data-lv="dep"></button></div>
+  <div class="search">
+    <svg class="ico" width="18" height="18" aria-hidden="true"><use href="#i-search"/></svg>
+    <input id="q" type="search" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list">
+    <ul class="results" id="results" role="listbox" hidden></ul>
+  </div>
+</header>
+
+<section class="card" id="card" aria-live="polite" hidden></section>
+<button type="button" class="tab" id="tab" hidden><svg class="ico" width="18" height="18" aria-hidden="true"><use href="#i-bars"/></svg><span id="tabT"></span></button>
+<div class="tuto" id="tuto" role="dialog" aria-labelledby="tutoT" hidden><h2 id="tutoT"></h2><ol id="tutoL"></ol><button type="button" class="btn dark" id="tutoOk"></button></div>
+<nav class="drawer" id="drawer">
+  <button type="button" class="grab" id="grab" aria-expanded="false" aria-controls="more"><svg class="ico" width="14" height="14" aria-hidden="true"><use href="#i-up"/></svg><span id="grabT"></span></button>
+  <div class="strip" id="strip"></div>
+  <div id="more"><section class="palm-wrap" id="palm" aria-live="polite"></section></div>
+</nav>
+
+<div class="loading" id="loading" data-t="loading"></div>
+<div class="tag" id="tag" hidden></div>
+
+<div class="info" id="info" hidden>
+  <div class="info-card" role="dialog" aria-modal="true" aria-labelledby="infoTitle">
+    <div class="info-head"><h2 id="infoTitle"></h2><button class="close" type="button" id="infoClose" data-t="close">Fermer</button></div>
+    <div id="infoBody"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+(() => {
+'use strict';
+// ---------------------------------------------------------------- language
+const params = new URLSearchParams(location.search);
+const lang = params.get('lang') === 'en' ? 'en' : 'fr';
+document.documentElement.lang = lang;
+const loc = lang === 'en' ? 'en-GB' : 'fr-FR';
+const NF = new Intl.NumberFormat(loc), NF1 = new Intl.NumberFormat(loc, {maximumFractionDigits: 1}), NF2 = new Intl.NumberFormat(loc, {maximumFractionDigits: 2});
+
+// Each category is a material as seen from the sky. `c` is its solid tone (bars, chips); tile() paints its texture.
+const CAT = {
+  pv:         {c:'#22407a', fr:'Panneaux solaires', en:'Solar panels',     short:['Solaire','Solar'],      unit:['installation','installations','installation','installations']},
+  foot:       {c:'#3f8a3a', fr:'Terrains de foot',  en:'Football pitches', short:['Foot','Football'],      unit:['terrain','terrains','pitch','pitches']},
+  pool:       {c:'#2fb3d6', fr:'Piscines',          en:'Swimming pools',   short:['Piscines','Pools'],     unit:['piscine','piscines','pool','pools']},
+  tennis:     {c:'#c8673a', fr:'Courts de tennis',  en:'Tennis courts',    short:['Tennis','Tennis'],      unit:['court','courts','court','courts']},
+  roundabout: {c:'#5b6066', fr:'Ronds-points',      en:'Roundabouts',      short:['Ronds-points','Roundabouts'], unit:['rond-point','ronds-points','roundabout','roundabouts']},
+  boules:     {c:'#cdb68a', fr:'Terrains de boules',en:'Boules courts',    short:['Boules','Boules'],      unit:['terrain','terrains','court','courts']},
+  golf:       {c:'#93c95e', fr:'Golfs',             en:'Golf courses',     short:['Golf','Golf'],          unit:['golf','golfs','course','courses']},
+  parking:    {c:'#3a3d41', fr:'Parkings',          en:'Car parks',        short:['Parkings','Car parks'], unit:['parking','parkings','car park','car parks']},
+  rugby:      {c:'#5a3b7a', fr:'Terrains de rugby', en:'Rugby pitches',    short:['Rugby','Rugby'],        unit:['terrain','terrains','pitch','pitches']},
+  pelota:     {c:'#b2322d', fr:'Frontons de pelote',en:'Pelota courts',    short:['Pelote basque','Pelota'], unit:['fronton','frontons','court','courts']},
+  camping:    {c:'#e3c341', fr:'Campings',          en:'Campsites',        short:['Campings','Campsites'], unit:['camping','campings','campsite','campsites']},
+  greenhouse: {c:'#9fc2b4', fr:'Serres',            en:'Greenhouses',      short:['Serres','Greenhouses'], unit:['serre','serres','greenhouse','greenhouses']},
+};
+// One strip, all surfaces in a row.
+const MAIN = ['pv', 'foot', 'pool', 'tennis', 'roundabout', 'golf', 'parking'];
+const REGIONAL = ['rugby', 'pelota', 'boules', 'camping', 'greenhouse'];
+const ORDER = MAIN.concat(REGIONAL);
+const DEFAULT_ON = ['pv', 'foot', 'pool', 'tennis'];
+const FOOT_M2 = 7140, TENNIS_M2 = 261;
+
+const T = {
+  fr: {
+    h1: 'Le match des surfaces',
+    sub: 'Panneaux solaires, pelouses de foot, piscines, ronds-points… Dans chaque commune, la surface qui prend le plus de place colore la carte.',
+    loading: 'Chargement des 34 791 communes…',
+    loadErr: 'Les données n’ont pas pu être chargées. Recharge la page.',
+    lv: {
+      com: {seg: 'Communes', won: n => `${n} commune${n === '1' ? '' : 's'} gagnée${n === '1' ? '' : 's'}`, moreSurf: 'Palmarès des communes',
+            palmHint: 'Les communes qui en ont le plus, face aux autres surfaces choisies', search: 'Chercher une commune', noResult: 'Aucune commune à ce nom'},
+      dep: {seg: 'Départements', won: n => `${n} département${n === '1' ? '' : 's'} gagné${n === '1' ? '' : 's'}`, moreSurf: 'Palmarès des départements',
+            palmHint: 'Les départements qui en ont le plus, face aux autres surfaces choisies', search: 'Chercher un département', noResult: 'Aucun département à ce nom'}},
+    scale: 'Échelle', add: 'Ajouter', fewer: 'Refermer',
+    palmares: 'Palmarès', vs: 'contre', alone: 'seule surface choisie', nothingVs: 'rien en face',
+    top: n => `Voir le top ${n}`, topLess: 'Revenir au top 5', palmNone: 'Choisis au moins une surface.',
+    tuck: 'Ranger le détail', untuck: 'Afficher le détail',
+    helpBtn: 'Aide', tutoT: 'Comment ça marche', tutoOk: 'C’est parti',
+    tuto: touch => [
+      'Chaque commune prend la couleur de la surface qui y occupe le plus de place.',
+      `${touch ? 'Touche' : 'Clique sur'} une matière dans la barre du bas pour l’ajouter ou la retirer. Gardes-en deux pour un face-à-face.`,
+      `${touch ? 'Fais défiler la barre de côté' : 'Parcours la barre'} : il y a aussi le rugby, la pelote basque, les serres… ${touch ? 'Tire-la vers le haut' : 'Ouvre « Palmarès des communes »'} pour le top des communes.`,
+      `${touch ? 'Touche' : 'Clique sur'} une commune pour voir tous ses chiffres. Passe en « Départements », en haut, pour voir plus large.`],
+    close: 'Fermer', share: 'Partager', copied: 'Lien copié', copyHint: 'Copie ce lien :', outRace: 'non choisie', nothing: 'Rien de cartographié',
+    leadTxt: (n, a, eq) => `Ici, ce sont les <b>${n}</b> : ${a}, ${eq}.`, leadNone: 'Aucune des surfaces actives n’est cartographiée ici.',
+    eqFoot: n => `soit ${NF.format(n)} terrain${n > 1 ? 's' : ''} de foot`, eqTennis: n => `soit ${NF.format(n)} courts de tennis`,
+    infoBtn: 'Sources', infoTitle: 'Comment c’est calculé', strip: 'Surfaces en jeu', close: 'Fermer',
+    info: `<p>Pour chaque commune de France métropolitaine (34&nbsp;791), on additionne la surface au sol de chaque catégorie. La plus grande colore la commune, avec la matière qu’on verrait d’avion. Touche une matière dans la barre du bas pour l’ajouter ou la retirer&nbsp;: tout est recalculé. En vue «&nbsp;Départements&nbsp;», on additionne les communes de chaque département.</p>
+      <h3>D’où viennent les chiffres</h3>
+      <ul>
+        <li><b>Panneaux solaires</b>&nbsp;: emprise des installations détectées sur photos aériennes par <a href="https://deeppvmapper.fr">OpenPVMapper — DeepPVMapper</a> (Gabriel Kasmi, CC&nbsp;BY&nbsp;4.0), toitures et centrales au sol.</li>
+        <li><b>Toutes les autres surfaces</b>&nbsp;: polygones <a href="https://www.openstreetmap.org/copyright">© contributeurs OpenStreetMap</a> (ODbL), extrait Geofabrik. Foot, tennis, boules, rugby et pelote = <code>leisure=pitch</code> avec le sport correspondant&nbsp;; campings = <code>tourism=camp_site</code>&nbsp;; serres = <code>landuse=greenhouse_horticulture</code> et bâtiments <code>building=greenhouse</code> hors de ces zones&nbsp;; piscines = <code>leisure=swimming_pool</code>&nbsp;; parkings hors souterrains&nbsp;; ronds-points reconstruits à partir des voies <code>junction=roundabout</code> (surface à l’intérieur de l’axe de la chaussée).</li>
+        <li>Chaque objet est rattaché à la commune qui contient son centre. Contours des communes (et des départements, par fusion)&nbsp;: Etalab, 2025. Fond de carte&nbsp;: © contributeurs OpenStreetMap.</li>
+      </ul>
+      <h3>À lire avec prudence</h3>
+      <p>Ce ne sont pas des données officielles. La détection solaire est automatique et partielle (environ 6 installations sur 10 sont trouvées). OpenStreetMap ne connaît que ce que ses contributeurs ont dessiné&nbsp;: une commune sans piscine sur la carte peut en avoir plein. Au départ, seules quatre surfaces s’affrontent&nbsp;: avec les parkings, ceux-ci gagneraient plus d’une commune sur trois.</p>`,
+  },
+  en: {
+    h1: 'The surface showdown',
+    sub: 'Solar panels, football lawns, pools, roundabouts… In each commune, the surface that takes up the most room colours the map.',
+    loading: 'Loading 34,791 communes…',
+    loadErr: 'The data could not be loaded. Reload the page.',
+    lv: {
+      com: {seg: 'Communes', won: n => `${n} commune${n === '1' ? '' : 's'} won`, moreSurf: 'Commune rankings',
+            palmHint: 'The communes with the most of it, against the other chosen surfaces', search: 'Find a commune', noResult: 'No commune by that name'},
+      dep: {seg: 'Départements', won: n => `${n} département${n === '1' ? '' : 's'} won`, moreSurf: 'Département rankings',
+            palmHint: 'The départements with the most of it, against the other chosen surfaces', search: 'Find a département', noResult: 'No département by that name'}},
+    scale: 'Scale', add: 'Add', fewer: 'Close',
+    palmares: 'Rankings', vs: 'vs', alone: 'only surface chosen', nothingVs: 'nothing against it',
+    top: n => `Show top ${n}`, topLess: 'Back to top 5', palmNone: 'Pick at least one surface.',
+    tuck: 'Hide details', untuck: 'Show details',
+    helpBtn: 'Help', tutoT: 'How it works', tutoOk: 'Got it',
+    tuto: touch => [
+      'Each commune takes the colour of the surface that takes up the most room there.',
+      `${touch ? 'Tap' : 'Click'} a material in the bottom bar to add it or take it out. Keep two for a head-to-head.`,
+      `${touch ? 'Scroll the bar sideways' : 'Browse the bar'}: there is also rugby, pelota, greenhouses… ${touch ? 'Pull it up' : 'Open “Commune rankings”'} for the top communes.`,
+      `${touch ? 'Tap' : 'Click'} a commune to see all its figures. Switch to “Départements” at the top for the wider view.`],
+    close: 'Close', share: 'Share', copied: 'Link copied', copyHint: 'Copy this link:', outRace: 'not chosen', nothing: 'Nothing mapped',
+    leadTxt: (n, a, eq) => `Here, <b>${n}</b> win: ${a}, ${eq}.`, leadNone: 'None of the active surfaces is mapped here.',
+    eqFoot: n => `about ${NF.format(n)} football pitch${n > 1 ? 'es' : ''}`, eqTennis: n => `about ${NF.format(n)} tennis courts`,
+    infoBtn: 'Sources', infoTitle: 'How it is computed', strip: 'Surfaces in play',
+    info: `<p>For each commune of metropolitan France (34,791), we add up the ground area of each category. The largest colours the commune, with the material you would see from a plane. Tap a material in the bottom bar to add it or take it out: everything is recomputed. In the “Départements” view, the communes of each département are added up.</p>
+      <h3>Where the figures come from</h3>
+      <ul>
+        <li><b>Solar panels</b>: footprint of the installations detected on aerial imagery by <a href="https://deeppvmapper.fr">OpenPVMapper — DeepPVMapper</a> (Gabriel Kasmi, CC BY 4.0), rooftops and ground-mounted plants.</li>
+        <li><b>Every other surface</b>: polygons <a href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a> (ODbL), Geofabrik extract. Football, tennis, boules, rugby and pelota = <code>leisure=pitch</code> with the matching sport; campsites = <code>tourism=camp_site</code>; greenhouses = <code>landuse=greenhouse_horticulture</code> plus <code>building=greenhouse</code> outside those areas; pools = <code>leisure=swimming_pool</code>; car parks excluding underground ones; roundabouts rebuilt from <code>junction=roundabout</code> ways (area inside the carriageway centreline).</li>
+        <li>Each object is assigned to the commune that contains its centre. Commune outlines (and départements, merged from them): Etalab, 2025. Basemap: © OpenStreetMap contributors.</li>
+      </ul>
+      <h3>Handle with care</h3>
+      <p>This is not official data. Solar detection is automatic and partial (about 6 installations in 10 are found). OpenStreetMap only knows what its contributors have drawn: a commune with no pool on the map may have plenty. Only four surfaces compete at first: with car parks in, they would win more than one commune in three.</p>`,
+  }
+}[lang];
+const name = k => CAT[k][lang];
+const short = k => CAT[k].short[lang === 'en' ? 1 : 0];
+const $ = id => document.getElementById(id);
+document.querySelectorAll('[data-t]').forEach(el => { if (T[el.dataset.t]) el.textContent = T[el.dataset.t]; });
+$('h1').textContent = T.h1;
+document.title = T.h1;
+$('infoTitle').textContent = T.infoTitle;
+$('infoBody').innerHTML = T.info;
+document.querySelectorAll('.lang a').forEach(a => a.setAttribute('aria-current', a.dataset.l === lang));
+document.querySelectorAll('[data-back]').forEach(a => a.href = '../?lang=' + lang);
+
+// ---------------------------------------------------------------- materials (texture tiles, CSS px at 1x, drawn at 2x)
+function tile(k) {
+  const S = {pv: 8, foot: 16, pool: 14, tennis: 14, roundabout: 12, boules: 6, golf: 18, parking: 10, rugby: 16, pelota: 10, camping: 14, greenhouse: 8}[k], R = 2;
+  const c = document.createElement('canvas'); c.width = c.height = S * R;
+  const x = c.getContext('2d'); x.scale(R, R); x.fillStyle = CAT[k].c; x.fillRect(0, 0, S, S);
+  const line = (col, w, pts) => { x.strokeStyle = col; x.lineWidth = w; x.beginPath(); x.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) x.lineTo(pts[i], pts[i + 1]); x.stroke(); };
+  switch (k) {
+    case 'pv': line('#7f9fd6', .8, [S - .4, 0, S - .4, S]); line('#7f9fd6', .8, [0, S - .4, S, S - .4]); x.fillStyle = 'rgba(255,255,255,.08)'; x.fillRect(0, 0, S / 2, S / 2); break;
+    case 'foot': x.fillStyle = '#52a249'; x.fillRect(S / 2, 0, S / 2, S); break;
+    case 'pool': line('#9fe3f2', 1, [0, 9, 3.5, 7.5, 7, 9, 10.5, 10.5, 14, 9]); break;
+    case 'tennis': line('#f6e8dc', 1, [.5, 0, .5, S]); break;
+    case 'roundabout': line('#eceae2', 1.4, [2, S / 2, 6, S / 2]); break;
+    case 'boules': x.fillStyle = '#a58c5a'; x.fillRect(1, 1, 1, 1); x.fillRect(4, 3, 1, 1); break;
+    case 'golf': x.fillStyle = '#a8d878'; x.fillRect(0, 0, S, S / 2); break;
+    case 'parking': line('#e9e7df', 1, [.5, 0, .5, S * .6]); break;
+    case 'rugby': x.fillStyle = '#684a8a'; x.fillRect(0, S / 2, S, S / 2); line('#e6dcf0', .8, [0, .5, S, .5]); break;
+    case 'pelota': line('#f2d2cf', .9, [0, S, S, 0]); break;
+    case 'camping': x.fillStyle = '#b8962a'; x.beginPath(); x.moveTo(3, 11); x.lineTo(7, 4); x.lineTo(11, 11); x.fill(); break;
+    case 'greenhouse': line('#eef6f2', .8, [S - .4, 0, S - .4, S]); line('#eef6f2', .8, [0, S - .4, S, S - .4]); break;
+  }
+  return {canvas: c, size: S, url: c.toDataURL()};
+}
+const TILES = {}; ORDER.forEach(k => TILES[k] = tile(k));
+const texCSS = (k, scale = 1) => `background:${CAT[k].c} url(${TILES[k].url}) 0 0/${TILES[k].size * scale}px ${TILES[k].size * scale}px`;
+
+// ---------------------------------------------------------------- formatting
+// One unit everywhere: hectares (1 ha ≈ 1.4 football pitches), with as many decimals as the size needs.
+function area(m2) {
+  const h = m2 / 1e4;
+  if (h >= 10) return NF.format(Math.round(h)) + ' ha';
+  if (h >= 1) return NF1.format(h) + ' ha';
+  if (h >= .01) return NF2.format(h) + ' ha';
+  return m2 > 0 ? '< ' + NF2.format(.01) + ' ha' : '0 ha';
+}
+function count(k, n) { const u = CAT[k].unit, o = lang === 'en' ? 2 : 0; return NF.format(n) + ' ' + (n > 1 ? u[o + 1] : u[o]); }
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const swatch = k => `<i class="tx" style="${texCSS(k)}" aria-hidden="true"></i>`;
+
+// ---------------------------------------------------------------- state
+const onP = params.get('on');
+const off = new Set(ORDER.filter(k => !(onP !== null ? onP.split(',') : DEFAULT_ON).includes(k)));
+let selected = -1, tucked = false, palmK = null, palmN = 5;
+let level = params.get('lvl') === 'dep' ? 'dep' : 'com';
+const TL = () => T.lv[level];
+
+function writeURL() {
+  const p = new URLSearchParams();
+  if (lang === 'en') p.set('lang', 'en');
+  const on = ORDER.filter(k => !off.has(k)).join(',');
+  if (on !== DEFAULT_ON.join(',')) p.set('on', on || 'none');
+  if (level === 'dep') p.set('lvl', 'dep');
+  if (selected >= 0) p.set('c', D.codes[selected]);
+  const s = p.toString();
+  history.replaceState(null, '', s ? '?' + s : location.pathname);
+}
+
+// ---------------------------------------------------------------- map
+const map = L.map('map', {zoomControl: false, minZoom: 5, maxZoom: 16, zoomSnap: 0.25}).setView([46.6, 2.4], 6);
+L.control.zoom({position: 'bottomright'}).addTo(map);
+map.attributionControl.setPrefix(false);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  {maxZoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · OpenPVMapper'}).addTo(map);
+map.setMaxBounds([[33, -14], [56, 17]]);   // loose enough to frame a southern département above the card on phones
+
+// ---------------------------------------------------------------- data
+let D, N, RINGS, BBOX, GRID, STR, ALL = null;   // the current level's data (communes or départements)
+const LV = {};
+const Q = 4096;   // path units per world unit
+const CI = {};
+const W0 = lon => (lon + 180) / 360 * 256;
+const H0 = lat => { const s = Math.sin(lat * Math.PI / 180); return (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * 256; };
+
+function decodeTopo(topo, codes) {
+  const N = codes.length;
+  let RINGS, BBOX, GRID, STR;
+  const [sx, sy] = topo.transform.scale, [tx, ty] = topo.transform.translate;
+  const ARCS = topo.arcs.map(arc => {
+    const out = new Float32Array(arc.length * 2); let x = 0, y = 0;
+    for (let i = 0; i < arc.length; i++) { x += arc[i][0]; y += arc[i][1]; out[2 * i] = W0(x * sx + tx); out[2 * i + 1] = H0(y * sy + ty); }
+    return out;
+  });
+  const geoms = Object.values(topo.objects)[0].geometries;
+  const byCode = new Map(codes.map((c, i) => [c, i]));
+  RINGS = new Array(N); BBOX = new Float32Array(N * 4);
+  for (const g of geoms) {
+    const j = byCode.get(g.properties.code); if (j === undefined) continue;
+    const polys = g.type === 'Polygon' ? [g.arcs] : g.type === 'MultiPolygon' ? g.arcs : [];
+    const rings = []; let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (const poly of polys) for (const ring of poly) {
+      let len = 0; for (const a of ring) len += ARCS[a < 0 ? ~a : a].length / 2;
+      const r = new Float32Array(len * 2); let o = 0;
+      for (const a of ring) {
+        const arc = ARCS[a < 0 ? ~a : a], n = arc.length / 2;
+        for (let i = 0; i < n; i++) { const k = a < 0 ? n - 1 - i : i; r[o++] = arc[2 * k]; r[o++] = arc[2 * k + 1]; }
+      }
+      const rr = r.subarray(0, o);
+      for (let i = 0; i < o; i += 2) { const x = rr[i], y = rr[i + 1]; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      rings.push(rr);
+    }
+    RINGS[j] = rings; BBOX.set([x0, y0, x1, y1], 4 * j);
+  }
+  GRID = {x0: W0(-5.5), y0: H0(51.3), s: 0.06};
+  GRID.cols = Math.ceil((W0(10) - GRID.x0) / GRID.s); GRID.rows = Math.ceil((H0(41) - GRID.y0) / GRID.s);
+  GRID.cells = Array.from({length: GRID.cols * GRID.rows}, () => []);
+  for (let j = 0; j < N; j++) {
+    if (!RINGS[j]) continue;
+    const c0 = Math.max(0, Math.floor((BBOX[4*j] - GRID.x0) / GRID.s)), c1 = Math.min(GRID.cols - 1, Math.floor((BBOX[4*j+2] - GRID.x0) / GRID.s));
+    const r0 = Math.max(0, Math.floor((BBOX[4*j+1] - GRID.y0) / GRID.s)), r1 = Math.min(GRID.rows - 1, Math.floor((BBOX[4*j+3] - GRID.y0) / GRID.s));
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) GRID.cells[r * GRID.cols + c].push(j);
+  }
+  // Each commune as an SVG path string in integer units (world × Q, relative line-tos): Path2D parses these
+  // natively, which is ~60× faster than 1.5 M lineTo calls from JS.
+  STR = new Array(N);
+  for (let j = 0; j < N; j++) {
+    if (!RINGS[j]) continue;
+    let out = '';
+    for (const r of RINGS[j]) {
+      let px = Math.round(r[0] * Q), py = Math.round(r[1] * Q); out += 'M' + px + ' ' + py + 'l';
+      for (let i = 2; i < r.length; i += 2) { const x = Math.round(r[i] * Q), y = Math.round(r[i+1] * Q); if (x === px && y === py) continue; out += (x - px) + ' ' + (y - py) + ' '; px = x; py = y; }
+      out += 'z';
+    }
+    STR[j] = out;
+  }
+  return {RINGS, BBOX, GRID, STR};
+}
+// Départements: the communes' figures added up, drawn with their own (dissolved) outlines.
+function depLevel(C, topo) {
+  const geoms = Object.values(topo.objects)[0].geometries.slice().sort((a, b) => a.properties.code < b.properties.code ? -1 : 1);
+  const codes = geoms.map(g => g.properties.code), at = new Map(codes.map((c, i) => [c, i])), K = C.cats.length;
+  const d = {cats: C.cats, codes, names: geoms.map(g => g.properties.nom), land: new Array(codes.length).fill(0),
+             m2: C.cats.map(() => new Array(codes.length).fill(0)), n: C.cats.map(() => new Array(codes.length).fill(0))};
+  for (let j = 0; j < C.codes.length; j++) {
+    const i = at.get(C.codes[j].slice(0, 2)); if (i === undefined) continue;
+    d.land[i] += C.land[j];
+    for (let k = 0; k < K; k++) { d.m2[k][i] += C.m2[k][j]; d.n[k][i] += C.n[k][j]; }
+  }
+  return d;
+}
+function useLevel(l) {
+  level = l; const v = LV[l];
+  D = v.D; N = v.D.codes.length; RINGS = v.RINGS; BBOX = v.BBOX; GRID = v.GRID; STR = v.STR; NORM = v.NORM;
+  ALL = l === 'dep' ? new Path2D(STR.join('')) : null;
+}
+function hit(wx, wy) {
+  const c = Math.floor((wx - GRID.x0) / GRID.s), r = Math.floor((wy - GRID.y0) / GRID.s);
+  if (c < 0 || r < 0 || c >= GRID.cols || r >= GRID.rows) return -1;
+  for (const j of GRID.cells[r * GRID.cols + c]) {
+    if (wx < BBOX[4*j] || wx > BBOX[4*j+2] || wy < BBOX[4*j+1] || wy > BBOX[4*j+3]) continue;
+    let inside = false;
+    for (const ring of RINGS[j]) for (let i = 0, k = ring.length - 2; i < ring.length; k = i, i += 2) {
+      const xi = ring[i], yi = ring[i+1], xk = ring[k], yk = ring[k+1];
+      if ((yi > wy) !== (yk > wy) && wx < (xk - xi) * (wy - yi) / (yk - yi) + xi) inside = !inside;
+    }
+    if (inside) return j;
+  }
+  return -1;
+}
+
+
+// ---------------------------------------------------------------- race
+let WIN, CLASSES;
+function runRace() {
+  const act = D.cats.map((k, i) => off.has(k) ? -1 : i).filter(i => i >= 0);
+  WIN = new Int8Array(N).fill(-1);
+  for (let j = 0; j < N; j++) { let best = -1, bv = 0; for (const i of act) { const v = D.m2[i][j]; if (v > bv) { bv = v; best = i; } } WIN[j] = best; }
+}
+function tally() { const t = new Map(D.cats.map(k => [k, 0])); let none = 0; for (let j = 0; j < N; j++) WIN[j] < 0 ? none++ : t.set(D.cats[WIN[j]], t.get(D.cats[WIN[j]]) + 1); return {t, none}; }
+function buildClasses() {
+  const groups = new Map();
+  for (let j = 0; j < N; j++) { if (!RINGS[j]) continue; const k = WIN[j]; if (k < 0) continue; (groups.get(k) || groups.set(k, []).get(k)).push(j); }
+  CLASSES = [...groups.entries()].map(([k, js]) => ({mat: D.cats[k], fill: CAT[D.cats[k]].c, path: new Path2D(js.map(j => STR[j]).join('')), js}));
+}
+
+// ---------------------------------------------------------------- canvas layer
+const PATTERNS = {};
+const Choro = L.Renderer.extend({
+  options: {padding: 0.15},
+  _initContainer() { this._container = document.createElement('canvas'); this._ctx = this._container.getContext('2d'); },
+  _update() {
+    if (this._map._animatingZoom && this._bounds) return;
+    L.Renderer.prototype._update.call(this);
+    const b = this._bounds, size = b.getSize(), m = window.devicePixelRatio > 1 ? 2 : 1, c = this._container;
+    L.DomUtil.setPosition(c, b.min);
+    c.width = m * size.x; c.height = m * size.y; c.style.width = size.x + 'px'; c.style.height = size.y + 'px';
+    this._draw();
+  },
+  _updatePaths() {},
+  _draw() {
+    const ctx = this._ctx, c = this._container; if (!CLASSES || !this._bounds) return;
+    const m = c.width / this._bounds.getSize().x || 1, z = this._map.getZoom(), s = Math.pow(2, z) * m;
+    const po = this._map.getPixelOrigin(), b = this._bounds.min;
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, c.width, c.height);
+    const u = s / Q;   // canvas px per path unit
+    ctx.setTransform(u, 0, 0, u, -m * (b.x + po.x), -m * (b.y + po.y));
+    // From z9 only the communes in view are drawn: their path strings are joined on the fly.
+    let view = null;
+    if (z >= 9) {
+      const x0 = (b.x + po.x) / 2 ** z, y0 = (b.y + po.y) / 2 ** z, sz = this._bounds.getSize(), x1 = x0 + sz.x / 2 ** z, y1 = y0 + sz.y / 2 ** z;
+      view = j => BBOX[4*j+2] >= x0 && BBOX[4*j] <= x1 && BBOX[4*j+3] >= y0 && BBOX[4*j+1] <= y1;
+    }
+    const visible = [];
+    ctx.globalAlpha = z < 7 ? .88 : z < 9 ? .76 : z < 10.5 ? .56 : z < 12 ? .4 : .3;
+    const texScale = Math.max(.8, Math.min(1.3, (z - 6) / 4)) * m;   // the grain grows a little as you zoom in
+    for (const cl of CLASSES) {
+      if (cl.mat && z >= 9) {
+        const p = PATTERNS[cl.mat] || (PATTERNS[cl.mat] = ctx.createPattern(TILES[cl.mat].canvas, 'repeat'));
+        p.setTransform(new DOMMatrix([texScale / 2 / u, 0, 0, texScale / 2 / u, 0, 0]));
+        ctx.fillStyle = p;
+      } else ctx.fillStyle = cl.fill;
+      if (view) {
+        const js = cl.js.filter(view); if (!js.length) continue;
+        visible.push(...js);
+        ctx.fill(new Path2D(js.map(j => STR[j]).join('')), 'evenodd');
+      } else {
+        ctx.fill(cl.path, 'evenodd');
+        ctx.strokeStyle = cl.fill; ctx.lineWidth = .5 * m / u; ctx.stroke(cl.path);   // seal hairline seams
+      }
+    }
+    ctx.globalAlpha = 1;
+    if (ALL && !view) { ctx.strokeStyle = 'rgba(244,242,234,.5)'; ctx.lineWidth = .8 * m / u; ctx.stroke(ALL); }
+    if (view && visible.length) { ctx.strokeStyle = 'rgba(244,242,234,.45)'; ctx.lineWidth = (z >= 11 ? 1.2 : .7) * m / u; ctx.stroke(new Path2D(visible.map(j => STR[j]).join(''))); }
+    if (selected >= 0 && STR[selected]) {
+      const p = new Path2D(STR[selected]);
+      ctx.strokeStyle = '#1f221f'; ctx.lineWidth = 6 * m / u; ctx.stroke(p);
+      ctx.strokeStyle = '#f4f2ea'; ctx.lineWidth = 2.5 * m / u; ctx.stroke(p);
+    }
+  },
+});
+const choro = new Choro();
+
+// ---------------------------------------------------------------- drawer: strip + regional surfaces + rankings
+function swBtn(k, t) {
+  const on = !off.has(k), n = NF.format(t.get(k) || 0);
+  const sub = on && D ? n : '+ ' + T.add;
+  return `<button type="button" class="sw" data-k="${k}" aria-pressed="${on}" title="${esc(name(k))}${on && D ? ' · ' + TL().won(n) : ''}"><i style="${texCSS(k, 1.6)}"></i><span>${esc(short(k))}</span><small>${esc(sub)}</small></button>`;
+}
+function renderStrip() {
+  const t = D ? tally().t : new Map();
+  $('strip').setAttribute('aria-label', T.strip);
+  $('strip').innerHTML = ORDER.map(k => swBtn(k, t)).join('');
+  renderPalmares();
+  layout();
+}
+function onStrip(e) {
+  const b = e.target.closest('.sw'); if (!b) return;
+  const k = b.dataset.k;
+  off.has(k) ? off.delete(k) : off.add(k);
+  hideTuto(); refresh();
+}
+$('strip').addEventListener('click', onStrip);
+
+// Rankings: the communes with the most of one chosen surface, set against the biggest of the other chosen ones.
+function renderPalmares() {
+  const el = $('palm'); if (!D) return;
+  const act = ORDER.filter(k => !off.has(k));
+  if (!act.length) { el.innerHTML = `<div class="more-t">${T.palmares}</div><p class="palm-none">${T.palmNone}</p>`; return; }
+  if (!act.includes(palmK)) palmK = act[0];
+  const i = CI[palmK], others = act.filter(k => k !== palmK).map(k => CI[k]);
+  const best = [];
+  for (let j = 0; j < N; j++) {
+    const v = D.m2[i][j]; if (!v) continue;
+    if (best.length < palmN || v > best[best.length - 1][1]) {
+      best.push([j, v]); best.sort((a, b) => b[1] - a[1]); if (best.length > palmN) best.pop();
+    }
+  }
+  let h = `<div class="more-t">${T.palmares}</div><div class="chips" role="tablist">${act.map(k => `<button type="button" role="tab" class="chip" data-p="${k}" aria-selected="${k === palmK}">${swatch(k)}${esc(short(k))}</button>`).join('')}</div>`;
+  h += `<p class="palm-hint">${TL().palmHint}</p><ol class="palm">`;
+  best.forEach(([j, v], r) => {
+    let ok = -1, ov = 0; for (const o of others) if (D.m2[o][j] > ov) { ov = D.m2[o][j]; ok = o; }
+    const win = v >= ov;
+    const vs = ok >= 0 && ov > 0 ? `${T.vs} ${area(ov)} · ${esc(short(D.cats[ok]).toLowerCase())}` : others.length ? T.nothingVs : T.alone;
+    h += `<li><button type="button" data-j="${j}"><b class="rk tnum">${r + 1}</b><span class="nm">${esc(D.names[j])} <small>(${D.codes[j].slice(0, 2)})</small><small class="vs${win ? '' : ' lose'}">${vs}</small></span><span class="val tnum">${area(v)}</span></button></li>`;
+  });
+  h += `</ol><button type="button" class="palm-more" data-more>${palmN > 5 ? T.topLess : T.top(20)}</button>`;
+  el.innerHTML = h;
+}
+$('palm').addEventListener('click', e => {
+  const c = e.target.closest('[data-p]'), r = e.target.closest('[data-j]'), m = e.target.closest('[data-more]');
+  if (c) { palmK = c.dataset.p; palmN = 5; renderPalmares(); layout(); }
+  else if (m) { palmN = palmN > 5 ? 5 : 20; renderPalmares(); layout(); }
+  else if (r) { setDrawer(false); select(+r.dataset.j, true); }
+});
+
+const drawer = $('drawer'); let dOpen = false;
+function setDrawer(o) {
+  dOpen = o; drawer.classList.toggle('open', o);
+  $('grab').setAttribute('aria-expanded', o); $('grabT').textContent = o ? T.fewer : TL().moreSurf;
+  $('more').inert = !o;
+  drawer.style.setProperty('--drawer-y', o ? '0px' : $('more').offsetHeight + 'px');
+  if (o) hideTuto();
+}
+$('grab').addEventListener('click', () => setDrawer(!dOpen));
+// Drag the bar up or down (vertical gestures only: the strips still scroll sideways).
+let drag = null, swallow = false;
+drawer.addEventListener('pointerdown', e => { if (e.button) return; drag = {y: e.clientY, base: dOpen ? 0 : $('more').offsetHeight, id: e.pointerId, moved: false, dy: 0}; });
+drawer.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const dy = e.clientY - drag.y;
+  if (!drag.moved) { if (Math.abs(dy) < 10 || $('more').contains(e.target) && $('more').scrollTop > 0) return; drag.moved = true; drawer.setPointerCapture(drag.id); drawer.classList.add('dragging'); }
+  drag.dy = dy;
+  drawer.style.setProperty('--drawer-y', Math.max(0, Math.min($('more').offsetHeight, drag.base + dy)) + 'px');
+});
+const endDrag = () => {
+  if (!drag) return;
+  if (drag.moved) { drawer.classList.remove('dragging'); swallow = true; setTimeout(() => swallow = false, 50); setDrawer(drag.dy < -30 ? true : drag.dy > 30 ? false : dOpen); }
+  drag = null;
+};
+drawer.addEventListener('pointerup', endDrag); drawer.addEventListener('pointercancel', endDrag);
+drawer.addEventListener('click', e => { if (swallow) { e.stopPropagation(); e.preventDefault(); } }, true);
+
+// ---------------------------------------------------------------- commune card
+function renderCommune(j) {
+  const rows = ORDER.map(k => ({k, v: D.m2[CI[k]][j], n: D.n[CI[k]][j], out: off.has(k)})).filter(r => r.v > 0);
+  const inPlay = rows.filter(r => !r.out).sort((a, b) => b.v - a.v), outPlay = rows.filter(r => r.out).sort((a, b) => b.v - a.v);
+  const lead = inPlay[0], max = Math.max(1, ...rows.map(r => r.v));
+  let h = `<div class="card-head"><h2>${esc(D.names[j])} <small>(${D.codes[j].slice(0, 2)})</small></h2><div class="head-btns"><button type="button" class="x" data-act="tuck" aria-label="${T.tuck}" title="${T.tuck}"><svg class="ico" width="20" height="20"><use href="#i-tuck"/></svg></button><button type="button" class="x" data-act="close" aria-label="${T.close}" title="${T.close}"><svg class="ico" width="20" height="20"><use href="#i-x"/></svg></button></div></div><div class="card-body">`;
+  if (lead) {
+    const eq = lead.k === 'foot' ? T.eqTennis(Math.round(lead.v / TENNIS_M2)) : T.eqFoot(Math.max(1, Math.round(lead.v / FOOT_M2)));
+    h += `<p class="lead">${T.leadTxt(esc(name(lead.k).toLowerCase()), area(lead.v), eq)}</p>`;
+  } else h += `<p class="lead">${T.leadNone}</p>`;
+  const row = (r, i, out) => `<li class="row${out ? ' out' : i === 0 ? ' first' : ''}">${swatch(r.k)}<span class="nm">${esc(name(r.k))}<small>${count(r.k, r.n)}${out ? ' · ' + T.outRace : ''}</small></span><span class="val tnum">${area(r.v)}</span><span class="bar"><i style="width:${Math.max(.6, r.v / max * 100)}%;${texCSS(r.k)}"></i></span></li>`;
+  h += '<ol class="rows">' + inPlay.map((r, i) => row(r, i, false)).join('') + outPlay.map(r => row(r, 9, true)).join('') + '</ol>';
+  h += `</div><div class="actions"><button type="button" class="btn dark" data-act="share"><svg class="ico" width="16" height="16"><use href="#i-share"/></svg>${T.share}</button></div>`;
+  $('card').innerHTML = h;
+}
+function renderCard() {
+  const has = selected >= 0;
+  if (has) renderCommune(selected);
+  $('card').hidden = !has;
+  $('card').classList.toggle('tucked', tucked);
+  $('tab').hidden = !(has && tucked);
+  if (has) { $('tabT').textContent = D.names[selected]; $('tab').setAttribute('aria-label', T.untuck + ' · ' + D.names[selected]); }
+  layout();
+}
+$('card').addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const act = b.dataset.act;
+  if (act === 'close') select(-1);
+  else if (act === 'tuck') { tucked = true; renderCard(); $('tab').focus(); }
+  else if (act === 'share') share(b);
+});
+$('tab').addEventListener('click', () => { tucked = false; renderCard(); });
+
+// ---------------------------------------------------------------- first-visit how-to
+const touch = matchMedia('(hover: none)').matches;
+function showTuto() {
+  $('tutoT').textContent = T.tutoT; $('tutoOk').textContent = T.tutoOk;
+  $('tutoL').innerHTML = T.tuto(touch).map((t, i) => `<li><b>${i + 1}</b><span>${t}</span></li>`).join('');
+  $('tuto').hidden = false; drawer.classList.add('hint');
+}
+function hideTuto() {
+  if ($('tuto').hidden) return;
+  $('tuto').hidden = true; drawer.classList.remove('hint');
+  try { localStorage.setItem('surfaces.tuto', '1'); } catch (_) {}
+}
+$('tutoOk').onclick = hideTuto;
+$('helpBtn').onclick = () => { setDrawer(false); showTuto(); $('tutoOk').focus(); };
+
+async function share(btn) {
+  writeURL();
+  const j = selected, url = location.href;
+  const lead = j >= 0 ? ORDER.filter(k => !off.has(k)).sort((a, b) => D.m2[CI[b]][j] - D.m2[CI[a]][j])[0] : null;
+  const text = j >= 0 && lead && D.m2[CI[lead]][j] > 0
+    ? (lang === 'en' ? `The surface showdown in ${D.names[j]}: ${name(lead).toLowerCase()} win (${area(D.m2[CI[lead]][j])}).` : `Le match des surfaces ${level === 'dep' ? '· ' + D.names[j] + ' (' + D.codes[j] + ')' : 'à ' + D.names[j]} : ce sont les ${name(lead).toLowerCase()} qui gagnent (${area(D.m2[CI[lead]][j])}).`)
+    : document.title;
+  // 1. native share sheet (https only); a cancelled sheet is not an error
+  if (navigator.share) {
+    try { await navigator.share({title: document.title, text, url}); return; }
+    catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  // 2. clipboard API (https only), 3. legacy copy (works on plain http too), 4. show the link to copy by hand
+  let ok = false;
+  try { if (navigator.clipboard && isSecureContext) { await navigator.clipboard.writeText(url); ok = true; } } catch (_) {}
+  if (!ok) {
+    const ta = document.createElement('textarea');
+    ta.value = url; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;font-size:16px';
+    document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, url.length);
+    try { ok = document.execCommand('copy'); } catch (_) {}
+    ta.remove();
+  }
+  if (!ok) { prompt(T.copyHint, url); return; }
+  const old = btn.innerHTML; btn.textContent = T.copied; setTimeout(() => btn.innerHTML = old, 1600);
+}
+
+// ---------------------------------------------------------------- selection + layout
+function select(j, fly) {
+  selected = j; tucked = false;
+  if (j >= 0) hideTuto();
+  writeURL(); renderCard();
+  if (j >= 0 && fly) {
+    const b = BBOX.subarray(4 * j, 4 * j + 4), z = map.getZoom();
+    const sw = map.unproject([b[0] * 2 ** z, b[3] * 2 ** z], z), ne = map.unproject([b[2] * 2 ** z, b[1] * 2 ** z], z);
+    map.flyToBounds(L.latLngBounds(sw, ne), {...fitPad(), maxZoom: 13, duration: .9});
+  }
+  choro._draw();
+}
+function fitPad() {
+  const top = $('top').getBoundingClientRect(), peek = $('drawer').offsetHeight - $('more').offsetHeight;
+  const card = selected >= 0 && !tucked ? $('card').getBoundingClientRect().top : innerHeight - peek;
+  return innerWidth >= 860 ? {paddingTopLeft: [top.right + 24, 24], paddingBottomRight: [24, peek + 24]}
+                           : {paddingTopLeft: [16, top.bottom + 12], paddingBottomRight: [16, innerHeight - Math.min(card, innerHeight - peek) + 12]};
+}
+function layout() {
+  const r = document.documentElement.style;
+  r.setProperty('--strip-h', ($('drawer').offsetHeight - $('more').offsetHeight) + 'px');
+  if (!dOpen) drawer.style.setProperty('--drawer-y', $('more').offsetHeight + 'px');
+  r.setProperty('--card-top', $('top').getBoundingClientRect().bottom + 'px');
+  r.setProperty('--card-h', (innerWidth < 860 && selected >= 0 && !tucked ? $('card').offsetHeight : 0) + 'px');
+  const body = $('card').querySelector('.card-body');
+  if (body) { const f = () => body.classList.toggle('more', body.scrollHeight - body.scrollTop - body.clientHeight > 4); f(); body.onscroll = f; }
+}
+addEventListener('resize', layout);
+
+map.on('click', e => {
+  if (!RINGS) return;
+  const z = map.getZoom(), p = map.project(e.latlng, z), j = hit(p.x / 2 ** z, p.y / 2 ** z);
+  select(j === selected ? -1 : j, false);
+});
+const tag = $('tag'); let hoverRAF = 0;
+map.on('mousemove', e => {
+  if (!RINGS || matchMedia('(hover: none)').matches) return;
+  cancelAnimationFrame(hoverRAF);
+  hoverRAF = requestAnimationFrame(() => {
+    const z = map.getZoom(), p = map.project(e.latlng, z), j = hit(p.x / 2 ** z, p.y / 2 ** z);
+    if (j < 0) { tag.hidden = true; map.getContainer().style.cursor = ''; return; }
+    map.getContainer().style.cursor = 'pointer';
+    const label = WIN[j] < 0 ? T.nothing : `${esc(name(D.cats[WIN[j]]))} · ${area(D.m2[WIN[j]][j])}`;
+    tag.innerHTML = `<b>${esc(D.names[j])}</b><br>${label}`;
+    tag.style.left = e.originalEvent.clientX + 'px'; tag.style.top = e.originalEvent.clientY + 'px'; tag.hidden = false;
+  });
+});
+map.on('mouseout movestart', () => { tag.hidden = true; });
+
+// ---------------------------------------------------------------- search
+const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[-'’]/g, ' ').replace(/\s+/g, ' ').replace(/\bst\b/g, 'saint').replace(/\bste\b/g, 'sainte').trim();
+let NORM = null, hits = [], active = -1;
+const q = $('q'), list = $('results');
+function closeList() { list.hidden = true; q.setAttribute('aria-expanded', 'false'); }
+function showResults() {
+  const v = norm(q.value);
+  if (!v || !NORM) return closeList();
+  const starts = [], inc = [];
+  for (let j = 0; j < N && starts.length < 8; j++) { const s = NORM[j]; if (s.startsWith(v)) starts.push(j); else if (inc.length < 8 && s.includes(v)) inc.push(j); }
+  hits = starts.concat(inc).slice(0, 8);
+  const cq = q.value.trim().toUpperCase(), code = level === 'dep' && /^(\d{1,2}|2[AB])$/.test(cq) ? cq.padStart(2, '0') : /^\d{5}$/.test(cq) ? cq : null;
+  if (code) { const k = D.codes.indexOf(code); if (k >= 0) hits = [k]; }
+  active = hits.length ? 0 : -1;
+  list.innerHTML = hits.length ? hits.map((j, i) => `<li role="option" id="r${i}" data-j="${j}" aria-selected="${i === active}"><span>${esc(D.names[j])}</span><small>${D.codes[j].slice(0, 2)}</small></li>`).join('')
+    : `<li class="empty" role="option" aria-disabled="true">${TL().noResult}</li>`;
+  list.hidden = false; q.setAttribute('aria-expanded', 'true'); q.setAttribute('aria-activedescendant', active >= 0 ? 'r' + active : '');
+}
+function pick(j) { closeList(); q.value = D.names[j]; q.blur(); select(j, true); }
+q.addEventListener('input', showResults);
+q.addEventListener('keydown', e => {
+  if (list.hidden) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault(); if (!hits.length) return;
+    active = (active + (e.key === 'ArrowDown' ? 1 : hits.length - 1)) % hits.length;
+    list.querySelectorAll('li').forEach((li, i) => li.setAttribute('aria-selected', i === active));
+    q.setAttribute('aria-activedescendant', 'r' + active);
+  } else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); pick(hits[active]); }
+  else if (e.key === 'Escape') closeList();
+});
+list.addEventListener('mousedown', e => { const li = e.target.closest('li[data-j]'); if (li) { e.preventDefault(); pick(+li.dataset.j); } });
+q.addEventListener('blur', () => setTimeout(closeList, 120));
+
+// ---------------------------------------------------------------- info
+const openInfo = () => { $('info').hidden = false; $('infoClose').focus(); };
+const closeInfo = () => { $('info').hidden = true; $('infoBtn').focus(); };
+$('infoBtn').onclick = openInfo; $('infoClose').onclick = closeInfo;
+$('info').addEventListener('click', e => { if (e.target.id === 'info') closeInfo(); });
+addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (!$('info').hidden) closeInfo(); else if (!$('tuto').hidden) hideTuto(); else if (dOpen) setDrawer(false); });
+
+// ---------------------------------------------------------------- scale: communes / départements
+function renderSeg() {
+  $('seg').setAttribute('aria-label', T.scale);
+  $('seg').querySelectorAll('button').forEach(b => { b.textContent = T.lv[b.dataset.lv].seg; b.setAttribute('aria-checked', b.dataset.lv === level); });
+  $('q').placeholder = TL().search;
+}
+$('seg').addEventListener('click', e => {
+  const b = e.target.closest('[data-lv]'); if (!b || b.dataset.lv === level || !LV.dep) return;
+  const was = selected >= 0 ? D.codes[selected] : null;
+  useLevel(b.dataset.lv); renderSeg();
+  q.value = ''; closeList(); palmN = 5; $('grabT').textContent = dOpen ? T.fewer : TL().moreSurf;
+  // A selected commune becomes its département; going back down, nothing stays selected.
+  const j = was && level === 'dep' ? D.codes.indexOf(was.slice(0, 2)) : -1;
+  selected = -1; hideTuto(); refresh();
+  select(j, j >= 0);
+});
+renderSeg();
+
+// ---------------------------------------------------------------- boot
+function refresh() { runRace(); buildClasses(); choro._draw(); renderStrip(); renderCard(); writeURL(); }
+renderStrip(); setDrawer(false);
+Promise.all(['data/surfaces.json', 'data/communes.topo.json', 'data/departements.topo.json'].map(u => fetch(u).then(r => { if (!r.ok) throw r; return r.json(); })))
+  .then(([s, topo, dtopo]) => {
+    s.cats.forEach((k, i) => CI[k] = i);
+    const dd = depLevel(s, dtopo);
+    LV.com = {D: s, ...decodeTopo(topo, s.codes), NORM: s.names.map(norm)};
+    LV.dep = {D: dd, ...decodeTopo(dtopo, dd.codes), NORM: dd.names.map(norm)};
+    useLevel(level);
+    runRace(); buildClasses(); choro.addTo(map);
+    $('loading').hidden = true;
+    renderStrip(); renderCard();
+    map.fitBounds([[41.35, -5.1], [51.1, 9.6]], fitPad());
+    const c = params.get('c'), j = c ? D.codes.indexOf(level === 'dep' ? c.slice(0, 2) : c) : -1;
+    if (j >= 0) select(j, true);
+    else { let seen = false; try { seen = !!localStorage.getItem('surfaces.tuto'); } catch (_) {} if (!seen) showTuto(); }
+  })
+  .catch(() => { const l = $('loading'); l.textContent = T.loadErr; l.classList.add('err'); });
+})();
+</script>
+</body>
+</html>
