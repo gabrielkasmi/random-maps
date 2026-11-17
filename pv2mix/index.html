@@ -1,0 +1,1475 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f2f63">
+<title>PV2Mix</title>
+<meta name="description" content="Choisissez une commune ou un point : les toitures solaires détectées autour, et ce qu’elles produisent heure par heure, prévu la veille contre réalisé d’après le satellite. Projet indépendant, non affilié à RTE.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230f2f63'/%3E%3Cpath d='M12 78C30 78 34 26 50 26S70 78 88 78Z' fill='%23f4f7fa'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<style>
+@font-face{font-family:"Archivo";font-weight:400;font-display:swap;src:url(fonts/archivo-400.woff2) format("woff2")}
+@font-face{font-family:"Archivo";font-weight:600;font-display:swap;src:url(fonts/archivo-600.woff2) format("woff2")}
+@font-face{font-family:"Archivo";font-weight:700;font-display:swap;src:url(fonts/archivo-700.woff2) format("woff2")}
+@font-face{font-family:"Archivo Expanded";font-weight:800;font-display:swap;src:url(fonts/archivo-expanded-800.woff2) format("woff2")}
+/* Cyanotype: Prussian-blue ground, one 7-step exposure ramp (x0 → x6) for every intensity. */
+:root{
+  --x0:#0b2550;--x1:#123a75;--x2:#1d4f96;--x3:#2f68b3;--x4:#7fb2e5;--x5:#b9d7f3;--x6:#f4f7fa;
+  --ground:#0f2f63;--ground-2:#143a76;--line:#2a5594;
+  --ink:#f4f7fa;--ink-2:#b9d7f3;--ink-3:#8fbbe8;
+  --paper:#ffffff;--paper-ink:#0f2f63;--paper-ink-2:#4a6491;--paper-line:#d9e3f0;
+  --warn:#ffcab8;
+  --sans:"Archivo",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --display:"Archivo Expanded","Archivo",-apple-system,BlinkMacSystemFont,sans-serif;
+  --ease:cubic-bezier(.16,1,.3,1);
+  --sheet-top:39svh;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--ground);color:var(--ink);font:15px/1.5 var(--sans);-webkit-font-smoothing:antialiased;overflow:hidden}
+::selection{background:var(--x4);color:var(--x0)}
+a{color:var(--ink);text-decoration:underline;text-decoration-color:var(--ink-3);text-underline-offset:3px}
+a:hover{text-decoration-color:currentColor}
+:focus-visible{outline:2px solid var(--x4);outline-offset:2px;border-radius:4px}
+button{font:inherit;color:inherit;cursor:pointer}
+.tnum{font-variant-numeric:tabular-nums lining-nums}
+[hidden]{display:none!important}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+svg.i{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---------- Map ---------- */
+#map{position:fixed;inset:0;background:#efece6;z-index:0}
+.leaflet-container{font-family:var(--sans);background:#efece6}
+.leaflet-control-attribution{font-size:10px;background:rgba(255,255,255,.82)!important;color:var(--paper-ink-2)}
+.leaflet-control-attribution a{color:var(--paper-ink)}
+.leaflet-bar a{color:var(--paper-ink)!important}
+.leaflet-popup-content-wrapper{border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.28);color:var(--paper-ink)}
+.leaflet-popup-content{margin:12px 14px;font:14px/1.45 var(--sans)}
+.leaflet-popup-tip{box-shadow:none}
+.pick{display:grid;gap:6px;min-width:200px}
+.pick button{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:1px solid var(--paper-line);background:#fff;border-radius:9px;padding:9px 11px;font-weight:600;color:var(--paper-ink)}
+.pick button:hover:not(:disabled){border-color:var(--paper-ink)}
+.pick button:disabled{color:var(--paper-ink-2);font-weight:400;cursor:progress}
+.pick small{display:block;font-weight:400;color:var(--paper-ink-2);font-size:12px}
+.pop b{font-size:16px}
+.pop span{color:var(--paper-ink-2)}
+
+/* ---------- Top: back link, language, search ---------- */
+.top{position:fixed;z-index:600;top:0;left:0;right:0;padding:max(12px,env(safe-area-inset-top)) 12px 0;display:grid;gap:8px;pointer-events:none}
+.top>*{pointer-events:auto}
+.bar{display:flex;justify-content:space-between;align-items:center}
+.chip-link{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border-radius:99px;background:rgba(255,255,255,.92);color:var(--paper-ink);font-size:13px;font-weight:600;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.chip-link svg.i{width:15px;height:15px}
+.lang{display:flex;background:rgba(255,255,255,.92);border-radius:99px;padding:3px;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.lang a{height:24px;min-width:34px;display:grid;place-items:center;border-radius:99px;font-size:12px;font-weight:700;color:var(--paper-ink-2);text-decoration:none}
+.lang a[aria-current="true"]{background:var(--ground);color:var(--ink)}
+.search{position:relative;display:flex;align-items:center;gap:4px;height:50px;background:var(--paper);border-radius:14px;padding:0 6px 0 14px;box-shadow:0 8px 22px rgba(0,0,0,.26);color:var(--paper-ink)}
+.search>svg.i{color:var(--paper-ink-2)}
+.search input{flex:1;min-width:0;height:100%;border:0;background:none;font:600 16px var(--sans);color:var(--paper-ink);padding:0 6px;outline:none;caret-color:var(--x3)}
+.search input::placeholder{color:var(--paper-ink-2);font-weight:400}
+.search input::-webkit-search-cancel-button{display:none}
+.tag{font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--paper-ink);background:#e6eef8;border-radius:99px;padding:3px 9px;white-space:nowrap}
+.icon-btn{display:grid;place-items:center;width:40px;height:40px;border:0;border-radius:10px;background:none;color:var(--paper-ink)}
+.icon-btn:hover{background:#eef3fa}
+.icon-btn[aria-busy="true"]{opacity:.5;cursor:progress}
+.sugg{position:absolute;left:0;right:0;top:calc(100% + 6px);margin:0;padding:6px;list-style:none;background:var(--paper);border-radius:12px;box-shadow:0 12px 28px rgba(0,0,0,.28);max-height:60svh;overflow:auto}
+.sugg li{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:15px;color:var(--paper-ink)}
+.sugg li span:first-child{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sugg li[aria-selected="true"],.sugg li:hover{background:#eef3fa}
+.sugg .tag{background:none;border:1px solid var(--paper-line);color:var(--paper-ink-2)}
+
+/* ---------- Sheet (results drawer) ---------- */
+.sheet{position:fixed;z-index:500;left:0;right:0;bottom:0;top:var(--sheet-top);background:var(--ground);border-radius:20px 20px 0 0;box-shadow:0 -10px 30px rgba(0,0,0,.3);display:flex;flex-direction:column;transition:top .45s var(--ease)}
+.sheet[data-size="intro"]{top:auto}
+.sheet[data-size="hidden"]{top:100%;box-shadow:none;visibility:hidden;transition:top .45s var(--ease),visibility 0s .45s}
+.close{position:absolute;top:4px;right:12px;z-index:2;display:none;place-items:center;width:34px;height:34px;border:0;border-radius:50%;background:var(--ground-2);color:var(--ink)}
+.close svg.i{width:18px;height:18px}
+.sheet[data-size="full"] .close{display:grid}
+.sheet[data-size="full"] .scroll{padding-top:18px}
+
+/* ---------- Mini card (phones): floats above the chosen area, opens the details ---------- */
+.leaflet-popup.mini-pop .leaflet-popup-content-wrapper{background:var(--ground);color:var(--ink);border-radius:16px;box-shadow:0 10px 26px rgba(0,0,0,.35);padding:0}
+.leaflet-popup.mini-pop .leaflet-popup-tip{background:var(--ground)}
+.leaflet-popup.mini-pop .leaflet-popup-content{margin:0;width:236px!important}
+.mini{padding:10px 14px 8px;font-family:var(--sans)}
+.mini-open{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;padding:0;text-align:left;color:var(--ink)}
+.mini-num{font:800 38px/1 var(--display);letter-spacing:-.03em;display:flex;align-items:baseline;gap:5px}
+.mini-num small{font:600 16px var(--sans);color:var(--ink-2);letter-spacing:0}
+.mini-more{margin-left:auto;display:flex;align-items:center;gap:2px;font-size:12px;font-weight:600;color:var(--ink-2)}
+.mini-more svg.i{width:16px;height:16px}
+.mini-cap{margin:4px 0 0;font-size:12px;color:var(--ink-2)}
+.mini input[type=range]{height:26px;margin-top:2px}
+.mini .status{margin:0 0 4px;font-size:13px}
+.mini.loading .mini-num,.mini.loading .mini-cap{opacity:.35}
+.sheet[data-size="full"]{top:calc(max(12px,env(safe-area-inset-top)) + 104px)}
+.grab{flex:none;display:block;width:100%;height:24px;border:0;background:none;position:relative}
+.grab::before{content:"";position:absolute;left:50%;top:9px;width:42px;height:4px;margin-left:-21px;border-radius:2px;background:var(--line)}
+.scroll{flex:1;overflow:auto;overscroll-behavior:contain;padding:0 20px;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.scroll::-webkit-scrollbar{width:8px}.scroll::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+
+h1{font:800 30px/1 var(--display);letter-spacing:-.02em;margin:2px 0 8px}
+h1 em{font-style:normal;color:var(--x4)}
+.lead{color:var(--ink-2);margin:0 0 14px;max-width:46ch}
+.examples{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 6px}
+.ex{border:1px solid var(--line);background:var(--ground-2);border-radius:99px;padding:6px 13px;font-size:14px;font-weight:600}
+.ex:hover{border-color:var(--x4)}
+.hint{color:var(--ink-3);font-size:13px;margin:8px 0 0}
+
+.zone{display:flex;align-items:center;gap:10px;margin:0 0 2px}
+.zone h2{flex:1;min-width:0;margin:0;font:700 17px/1.25 var(--sans);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.zone h2 span{font-weight:400;color:var(--ink-2)}
+.date{position:relative;display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px;border-radius:99px;border:1px solid var(--line);background:var(--ground-2);font-size:13px;font-weight:600;white-space:nowrap}
+.date input{position:absolute;inset:0;opacity:0;width:100%;cursor:pointer}
+.date svg.i{width:15px;height:15px;color:var(--ink-2)}
+.days{display:flex;gap:6px}
+.days button{height:30px;padding:0 11px;border-radius:99px;border:1px solid var(--line);background:none;font-size:13px;color:var(--ink-2)}
+.days button[aria-pressed="true"]{background:var(--x6);color:var(--ground);border-color:var(--x6);font-weight:700}
+
+.hero{margin:14px 0 0}
+.hero-num{font:800 clamp(52px,15vw,64px)/.95 var(--display);letter-spacing:-.03em;margin:0;display:flex;align-items:baseline;gap:8px}
+.hero-num small{font:600 22px var(--sans);color:var(--ink-2);letter-spacing:0}
+.hero-cap{margin:6px 0 0;color:var(--ink-2);font-size:14px}
+.hero-cap b{color:var(--ink);font-weight:600}
+.figs{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,1fr);gap:6px 16px;align-items:baseline;margin:16px 0 0}
+.figs .fh{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:var(--ink-2);white-space:nowrap}
+.figs .rl{font-size:12px;color:var(--ink-2);white-space:nowrap}
+.figs b{font:700 19px/1.15 var(--sans);white-space:nowrap}
+.figs small{display:block;font:400 12px/1.3 var(--sans);color:var(--ink-2);margin-top:2px}
+.key{display:inline-block;width:14px;height:0;border-top:2.5px solid var(--x6);flex:none}
+.key.fc{border-top:2.5px dashed var(--x4)}
+
+.chart{position:relative;margin:16px -4px 0}
+canvas{display:block;width:100%;height:clamp(120px,17svh,178px);touch-action:pan-y}
+@media (min-width:900px){canvas{height:178px}}
+.date:not(.custom) #date-label{display:none}.date:not(.custom){padding:0 8px}
+@media (max-width:399px){.zone{gap:6px}}
+.tip{position:absolute;top:0;pointer-events:none;background:var(--x6);color:var(--paper-ink);border-radius:9px;padding:7px 9px;font-size:12px;box-shadow:0 6px 18px rgba(0,0,0,.35);min-width:9.5rem;z-index:2}
+.tip b{display:block;font-size:13px;margin-bottom:2px}
+.tip div{display:flex;justify-content:space-between;gap:10px}
+.tip span{color:var(--paper-ink-2)}
+
+.scrub{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;margin:10px 0 0;font-size:12px;color:var(--ink-2)}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:30px;background:none;margin:0;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:8px;border-radius:4px;background:var(--track,var(--x2))}
+input[type=range]::-moz-range-track{height:8px;border-radius:4px;background:var(--track,var(--x2))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;margin-top:-8px;border-radius:50%;background:var(--x6);border:5px solid var(--ground);outline:2px solid var(--x6);outline-offset:-1px;box-shadow:0 3px 8px rgba(0,0,0,.35)}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--x6);border:5px solid var(--ground);outline:2px solid var(--x6);outline-offset:-1px}
+input[type=range]:focus-visible{outline:none}
+input[type=range]:focus-visible::-webkit-slider-thumb{outline:3px solid var(--x4);outline-offset:2px}
+
+.radius{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;margin:12px 0 0;font-size:13px;color:var(--ink-2)}
+.radius output{color:var(--ink);font-weight:700;min-width:4.4em;text-align:right}
+.radius input[type=range]{--track:var(--line)}
+.radius input[type=range]::-webkit-slider-thumb{width:18px;height:18px;margin-top:-5px;border-width:4px}
+
+.note{font-size:12px;color:var(--ink-3);margin:12px 0 0}
+.status{margin:12px 0 0;font-size:14px;color:var(--ink-2);display:flex;align-items:center;gap:10px}
+.status.error{color:var(--warn)}
+.status:empty{display:none}
+.spin{width:16px;height:16px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--x6);animation:spin .9s linear infinite;flex:none}
+@keyframes spin{to{transform:rotate(1turn)}}
+.loading .hero-num,.loading .figs,.loading .chart,.loading .scrub{opacity:.35;transition:opacity .3s}
+
+details{border-top:1px solid var(--line);margin-top:14px}
+details:first-of-type{margin-top:18px}
+summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:12px 0;font-weight:600;font-size:14px}
+summary::-webkit-details-marker{display:none}
+summary svg.i{width:16px;height:16px;color:var(--ink-2);transition:transform .25s var(--ease)}
+details[open] summary svg.i{transform:rotate(180deg)}
+.tbl{overflow-x:auto;padding-bottom:8px}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{padding:5px 6px;text-align:right;border-bottom:1px solid var(--ground-2);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--ink-2);font-weight:600}
+tr.on td{background:var(--ground-2)}
+.hyp{display:grid;gap:14px;padding:2px 0 14px}
+.hyp fieldset{border:0;margin:0;padding:0;min-width:0}
+.hyp legend{font-size:12px;font-weight:700;color:var(--ink-2);margin-bottom:6px;padding:0}
+.ctl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 10px;align-items:center;font-size:13.5px}
+.ctl output{font-weight:700}
+.ctl input[type=range]{grid-column:1/-1;--track:var(--line)}
+.ctl input[type=range]::-webkit-slider-thumb{width:18px;height:18px;margin-top:-5px;border-width:4px}
+.ctl.off{opacity:.45}
+.radio{display:flex;gap:9px;align-items:flex-start;font-size:13.5px;margin:0 0 7px}
+.radio input{accent-color:var(--x4);margin-top:.25em}
+.mini{font-size:12.5px;color:var(--ink-2);margin:2px 0 6px}
+.hyp-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--ink-3)}
+.btn{height:32px;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:none;font-size:13px;font-weight:600}
+.btn:hover{border-color:var(--x4)}
+.about{font-size:13px;color:var(--ink-2);padding:0 0 12px}
+.about ul{margin:0 0 10px;padding-left:1.1em}
+.about li{margin:.3em 0;color:var(--ink)}
+.about p{margin:0 0 .7em}
+.foot{position:sticky;bottom:0;margin:12px -20px 0;padding:8px 20px max(12px,env(safe-area-inset-bottom));background:var(--ground);font-size:12px;color:var(--ink-3)}
+.foot button{border:0;background:none;padding:0;color:var(--ink);text-decoration:underline;text-decoration-color:var(--ink-3);text-underline-offset:3px;font-size:12px}
+
+/* ---------- Desktop: search top-left, the sheet becomes a right-hand column ---------- */
+@media (min-width:900px){
+  :root{--sheet-top:0}
+  .top{right:auto;width:400px;padding:16px 0 0 16px}
+  .sheet,.sheet[data-size="intro"],.sheet[data-size="full"]{top:16px;bottom:16px;left:auto;right:16px;width:420px;border-radius:18px;box-shadow:0 12px 34px rgba(0,0,0,.32)}
+  .sheet[data-size="intro"]{top:auto}
+  .grab{display:none}
+  .close{display:none!important}
+  .scroll{padding-top:20px}
+  .leaflet-left .leaflet-control-zoom{margin-left:16px;margin-bottom:16px}
+}
+@media (max-width:899px){
+  #intro h1{font-size:26px;margin:0 0 4px}
+  #intro .lead{font-size:14px;line-height:1.45;margin:0 0 10px}
+  #intro .examples{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -20px;padding:0 20px 2px}
+  #intro .examples::-webkit-scrollbar{display:none}
+  #intro .ex{flex:none}
+  #intro .hint{margin-top:6px}
+  .sheet[data-size="intro"] details{margin-top:8px}
+  .sheet[data-size="intro"] summary{padding:8px 0}
+}
+@media (prefers-reduced-motion:reduce){*,*::before{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div id="map" role="application"></div>
+
+<div class="top">
+  <div class="bar">
+    <a class="chip-link" id="back" href="../"><svg class="i" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg><span>Random Maps</span></a>
+    <nav class="lang" aria-label="Langue / Language"><a href="?lang=fr" data-l="fr">FR</a><a href="?lang=en" data-l="en">EN</a></nav>
+  </div>
+  <div class="search" role="search">
+    <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+    <label class="sr" for="q" data-t="qLabel"></label>
+    <input id="q" type="search" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="sugg">
+    <span class="tag" id="q-tag" hidden></span>
+    <button class="icon-btn" id="locate" type="button"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/><circle cx="12" cy="12" r="7.5"/></svg><span class="sr" data-t="locate"></span></button>
+    <ul class="sugg" id="sugg" role="listbox" hidden></ul>
+  </div>
+</div>
+
+<section class="sheet" id="sheet" data-size="intro" aria-labelledby="sheet-title">
+  <button class="grab" id="grab" type="button" aria-expanded="false"><span class="sr" data-t="grab"></span></button>
+  <button class="close" id="close" type="button"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg><span class="sr" data-t="backMap"></span></button>
+  <div class="scroll" id="scroll">
+
+    <div id="intro">
+      <h1 id="sheet-title">PV<em>2</em>Mix</h1>
+      <p class="lead" data-t="lead"></p>
+      <div class="examples" id="examples"></div>
+      <p class="hint" data-t="hint"></p>
+    </div>
+
+    <div id="res" hidden>
+      <div class="zone">
+        <h2 id="zone-name"></h2>
+        <div class="days"><button type="button" id="d-yest" data-t="yesterday"></button><button type="button" id="d-today" data-t="today"></button></div>
+        <label class="date"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><span id="date-label" class="tnum"></span><input id="date" type="date" aria-label=""></label>
+      </div>
+
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+
+      <div id="out">
+        <div class="hero">
+          <p class="hero-num tnum" id="hero"><span id="hero-v">–</span><small id="hero-u"></small></p>
+          <p class="hero-cap" id="hero-cap"></p>
+        </div>
+        <div class="figs">
+          <span></span><span class="fh"><i class="key fc" aria-hidden="true"></i><span data-t="fc"></span></span><span class="fh"><i class="key" aria-hidden="true"></i><span data-t="re"></span></span>
+          <span class="rl tnum" id="f-at"></span><b class="tnum" id="f-fc-p">–</b><b class="tnum" id="f-re-p">–</b>
+          <span class="rl" data-t="dayRow"></span><b class="tnum" id="f-fc">–</b><b class="tnum"><span id="f-re">–</span><small id="f-re-l"></small></b>
+        </div>
+        <div class="chart">
+          <canvas id="chart" tabindex="0" role="img"></canvas>
+          <div class="tip" id="tip" hidden></div>
+        </div>
+        <div class="scrub">
+          <span class="tnum" id="s-a"></span>
+          <input id="hour" type="range" min="0" max="23" step="1" value="12">
+          <span class="tnum" id="s-b"></span>
+        </div>
+        <p class="note" id="src-note"></p>
+        <p class="note" data-th="omCredit"></p>
+      </div>
+
+      <div class="radius" id="radius-row" hidden>
+        <label for="radius" data-t="lRadius"></label>
+        <input id="radius" type="range" min="0" max="1000" step="1">
+        <output id="radius-val" class="tnum" for="radius"></output>
+      </div>
+
+      <details id="d-table">
+        <summary><span data-t="tableShow"></span><svg class="i" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></summary>
+        <div class="tbl"><table id="tbl"></table></div>
+      </details>
+      <details id="d-hyp">
+        <summary><span data-t="hyp"></span><svg class="i" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></summary>
+        <div class="hyp">
+          <p class="mini tnum" id="det-mean"></p>
+          <fieldset>
+            <legend data-t="hOrient"></legend>
+            <label class="radio"><input type="radio" name="orient" value="det" checked><span data-t="hDet"></span></label>
+            <label class="radio"><input type="radio" name="orient" value="fix"><span data-t="hFix"></span></label>
+            <div class="ctl" id="c-tilt"><label for="tilt" data-t="hTilt"></label><output id="tilt-v" class="tnum"></output><input id="tilt" type="range" min="0" max="60" step="1" value="30"></div>
+            <div class="ctl" id="c-az"><label for="az" data-t="hAz"></label><output id="az-v" class="tnum"></output><input id="az" type="range" min="90" max="270" step="5" value="180"></div>
+          </fieldset>
+          <fieldset>
+            <legend data-t="hSys"></legend>
+            <div class="ctl"><label for="pr" data-t="hPr"></label><output id="pr-v" class="tnum"></output><input id="pr" type="range" min="0.6" max="0.95" step="0.01" value="0.80"></div>
+            <label class="radio"><input type="checkbox" id="tcorr" checked><span data-t="hTemp"></span></label>
+            <div class="ctl"><label for="ratio" data-t="hRatio"></label><output id="ratio-v" class="tnum"></output><input id="ratio" type="range" min="3" max="10" step="0.5" value="6"></div>
+            <p class="mini" id="ratio-hint"></p>
+          </fieldset>
+          <fieldset>
+            <legend data-t="hEnv"></legend>
+            <div class="ctl"><label for="dtilt" data-t="hDTilt"></label><output id="dtilt-v" class="tnum"></output><input id="dtilt" type="range" min="0" max="30" step="1" value="15"></div>
+            <div class="ctl"><label for="daz" data-t="hDAz"></label><output id="daz-v" class="tnum"></output><input id="daz" type="range" min="0" max="90" step="5" value="45"></div>
+            <div class="ctl"><label for="dpr" data-t="hDPr"></label><output id="dpr-v" class="tnum"></output><input id="dpr" type="range" min="0" max="0.10" step="0.01" value="0.05"></div>
+          </fieldset>
+          <p class="mini" data-th="hModelTxt"></p>
+          <div class="hyp-foot"><span data-t="hNoCall"></span><button class="btn" id="reset" type="button" data-t="reset"></button></div>
+        </div>
+      </details>
+    </div>
+
+    <details id="d-about">
+      <summary><span data-t="aboutTitle"></span><svg class="i" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></summary>
+      <div class="about">
+        <ul>
+          <li data-t="lim1"></li>
+          <li data-t="lim2"></li>
+          <li data-t="lim3"></li>
+          <li data-t="lim4"></li>
+          <li data-t="indep"></li>
+        </ul>
+        <p data-th="credits"></p>
+        <p data-t="privacy"></p>
+      </div>
+    </details>
+    <p class="foot"><span data-t="footLine"></span> <button type="button" id="more" data-t="more"></button></p>
+  </div>
+</section>
+
+<div hidden><div class="mini" id="mini">
+  <p class="status" id="mini-status" role="status" aria-live="polite"></p>
+  <div id="mini-out">
+    <button class="mini-open" id="mini-open" type="button" aria-haspopup="dialog">
+      <span class="mini-num tnum"><span id="m-v">–</span><small id="m-u"></small></span>
+      <span class="mini-more"><span data-t="details"></span><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+    </button>
+    <p class="mini-cap tnum" id="m-cap"></p>
+    <input id="hour-m" type="range" min="0" max="95" step="1" value="48">
+  </div>
+</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+(function(){
+'use strict';
+
+/* ---------- Config ---------- */
+const SB = 'https://zelhliylrlktnasircwp.supabase.co/rest/v1';
+const SB_KEY = 'sb_publishable_rKz4rtTA3hpRxPgN3C3yAg_bbT5iTBi'; // public publishable key (DATA_ACCESS.md §2.2)
+const SB_HEADERS = {apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`};
+const GEOCODER = 'https://data.geopf.fr/geocodage/search';            // IGN Géoplateforme (successor of api-adresse.data.gouv.fr)
+const GEO_API = 'https://geo.api.gouv.fr/communes';                   // commune search, outline, reverse lookup
+const OM_FORECAST = 'https://previous-runs-api.open-meteo.com/v1/forecast'; // archived forecasts at fixed lead time
+const OM_SATELLITE = 'https://satellite-api.open-meteo.com/v1/archive';     // satellite-derived irradiance
+const SAT_MODELS = ['satellite_radiation_seamless', 'eumetsat_sarah3'];       // per hour: first non-null wins
+const TZ = 'Europe/Paris';
+const MIN_DATE = '2024-02-01';           // start of the Previous Runs archive (checked 2026-11-17)
+const R_MIN = 500, R_MAX = 10000, R_DEFAULT = 2000;
+const COORD_DECIMALS = 3;                // every coordinate sent anywhere is rounded to this (~100 m)
+const ALBEDO = 0.2;
+const GAMMA = -0.004;                    // power temperature coefficient, 1/°C (pvwatts)
+const FAIMAN_U0 = 25, FAIMAN_U1 = 6.84;  // pvlib.temperature.faiman defaults (W/m²/K, W·s/m³/K)
+const RB_MAX = 8;                        // cap of the beam transposition ratio at grazing sun
+const SUBSTEPS = 12;                     // sun positions per hour (5 min)
+/* OpenPVMapper `azimuth`: the published values span −180…180 with the mode at 0, i.e. 0 = south.
+   ASSUMPTION (open point): east negative, west positive (PVGIS "aspect"). Degrees from north = value + 180.
+   DATA_ACCESS.md says "clockwise from true north (180 = south)", which the values contradict. */
+const azFromData = a => ((a + 180) % 360 + 360) % 360;
+const DEF = {orient: 'det', tilt: 30, az: 180, pr: 0.80, tcorr: true, ratio: 6, dtilt: 15, daz: 45, dpr: 0.05};
+/* Metropolitan communes with 100 000+ inhabitants (geo.api.gouv.fr populations, checked 2026-11-17).
+   The welcome card shows EXAMPLES_SHOWN of them, drawn at random on each visit. */
+const EXAMPLES = [['Paris', '75056'], ['Marseille', '13055'], ['Lyon', '69123'], ['Toulouse', '31555'], ['Nice', '06088'], ['Nantes', '44109'],
+  ['Montpellier', '34172'], ['Strasbourg', '67482'], ['Bordeaux', '33063'], ['Lille', '59350'], ['Rennes', '35238'], ['Toulon', '83137'],
+  ['Reims', '51454'], ['Saint-Étienne', '42218'], ['Le Havre', '76351'], ['Villeurbanne', '69266'], ['Dijon', '21231'], ['Angers', '49007'],
+  ['Grenoble', '38185'], ['Nîmes', '30189'], ['Aix-en-Provence', '13001'], ['Saint-Denis', '93066'], ['Clermont-Ferrand', '63113'],
+  ['Le Mans', '72181'], ['Brest', '29019'], ['Tours', '37261'], ['Amiens', '80021'], ['Annecy', '74010'], ['Limoges', '87085'], ['Metz', '57463'],
+  ['Perpignan', '66136'], ['Boulogne-Billancourt', '92012'], ['Besançon', '25056'], ['Rouen', '76540'], ['Orléans', '45234'],
+  ['Montreuil', '93048'], ['Caen', '14118'], ['Argenteuil', '95018'], ['Mulhouse', '68224'], ['Nancy', '54395']];
+const EXAMPLES_SHOWN = 4;
+const FRANCE = [[42.2, -4.9], [51.1, 8.3]];
+/* The exposure ramp: every intensity on the page (rooftops, scrubber track) snaps to one of these 7 steps. */
+const RAMP = ['#0b2550', '#123a75', '#1d4f96', '#2f68b3', '#7fb2e5', '#b9d7f3', '#f4f7fa'];
+const ZONE_INK = '#0f2f63';
+
+/* ---------- i18n ---------- */
+const params = new URLSearchParams(location.search);
+const lang = params.get('lang') === 'en' ? 'en' : 'fr';
+const EN = lang === 'en';
+const T = {
+  fr: {
+    mapLabel: 'Carte des toitures solaires détectées',
+    qLabel: 'Commune, adresse ou lieu', qPh: 'Une commune, une adresse…', locate: 'Me localiser', grab: 'Agrandir ou réduire les résultats',
+    lead: 'Les toitures solaires qu’une IA a repérées sur les photos aériennes, et ce qu’elles produisent heure par heure : la météo prévue la veille contre le soleil vu par satellite.',
+    hint: 'Ou touchez la carte.',
+    tagCommune: 'Commune', tagPoint: 'Point', tagAddr: 'Adresse',
+    pickPoint: (r) => `Autour de ce point`, pickPointSub: (r) => `rayon ${r}`, pickCommune: (n) => `Toute la commune de ${n}`, pickCommuneSub: 'limites communales', pickLoading: 'Commune…',
+    zoneCircle: (r, l) => `${l} <span>· ${r}</span>`, zonePick: 'Point choisi', myPos: 'Ma position',
+    today: 'Aujourd’hui', yesterday: 'Hier', lDate: 'Choisir une journée',
+    heroRe: (n, k, h) => `<b>${n} toits</b> · ${k} · ${h} · satellite`,
+    heroFc: (n, k, h) => `<b>${n} toits</b> · ${k} · ${h} · prévision`,
+    heroNight: (n, k, h) => `<b>${n} toits</b> · ${k} · ${h} · nuit`,
+    details: 'Détails', lHour: 'Heure', backMap: 'Revenir à la carte', miniRe: 'réalisé', miniFc: 'prévu', miniNight: 'nuit',
+    atRow: (t) => `à ${t}`, dayRow: 'journée', reLnow: (h) => `jusqu’à ${h}`, reNone: 'pas encore de satellite',
+    fc: 'Prévu (veille)', re: 'Réalisé (satellite)',
+    now: 'maintenant',
+    srcSat: (x) => `Réalisé : rayonnement satellite (EUMETSAT), environ 1 h après coup. Prévu : prévision émise au moins 24 h avant chaque heure. Heure de Paris, moyennes horaires.${x}`,
+    srcFallback: ' Pas de satellite pour cette date : le « réalisé » est remplacé par la prévision la plus récente.',
+    srcPartial: (n) => ` ${n} heure(s) sans satellite ne sont pas tracées.`,
+    srcLive: ' Mise à jour toutes les 10 minutes.',
+    omCredit: 'Météo : <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a> (<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>), transformées en production.',
+    lRadius: 'Rayon',
+    tableShow: 'Valeurs heure par heure', tHour: 'Heure', tFc: 'Prévu', tRe: 'Réalisé', tRange: 'fourchette',
+    hyp: 'Hypothèses du modèle',
+    detMean: (t, a, nw) => `Orientation moyenne détectée : ${t}° d’inclinaison, azimut ${a}. ${nw} de la puissance est orientée vers le nord d’après les détections.`,
+    hOrient: 'Orientation des panneaux', hDet: 'Celle des détections, par classes d’orientation (8 directions × 3 inclinaisons), pondérées par la puissance',
+    hFix: 'La même pour toutes les toitures', hTilt: 'Inclinaison', hAz: 'Azimut',
+    hSys: 'Système', hPr: 'Rendement global (PR)', hTemp: 'Correction de température (−0,4 %/°C autour de 25 °C de cellule)',
+    hRatio: 'Ratio surface / puissance', ratioHint: (n) => n ? `Sert pour ${n} installation(s) sans puissance estimée.` : 'Toutes les installations ont une puissance estimée : ce ratio ne sert pas.',
+    hEnv: 'Enveloppe d’incertitude', hDTilt: 'Inclinaison ±', hDAz: 'Azimut ±', hDPr: 'PR ±',
+    hModelTxt: 'Soleil calculé toutes les 5 min, transposition isotrope sur le plan des panneaux (albédo 0,2), température de cellule selon Faiman (pvlib), puis P = kWc × G<sub>poa</sub>/1000 × PR × (1 + γ (T<sub>cellule</sub> − 25)). Détail dans le <a href="README.md">README</a>.',
+    hNoCall: 'Recalcul sur place, sans appel réseau.', reset: 'Réinitialiser',
+    aboutTitle: 'À lire avant d’interpréter · sources',
+    lim1: 'Enveloppe de production brute estimée, pas la production réelle : elle ne tient compte ni de la consommation, ni de l’injection, ni de l’autoconsommation, ni des pannes, de l’ombrage ou de la neige.',
+    lim2: 'Seules les installations sur toiture détectées par OpenPVMapper sont prises en compte ; les installations manquées ou les faux positifs ne sont pas corrigés.',
+    lim3: 'Le « réalisé » est calculé à partir d’un rayonnement observé ou analysé, ce n’est pas une mesure de production.',
+    lim4: 'Le jeu de données ne couvre que les installations sur toiture ; les centrales au sol ne sont pas comptées. Puissance, inclinaison et azimut sont des estimations du modèle de détection.',
+    indep: 'Projet indépendant, non affilié à RTE.',
+    credits: 'Installations : <a href="https://deeppvmapper.fr">OpenPVMapper — DeepPVMapper, Gabriel Kasmi</a> (CC BY 4.0). Météo : <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a> (CC BY 4.0), données transformées. Communes : <a href="https://geo.api.gouv.fr">geo.api.gouv.fr</a> (Etalab). Géocodage et fond de carte : © <a href="https://geoservices.ign.fr">IGN</a> Géoplateforme.',
+    privacy: 'Confidentialité : pour un point, le centre arrondi à environ 100 m part vers l’API OpenPVMapper ; pour une commune, seul son code. Toucher la carte envoie la position arrondie à geo.api.gouv.fr pour trouver la commune. Open-Meteo ne reçoit qu’un point par zone (le centre du cercle, ou le centre des toits de la commune, arrondi à ≈ 100 m) ; le texte tapé part chez l’IGN et geo.api.gouv.fr. Aucun cookie, aucun suivi ; l’adresse de la page ne contient qu’un code de commune, jamais une position.',
+    footLine: 'Non affilié à RTE ·', more: 'En savoir plus',
+    loadInst: 'Recherche des toits…', loadPage: (a, b) => `Toits… ${a} sur ${b}`, loadOrient: (a, b) => `Orientation des toits… ${a} sur ${b}`, loadWx: 'Météo du jour…', loadCommune: 'Commune…',
+    locating: 'Localisation…', denied: 'Position indisponible : tapez une commune ou une adresse.', noResult: 'Aucun résultat pour cette recherche.',
+    outside: 'Les données couvrent la France métropolitaine seulement.',
+    noInst: 'Aucune toiture solaire détectée ici. Essayez un rayon plus grand ou une autre commune.',
+    errSb: 'L’API des détections ne répond pas. Réessayez dans un instant.',
+    errGeo: 'Le service des communes ne répond pas. Réessayez dans un instant.',
+    errOm: 'Open-Meteo ne répond pas. Réessayez dans un instant.',
+    errRate: 'Limite d’appels Open-Meteo atteinte pour votre connexion. Réessayez dans quelques minutes.',
+    errNoFc: 'Pas de prévision archivée pour cette date (archive à partir du 1er février 2024).',
+    errDate: (a, b) => `Choisissez une date entre le ${a} et le ${b}.`,
+    popKwp: 'estimés', popOrient: (t, a) => `inclinaison ${t}°, azimut ${a}`, popArea: (s) => `${s} m² de panneaux`,
+    kwp: 'kWc', mwp: 'MWc', kwh: 'kWh', mwh: 'MWh', kw: 'kW', mw: 'MW',
+    S: 'S', SE: 'SE', SO: 'SO', E: 'E', O: 'O', N: 'N',
+  },
+  en: {
+    mapLabel: 'Map of detected rooftop solar',
+    qLabel: 'Commune, address or place', qPh: 'A commune, an address…', locate: 'Locate me', grab: 'Expand or collapse the results',
+    lead: 'The rooftop solar an AI spotted on aerial photos, and what it produces hour by hour: the weather forecast the day before against the sun seen by satellite.',
+    hint: 'Or tap the map.',
+    tagCommune: 'Commune', tagPoint: 'Point', tagAddr: 'Address',
+    pickPoint: (r) => `Around this point`, pickPointSub: (r) => `${r} radius`, pickCommune: (n) => `All of ${n}`, pickCommuneSub: 'commune boundary', pickLoading: 'Commune…',
+    zoneCircle: (r, l) => `${l} <span>· ${r}</span>`, zonePick: 'Chosen point', myPos: 'My location',
+    today: 'Today', yesterday: 'Yesterday', lDate: 'Pick a day',
+    heroRe: (n, k, h) => `<b>${n} roofs</b> · ${k} · ${h} · satellite`,
+    heroFc: (n, k, h) => `<b>${n} roofs</b> · ${k} · ${h} · forecast`,
+    heroNight: (n, k, h) => `<b>${n} roofs</b> · ${k} · ${h} · night`,
+    details: 'Details', lHour: 'Time of day', backMap: 'Back to the map', miniRe: 'actual', miniFc: 'forecast', miniNight: 'night',
+    atRow: (t) => `at ${t}`, dayRow: 'day', reLnow: (h) => `up to ${h}`, reNone: 'no satellite yet',
+    fc: 'Forecast (day before)', re: 'Actual (satellite)',
+    now: 'now',
+    srcSat: (x) => `Actual: satellite irradiance (EUMETSAT), about 1 h after the fact. Forecast: issued at least 24 h before each hour. Paris time, hourly means.${x}`,
+    srcFallback: ' No satellite for this date: “actual” is replaced by the latest forecast.',
+    srcPartial: (n) => ` ${n} hour(s) without satellite are not drawn.`,
+    srcLive: ' Refreshes every 10 minutes.',
+    omCredit: 'Weather: <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a> (<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>), transformed into output.',
+    lRadius: 'Radius',
+    tableShow: 'Hour by hour', tHour: 'Hour', tFc: 'Forecast', tRe: 'Actual', tRange: 'range',
+    hyp: 'Model assumptions',
+    detMean: (t, a, nw) => `Mean detected orientation: ${t}° tilt, azimuth ${a}. ${nw} of the capacity faces north according to the detections.`,
+    hOrient: 'Panel orientation', hDet: 'From the detections, by orientation class (8 directions × 3 tilts), capacity-weighted',
+    hFix: 'The same for every roof', hTilt: 'Tilt', hAz: 'Azimuth',
+    hSys: 'System', hPr: 'Performance ratio (PR)', hTemp: 'Temperature correction (−0.4 %/°C around a 25 °C cell)',
+    hRatio: 'Area / capacity ratio', ratioHint: (n) => n ? `Used for ${n} installation(s) without an estimated capacity.` : 'Every installation has an estimated capacity: this ratio is unused.',
+    hEnv: 'Uncertainty envelope', hDTilt: 'Tilt ±', hDAz: 'Azimuth ±', hDPr: 'PR ±',
+    hModelTxt: 'Sun computed every 5 min, isotropic transposition onto the panel plane (albedo 0.2), Faiman cell temperature (pvlib), then P = kWp × G<sub>poa</sub>/1000 × PR × (1 + γ (T<sub>cell</sub> − 25)). Details in the <a href="README.md">README</a>.',
+    hNoCall: 'Recomputed in place, no network call.', reset: 'Reset',
+    aboutTitle: 'Read before interpreting · sources',
+    lim1: 'Estimated gross production envelope, not actual production: it ignores consumption, grid export, self-consumption, outages, shading and snow.',
+    lim2: 'Only the rooftop installations detected by OpenPVMapper are counted; missed installations and false positives are not corrected.',
+    lim3: '“Actual” is computed from observed or analysed irradiance; it is not a production measurement.',
+    lim4: 'The dataset only covers rooftop installations; ground-mounted plants are not counted. Capacity, tilt and azimuth are estimates from the detection model.',
+    indep: 'Independent project, not affiliated with RTE.',
+    credits: 'Installations: <a href="https://deeppvmapper.fr">OpenPVMapper — DeepPVMapper, Gabriel Kasmi</a> (CC BY 4.0). Weather: <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a> (CC BY 4.0), data transformed. Communes: <a href="https://geo.api.gouv.fr">geo.api.gouv.fr</a> (Etalab). Geocoding and basemap: © <a href="https://geoservices.ign.fr">IGN</a> Géoplateforme.',
+    privacy: 'Privacy: for a point, the centre rounded to about 100 m goes to the OpenPVMapper API; for a commune, only its code. Tapping the map sends the rounded position to geo.api.gouv.fr to find the commune. Open-Meteo only receives one point per zone (the circle’s centre, or the centre of the commune’s roofs, rounded to ≈ 100 m); typed text goes to IGN and geo.api.gouv.fr. No cookies, no tracking; the page address only ever holds a commune code, never a position.',
+    footLine: 'Not affiliated with RTE ·', more: 'Learn more',
+    loadInst: 'Looking for roofs…', loadPage: (a, b) => `Roofs… ${a} of ${b}`, loadOrient: (a, b) => `Roof orientations… ${a} of ${b}`, loadWx: 'Today’s weather…', loadCommune: 'Commune…',
+    locating: 'Locating…', denied: 'Location unavailable: type a commune or an address.', noResult: 'No result for this search.',
+    outside: 'The data covers metropolitan France only.',
+    noInst: 'No rooftop solar detected here. Try a larger radius or another commune.',
+    errSb: 'The detections API is not responding. Try again in a moment.',
+    errGeo: 'The commune service is not responding. Try again in a moment.',
+    errOm: 'Open-Meteo is not responding. Try again in a moment.',
+    errRate: 'Open-Meteo request limit reached for your connection. Try again in a few minutes.',
+    errNoFc: 'No archived forecast for this date (the archive starts on 1 February 2024).',
+    errDate: (a, b) => `Pick a date between ${a} and ${b}.`,
+    popKwp: 'estimated', popOrient: (t, a) => `tilt ${t}°, azimuth ${a}`, popArea: (s) => `${s} m² of panels`,
+    kwp: 'kWp', mwp: 'MWp', kwh: 'kWh', mwh: 'MWh', kw: 'kW', mw: 'MW',
+    S: 'S', SE: 'SE', SO: 'SW', E: 'E', O: 'W', N: 'N',
+  }
+}[lang];
+
+document.documentElement.lang = lang;
+document.querySelectorAll('[data-t]').forEach(el => { const v = T[el.dataset.t]; if (typeof v === 'string') el.textContent = v; });
+document.querySelectorAll('[data-th]').forEach(el => { el.innerHTML = T[el.dataset.th]; });
+document.querySelectorAll('.lang a').forEach(a => a.setAttribute('aria-current', a.dataset.l === lang ? 'true' : 'false'));
+document.getElementById('back').href = EN ? '../?lang=en' : '../';
+document.getElementById('map').setAttribute('aria-label', T.mapLabel);
+document.getElementById('q').placeholder = T.qPh;
+document.getElementById('hour').setAttribute('aria-label', T.lHour); document.getElementById('hour-m').setAttribute('aria-label', T.lHour);
+document.getElementById('date').setAttribute('aria-label', T.lDate);
+
+/* ---------- Utils ---------- */
+const $ = id => document.getElementById(id);
+const LOC = EN ? 'en-GB' : 'fr-FR';
+const nf0 = new Intl.NumberFormat(LOC, {maximumFractionDigits: 0});
+const nf1 = new Intl.NumberFormat(LOC, {maximumFractionDigits: 1, minimumFractionDigits: 1});
+const nf2 = new Intl.NumberFormat(LOC, {maximumFractionDigits: 2, minimumFractionDigits: 2});
+const nfT = new Intl.NumberFormat(LOC, {maximumFractionDigits: 1});
+const powParts = (k, small, big) => k >= 1000 ? [nf1.format(k / 1000), big] : [k >= 100 ? nf0.format(k) : nf1.format(k), small];
+const fmtPow = (k, small, big) => powParts(k, small, big).join(' ');
+const fmtKwp = k => fmtPow(k, T.kwp, T.mwp);
+const fmtKwh = k => fmtPow(k, T.kwh, T.mwh);
+const fmtKw = k => fmtPow(k, T.kw, T.mw);
+const fmtTick = (k, big) => big ? `${nfT.format(k / 1000)} ${T.mw}` : `${nfT.format(k)} ${T.kw}`;
+const fmtDist = m => m >= 1000 ? `${nf1.format(m / 1000)} km` : `${nf0.format(m)} m`;
+const round = (x, d = COORD_DECIMALS) => +x.toFixed(d);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const inFrance = ([la, lo]) => la > 41.2 && la < 51.2 && lo > -5.3 && lo < 9.7;
+const D2R = Math.PI / 180;
+const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+const desktop = () => matchMedia('(min-width: 900px)').matches;
+const haversine = ([a, b], [c, d]) => {
+  const p = Math.sin((c - a) * D2R / 2) ** 2 + Math.cos(a * D2R) * Math.cos(c * D2R) * Math.sin((d - b) * D2R / 2) ** 2;
+  return 2 * 6371008 * Math.asin(Math.sqrt(p));
+};
+const parisDate = (d = new Date()) => new Intl.DateTimeFormat('en-CA', {timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit'}).format(d);
+const hourFmt = new Intl.DateTimeFormat(LOC, {timeZone: TZ, hour: '2-digit', minute: '2-digit'});
+const fmtHour = sec => hourFmt.format(new Date(sec * 1000));
+const fmtH = sec => EN ? fmtHour(sec) : fmtHour(sec).replace(/^0?(\d+):00$/, '$1 h').replace(':', ' h ').replace(/^0(\d)/, '$1');
+const fmtDay = iso => new Intl.DateTimeFormat(LOC, {timeZone: 'UTC', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'}).format(new Date(iso + 'T12:00:00Z'));
+const fmtDayShort = iso => new Intl.DateTimeFormat(LOC, {timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short'}).format(new Date(iso + 'T12:00:00Z'));
+const hhmm23 = new Intl.DateTimeFormat('en-GB', {timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23'});
+/* Unix seconds of 00:00 Europe/Paris on an ISO date (offset is +1 h or +2 h). */
+const parisMidnight = iso => {
+  const utc = Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) / 1000;
+  for (const o of [3600, 7200]){ const t = utc - o, d = new Date(t * 1000); if (parisDate(d) === iso && hhmm23.format(d) === '00:00') return t; }
+  return utc - 3600;
+};
+const shiftDate = (iso, days) => { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10); };
+const azLabel = a => {
+  const n = ((Math.round(a) % 360) + 360) % 360;
+  const card = n >= 158 && n <= 202 ? T.S : n > 112 && n < 158 ? T.SE : n > 202 && n < 248 ? T.SO : n >= 45 && n <= 112 ? T.E : n >= 248 && n <= 315 ? T.O : T.N;
+  return `${n}° (${card})`;
+};
+class ApiError extends Error { constructor(kind, msg){ super(msg || kind); this.kind = kind; } }
+async function getRes(url, opts = {}, kind = 'om'){
+  let res;
+  try { res = await fetch(url, {...opts, signal: opts.signal || AbortSignal.timeout(30000)}); }
+  catch (e){ if (e.name === 'AbortError' && opts.signal?.aborted) throw e; throw new ApiError(kind, e.message); }
+  if (res.status === 429) throw new ApiError(kind === 'om' ? 'rate' : kind);
+  if (!res.ok){
+    let reason = ''; try { reason = (await res.json()).reason || ''; } catch {}
+    throw new ApiError(/limit/i.test(reason) ? 'rate' : kind, `HTTP ${res.status} ${reason}`);
+  }
+  return res;
+}
+const getJSON = async (url, opts, kind) => (await getRes(url, opts, kind)).json();
+async function pool(tasks, n = 3){
+  const queue = tasks.slice(), out = [];
+  await Promise.all(Array.from({length: Math.min(n, queue.length)}, async () => { while (queue.length){ const t = queue.shift(); out.push(await t()); } }));
+  return out;
+}
+const centroid = g => {
+  const rg = g.type === 'MultiPolygon' ? g.coordinates[0][0] : g.coordinates[0];
+  let x = 0, y = 0; for (const [a, b] of rg){ x += a; y += b; }
+  return [y / rg.length, x / rg.length];
+};
+
+/* ---------- State ---------- */
+const state = {
+  zone: null,                  // {type:'circle', center, r, label} | {type:'commune', code, name, dep, feature}
+  r: R_DEFAULT,
+  circle: null,                // {center, r, rows}: last fetched circle, a superset for smaller radii
+  communes: new Map(),         // INSEE code → rows
+  orient: new Map(),           // detection id → {tilt, az} (az in degrees from north)
+  date: parisDate(),
+  qi: null,                    // index of the scrubbed quarter-hour in the day (4 × hour + quarter)
+  hyp: {...DEF},
+  wx: new Map(),               // `${cellKey}|${date}` → weather for that cell and day
+  geo: new Map(),              // `${cellKey}|${date}` → sun geometry per hour
+  view: null,                  // last computed result, for redraws, hover and the scrubber
+};
+let zoneRun = 0, engRun = 0;
+
+/* ---------- Sheet ---------- */
+const sheet = $('sheet');
+/* Phones: once an area is chosen the sheet hides and a mini card floats above the area on the map
+   (output at the scrubbed quarter-hour + scrubber); tapping it opens the full sheet. Desktop: the sheet
+   is a right-hand column and the mini card is never shown. */
+const mobileResults = () => !desktop() && !$('res').hidden;
+function setSheet(size){ sheet.dataset.size = size; $('grab').setAttribute('aria-expanded', String(size === 'full')); }
+$('grab').addEventListener('click', () => setSheet(sheet.dataset.size === 'full' ? (mobileResults() ? 'hidden' : 'peek') : 'full'));
+$('close').addEventListener('click', () => { setSheet('hidden'); placeMini(); });
+function showResults(){
+  $('intro').hidden = true; $('res').hidden = false;
+  if (!desktop()){ if (sheet.dataset.size !== 'full') setSheet('hidden'); }
+  else if (sheet.dataset.size === 'intro' || sheet.dataset.size === 'hidden') setSheet('peek');
+}
+function setStatus(msg, kind = 'info', busy = false){
+  const html = msg ? `${busy ? '<i class="spin" aria-hidden="true"></i>' : ''}<span>${esc(msg)}</span>` : '';
+  for (const id of ['status', 'mini-status']){ const s = $(id); s.className = `status ${kind}`; s.innerHTML = html; }
+  $('out').classList.toggle('loading', busy);
+  $('mini').classList.toggle('loading', busy);
+}
+function errMsg(e){ return e.kind === 'rate' ? T.errRate : e.kind === 'sb' ? T.errSb : e.kind === 'geo' ? T.errGeo : e.kind === 'nofc' ? T.errNoFc : T.errOm; }
+
+/* ---------- Map ---------- */
+const map = L.map('map', {zoomControl: false, minZoom: 5, maxZoom: 19, zoomSnap: 0.25}).fitBounds(FRANCE);
+L.control.zoom({position: 'bottomleft'}).addTo(map);
+L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image/png',
+  {maxZoom: 19, attribution: '© <a href="https://www.ign.fr/">IGN</a> · <a href="https://deeppvmapper.fr">OpenPVMapper</a>'}).addTo(map);
+map.attributionControl.setPrefix(false);
+const renderer = L.canvas({padding: 0.3});
+const zoneLayer = L.layerGroup().addTo(map), dotLayer = L.layerGroup().addTo(map);
+let dots = [];                 // [{row, marker}]
+
+/* Keep the zone clear of the floating search (top), the mini card above the zone (phones) and the sheet
+   (bottom on phones, right on desktop). */
+const MINI_H = 150;
+function fitZone(bounds){
+  if (!bounds?.isValid()) return;
+  const top = document.querySelector('.top').getBoundingClientRect().bottom + 12;
+  const mini = mobileResults() && sheet.dataset.size !== 'full';
+  const opts = desktop()
+    ? {paddingTopLeft: [30, top], paddingBottomRight: [sheet.offsetWidth + 50, 30]}
+    : mini ? {paddingTopLeft: [16, top + MINI_H], paddingBottomRight: [16, 24]}
+    : {paddingTopLeft: [16, top], paddingBottomRight: [16, innerHeight - sheet.getBoundingClientRect().top + 16]};
+  map.fitBounds(bounds, {...opts, maxZoom: 16, animate: !reduced()});
+  placeMini();
+}
+const miniPop = L.popup({className: 'mini-pop', closeButton: false, autoClose: false, closeOnClick: false, closeOnEscapeKey: false,
+  autoPan: false, maxWidth: 236, minWidth: 236, offset: [0, -6]}).setContent($('mini'));
+/* Anchor: the top edge of the area, centred, so the card sits just above it. */
+function placeMini(){
+  const b = zoneBounds();
+  if (!mobileResults() || sheet.dataset.size === 'full' || !b?.isValid()){ miniPop.remove(); return; }
+  const lng = state.zone.type === 'circle' ? state.zone.center[1] : b.getCenter().lng;
+  miniPop.setLatLng([b.getNorth(), lng]);
+  if (!map.hasLayer(miniPop)) miniPop.addTo(map);
+}
+$('mini-open').addEventListener('click', () => { miniPop.remove(); setSheet('full'); });
+matchMedia('(min-width: 900px)').addEventListener('change', () => {
+  if ($('res').hidden) return;
+  if (desktop()){ miniPop.remove(); if (sheet.dataset.size === 'hidden') setSheet('peek'); }
+  else { setSheet('hidden'); placeMini(); }
+});
+/* The chosen area is lit; the rest of the map is veiled in Prussian blue. */
+function ringOf(z){
+  if (z.type === 'circle'){
+    const dLat = z.r / 110574, dLon = z.r / (111320 * Math.cos(z.center[0] * D2R)), ring = [];
+    for (let i = 0; i < 72; i++){ const t = 2 * Math.PI * i / 72; ring.push([z.center[0] + dLat * Math.sin(t), z.center[1] + dLon * Math.cos(t)]); }
+    return [ring];
+  }
+  const g = z.feature?.geometry; if (!g) return null;
+  const polys = g.type === 'MultiPolygon' ? g.coordinates : [g.coordinates];
+  return polys.map(p => p[0].map(([lo, la]) => [la, lo]));
+}
+function drawZone(){
+  zoneLayer.clearLayers();
+  const z = state.zone; if (!z) return;
+  const rings = ringOf(z); if (!rings) return;
+  const world = [[85, -180], [85, 180], [-85, 180], [-85, -180]];
+  L.polygon([world, ...rings], {stroke: false, fillColor: ZONE_INK, fillOpacity: 0.42, interactive: false}).addTo(zoneLayer);
+  L.polygon(rings, {color: ZONE_INK, weight: 2.5, fill: false, interactive: false}).addTo(zoneLayer);
+  if (z.type === 'circle') L.circleMarker(z.center, {radius: 5, color: '#fff', weight: 2, fillColor: ZONE_INK, fillOpacity: 1, interactive: false}).addTo(zoneLayer);
+  placeMini();
+}
+function zoneBounds(){
+  const z = state.zone; if (!z) return null;
+  if (z.type === 'circle') return L.latLng(z.center).toBounds(z.r * 2);
+  if (z.feature) return L.geoJSON(z.feature).getBounds();
+  const rows = currentRows(); return rows.length ? L.latLngBounds(rows.map(x => [x.lat, x.lon])) : null;
+}
+function drawDots(rows){
+  dotLayer.clearLayers(); dots = [];
+  const dense = rows.length > 600 ? 0.7 : 1;
+  for (const x of rows){
+    const k = x.kwp ?? (x.surface || 0) / state.hyp.ratio;
+    const m = L.circleMarker([x.lat, x.lon], {renderer, bubblingMouseEvents: false, radius: dense * Math.min(8, 2.4 + Math.sqrt(k) / 2.6), color: RAMP[1], weight: 0.6, fillColor: RAMP[2], fillOpacity: 1})
+      .on('click', e => { L.popup({closeButton: false, offset: [0, -4]}).setLatLng(e.latlng).setContent(popHtml(x)).openOn(map); })
+      .addTo(dotLayer);
+    dots.push({row: x, m});
+  }
+}
+/* Signature move: every rooftop takes the exposure step of its orientation class's output at the scrubbed hour. */
+function exposeDots(){
+  const v = state.view; if (!v || !dots.length) return;
+  const h = state.qi;
+  for (const {row, m} of dots){
+    const s = v.cellStep.get(row.cell)?.[h] ?? 0;
+    m.setStyle({fillColor: RAMP[s], color: RAMP[Math.max(1, s - 3)]});
+  }
+}
+function popHtml(x){
+  const o = state.orient.get(x.id) || {};
+  return `<div class="pop"><b class="tnum">${x.kwp != null ? esc(fmtKwp(x.kwp)) : '–'}</b> <span>${esc(T.popKwp)}</span>` +
+    (o.tilt != null && o.az != null ? `<br>${esc(T.popOrient(o.tilt, azLabel(o.az)))}` : '') +
+    (x.surface ? `<br>${esc(T.popArea(nf0.format(x.surface)))}` : '') + '</div>';
+}
+
+/* ---------- Detections (OpenPVMapper) ---------- */
+function circlePolygon([lat, lon], r, n = 48){
+  const dLat = r / 110574, dLon = r / (111320 * Math.cos(lat * D2R)), ring = [];
+  for (let i = 0; i < n; i++){ const t = 2 * Math.PI * i / n; ring.push([round(lon + dLon * Math.cos(t), 5), round(lat + dLat * Math.sin(t), 5)]); }
+  ring.push(ring[0]);
+  return {type: 'Polygon', coordinates: [ring]};
+}
+/**
+ * Installations whose footprint lies in the circle (center, radiusMeters): the same zone RPC as Constellation.
+ * Returns [{id, lat, lon, d, kwp|null, surface|null}]; the center is rounded to COORD_DECIMALS before sending.
+ */
+async function loadInstallations(center, radiusMeters){
+  const c = [round(center[0]), round(center[1])];
+  const feats = await getJSON(`${SB}/rpc/get_detections_in_zone`, {
+    method: 'POST', headers: {...SB_HEADERS, 'Content-Type': 'application/json'},
+    body: JSON.stringify({zone_geometry: circlePolygon(c, radiusMeters)})
+  }, 'sb');
+  return feats.map(f => {
+    const [lat, lon] = centroid(f.geometry);
+    return {id: f.id, lat, lon, d: haversine(c, [lat, lon]), kwp: f.properties.kwp ?? null, surface: f.properties.surface ?? null};
+  });
+}
+/* tilt / azimuth are not in the zone response: fetch only those two columns, by id, for ids not seen yet. */
+async function loadOrientations(ids, onProgress){
+  const todo = ids.filter(id => !state.orient.has(id));
+  const chunks = []; for (let i = 0; i < todo.length; i += 600) chunks.push(todo.slice(i, i + 600));
+  let done = 0;
+  await pool(chunks.map(chunk => async () => {
+    const rows = await getJSON(`${SB}/detections?select=id,tilt,azimuth&id=in.(${chunk.join(',')})`, {headers: SB_HEADERS}, 'sb');
+    for (const r of rows) state.orient.set(r.id, {tilt: r.tilt, az: r.azimuth == null ? null : azFromData(r.azimuth)});
+    for (const id of chunk) if (!state.orient.has(id)) state.orient.set(id, {tilt: null, az: null});
+    done += chunk.length; onProgress?.(done, todo.length);
+  }));
+}
+/* A whole commune: every detection with that INSEE code, tilt and azimuth included, 1 000 rows per page. */
+async function loadCommuneInstallations(code, onProgress){
+  const base = `${SB}/detections?select=id,kwp,surface,tilt,azimuth,geom&insee=eq.${encodeURIComponent(code)}&order=id&limit=1000`;
+  const parse = rows => rows.map(r => {
+    state.orient.set(r.id, {tilt: r.tilt, az: r.azimuth == null ? null : azFromData(r.azimuth)});
+    const [lat, lon] = centroid(r.geom);
+    return {id: r.id, lat, lon, kwp: r.kwp ?? null, surface: r.surface ?? null};
+  });
+  const res = await getRes(`${base}&offset=0`, {headers: {...SB_HEADERS, Prefer: 'count=exact'}}, 'sb');
+  const total = +((res.headers.get('content-range') || '').split('/')[1]) || 0;
+  let rows = parse(await res.json());
+  if (total > rows.length){
+    const offs = []; for (let o = 1000; o < total; o += 1000) offs.push(o);
+    let done = rows.length; onProgress?.(done, total);
+    const pages = await pool(offs.map(o => async () => {
+      const p = parse(await getJSON(`${base}&offset=${o}`, {headers: SB_HEADERS}, 'sb'));
+      done += p.length; onProgress?.(done, total); return p;
+    }));
+    rows = rows.concat(...pages);
+  }
+  return rows;
+}
+function currentRows(){
+  const z = state.zone; if (!z) return [];
+  if (z.type === 'circle') return state.circle ? state.circle.rows.filter(x => x.d <= z.r) : [];
+  return state.communes.get(z.code) || [];
+}
+
+/* ---------- Communes (geo.api.gouv.fr) and addresses (IGN) ---------- */
+const communeFeature = async code => getJSON(`${GEO_API}/${encodeURIComponent(code)}?fields=nom,code,codeDepartement,contour&format=geojson&geometry=contour`, {}, 'geo');
+async function communeAt([lat, lon]){
+  const fc = await getJSON(`${GEO_API}?lat=${round(lat)}&lon=${round(lon)}&fields=nom,code,codeDepartement,contour&format=geojson&geometry=contour`, {}, 'geo');
+  return fc.features?.[0] || null;
+}
+async function searchCommunes(text, signal){
+  const qs = /^\d{5}$/.test(text) ? `codePostal=${text}` : `nom=${encodeURIComponent(text)}&boost=population`;
+  const res = await fetch(`${GEO_API}?${qs}&fields=nom,code,codeDepartement&limit=4`, {signal});
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return (await res.json()).map(c => ({label: `${c.nom} (${c.codeDepartement})`, name: c.nom, code: c.code, tag: T.tagCommune}));
+}
+async function searchAddress(text, signal){
+  const res = await fetch(`${GEOCODER}?q=${encodeURIComponent(text)}&limit=4`, {signal});
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return ((await res.json()).features || []).filter(f => f.properties.type !== 'municipality')
+    .map(f => ({label: f.properties.label, lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1], tag: T.tagAddr}));
+}
+
+/* ---------- Zone pipeline: zone → rooftops on the map → simulation, straight away ---------- */
+function setUrl(){
+  const p = new URLSearchParams(); if (EN) p.set('lang', 'en');
+  if (state.zone?.type === 'commune') p.set('insee', state.zone.code);       // a commune code, never a position
+  history.replaceState(null, '', `${location.pathname}${p.toString() ? '?' + p : ''}`);
+}
+function setTag(text){ const t = $('q-tag'); t.hidden = !text; t.textContent = text || ''; }
+function selectCircle(center, label){
+  center = [round(center[0]), round(center[1])];
+  if (!inFrance(center)){ showResults(); setStatus(T.outside, 'error'); return; }
+  state.zone = {type: 'circle', center, r: state.r, label};
+  setTag(T.tagPoint); setUrl(); drawZone(); showResults(); renderZoneName(); fitZone(zoneBounds()); loadZone();
+}
+/* The commune outline (geo.api.gouv.fr, sometimes several seconds for a big city) is only needed for the
+   drawing: it loads in parallel with the rooftops instead of before them. */
+function selectCommune(code, feature, name){
+  const id = ++zoneRun;
+  state.zone = {type: 'commune', code, name: feature?.properties?.nom || name || '', dep: feature?.properties?.codeDepartement || '', feature};
+  setTag(T.tagCommune); setUrl(); drawZone(); showResults(); renderZoneName();
+  if (feature) fitZone(zoneBounds());
+  else communeFeature(code).then(f => {
+    if (id !== zoneRun) return;
+    Object.assign(state.zone, {name: f.properties.nom, dep: f.properties.codeDepartement, feature: f});
+    if (!$('q').value) $('q').value = f.properties.nom;
+    drawZone(); renderZoneName(); fitZone(zoneBounds());
+  }).catch(e => console.error(e));   // no outline: the zone still works, framed on its rooftops
+  loadZone(id);
+}
+function renderZoneName(){
+  const z = state.zone;
+  $('zone-name').innerHTML = z.type === 'circle'
+    ? T.zoneCircle(esc(fmtDist(z.r)), esc(z.label || T.zonePick))
+    : `${esc(z.name || z.code)} <span>(${esc(z.dep || z.code.slice(0, 2))})</span>`;
+  $('radius-row').hidden = z.type !== 'circle';
+}
+async function loadZone(id = ++zoneRun){
+  zoneRun = id;
+  const z = state.zone;
+  map.closePopup();
+  try {
+    setStatus(T.loadInst, 'info', true);
+    if (z.type === 'circle'){
+      const have = state.circle;
+      if (!(have && have.center[0] === z.center[0] && have.center[1] === z.center[1] && have.r >= z.r)){
+        const rows = await loadInstallations(z.center, z.r);
+        if (id !== zoneRun) return;
+        state.circle = {center: z.center.slice(), r: z.r, rows};
+      }
+      const rows = currentRows();
+      if (rows.some(x => !state.orient.has(x.id))){
+        await loadOrientations(rows.map(x => x.id), (a, b) => { if (id === zoneRun && b > 600) setStatus(T.loadOrient(nf0.format(a), nf0.format(b)), 'info', true); });
+        if (id !== zoneRun) return;
+      }
+    } else if (!state.communes.has(z.code)){
+      const rows = await loadCommuneInstallations(z.code, (a, b) => { if (id === zoneRun) setStatus(T.loadPage(nf0.format(a), nf0.format(b)), 'info', true); });
+      if (id !== zoneRun) return;
+      state.communes.set(z.code, rows);
+    }
+    const rows = currentRows();
+    drawDots(rows);
+    placeMini();
+    if (z.type === 'commune' && !z.feature) fitZone(zoneBounds());
+    if (!rows.length){ state.view = null; $('out').hidden = $('mini-out').hidden = true; setStatus(T.noInst); return; }
+    $('out').hidden = $('mini-out').hidden = false;
+    renderInstallInfo(rows);
+    runEngine();
+  } catch (e){
+    if (id !== zoneRun) return;
+    console.error(e); setStatus(errMsg(e), 'error');
+  }
+}
+function renderInstallInfo(rows){
+  const kw = x => x.kwp != null ? x.kwp : (x.surface || 0) / state.hyp.ratio;
+  const total = rows.reduce((s, x) => s + kw(x), 0), byRatio = rows.filter(x => x.kwp == null).length;
+  let st = 0, wt = 0, ax = 0, ay = 0, north = 0;
+  for (const x of rows){
+    const o = state.orient.get(x.id) || {}, k = kw(x);
+    if (o.tilt != null){ st += k * o.tilt; wt += k; }
+    if (o.az != null){ ax += k * Math.cos(o.az * D2R); ay += k * Math.sin(o.az * D2R); if (o.az < 90 || o.az > 270) north += k; }
+  }
+  $('det-mean').textContent = wt ? T.detMean(nf0.format(st / wt), azLabel((Math.atan2(ay, ax) / D2R + 360) % 360), `${nf0.format(100 * north / total)} %`) : '';
+  $('ratio-hint').textContent = T.ratioHint(byRatio);
+}
+
+/* ---------- Weather point and orientation classes ----------
+   One weather point per zone, whatever its size: the centre of a circle, or the capacity-weighted centre
+   of a commune's rooftops (rounded to COORD_DECIMALS). That is 2 Open-Meteo requests per view; irradiance
+   barely varies across a commune compared with the other uncertainties (orientation, PR, detections).
+   Rooftops are then grouped into orientation classes, 8 azimuth sectors (45°, centred on N, NE, E…) ×
+   3 tilt classes (< 15°, 15–30°, ≥ 30°), plus one class for rooftops without an orientation (30°, south).
+   Per class: summed kWp, capacity-weighted mean tilt, capacity-weighted circular mean azimuth.
+   Unlike a single mean roof, east and west roofs stay east and west. Each row remembers its class (row.cell)
+   so the map can expose it. All of this is local: classes cost no network call. */
+const TILT_EDGES = [15, 30];
+function weatherPoint(rows, ratio){
+  const z = state.zone;
+  if (z.type === 'circle') return {key: `${z.center[0]}:${z.center[1]}`, lat: z.center[0], lon: z.center[1]};
+  let la = 0, lo = 0, w = 0;
+  for (const x of rows){ const k = Math.max(1e-3, x.kwp != null ? x.kwp : (x.surface || 0) / ratio); la += k * x.lat; lo += k * x.lon; w += k; }
+  const lat = round(la / w), lon = round(lo / w);
+  return {key: `${lat}:${lon}`, lat, lon};
+}
+function buildCells(rows, ratio){
+  const pt = weatherPoint(rows, ratio), m = new Map();
+  for (const x of rows){
+    const o = state.orient.get(x.id) || {}, known = o.tilt != null && o.az != null;
+    const t = known ? o.tilt : DEF.tilt, az = known ? o.az : DEF.az;
+    const key = known ? `${Math.round((((az % 360) + 360) % 360) / 45) % 8}:${TILT_EDGES.filter(e => t >= e).length}` : '?';
+    x.cell = key;
+    let c = m.get(key);
+    if (!c){ c = {key, kwp: 0, n: 0, w: 0, st: 0, ax: 0, ay: 0}; m.set(key, c); }
+    const kwp = x.kwp != null ? x.kwp : (x.surface || 0) / ratio, w = Math.max(kwp, 1e-6);
+    c.kwp += kwp; c.n++; c.w += w; c.st += w * t; c.ax += w * Math.cos(az * D2R); c.ay += w * Math.sin(az * D2R);
+  }
+  return [...m.values()].map(c => ({
+    key: c.key, pt, wkey: pt.key, kwp: c.kwp, n: c.n,
+    tilt: c.st / c.w,
+    az: ((Math.atan2(c.ay, c.ax) / D2R) + 360) % 360,
+  }));
+}
+
+/* ---------- Open-Meteo ----------
+   Two requests per (weather point, day).
+   Forecast: Previous Runs API, `_previous_day1` = value forecast ≥ 24 h before the valid hour, so every
+   hour of the day was forecast before the day began. Same call: `temperature_2m` / `wind_speed_10m`
+   (day 0 = latest run, whose past hours are the model's analysis) for the "actual" cell temperature,
+   and day-0 radiation as the fallback "actual" when satellite data is missing for a whole day.
+   Actual: Satellite Radiation API, seamless (MTG/MSG, ~20 min – 2 h latency), SARAH-3 as fallback. */
+const FC_VARS = ['shortwave_radiation_previous_day1', 'direct_radiation_previous_day1', 'temperature_2m_previous_day1', 'wind_speed_10m_previous_day1',
+  'shortwave_radiation', 'direct_radiation', 'temperature_2m', 'wind_speed_10m'];
+const SAT_VARS = ['shortwave_radiation', 'direct_radiation'];
+const TODAY_TTL = 10 * 60 * 1000;
+function wxFresh(w, date){ return w && (date !== parisDate() || Date.now() - w.fetchedAt < TODAY_TTL); }
+async function loadWeather(cells, date){
+  const pts = [...new Map(cells.map(c => [c.wkey, c.pt])).values()];
+  const todo = pts.filter(c => !wxFresh(state.wx.get(`${c.key}|${date}`), date));
+  if (!todo.length) return;
+  const loc = `latitude=${todo.map(c => c.lat).join(',')}&longitude=${todo.map(c => c.lon).join(',')}`;
+  // Hourly values are means over the hour ENDING at the timestamp, so the local day (00:00–24:00) is the
+  // stamps in (midnight, next midnight]. Open-Meteo applies today's UTC offset to the whole requested range
+  // (wrong across DST), so ask in UTC and cut the local day ourselves. Paris is UTC+1/+2, so the local day
+  // always lies within UTC days date−1 … date (the satellite API rejects any end_date after today).
+  const common = `&start_date=${shiftDate(date, -1)}&end_date=${date}&timezone=GMT&timeformat=unixtime`;
+  const t0 = parisMidnight(date), t1 = parisMidnight(shiftDate(date, 1));
+  const [fc, sat] = await Promise.all([
+    getJSON(`${OM_FORECAST}?${loc}&hourly=${FC_VARS.join(',')}&wind_speed_unit=ms${common}`),
+    getJSON(`${OM_SATELLITE}?${loc}&hourly=${SAT_VARS.join(',')}&models=${SAT_MODELS.join(',')}${common}`),
+  ]);
+  const fcs = Array.isArray(fc) ? fc : [fc], sats = Array.isArray(sat) ? sat : [sat];
+  todo.forEach((c, k) => {
+    const F0 = fcs[k].hourly, S = sats[k].hourly;
+    const a = F0.time.findIndex(t => t > t0), bi = F0.time.findIndex(t => t > t1), b = bi < 0 ? F0.time.length : bi;
+    const F = Object.fromEntries(Object.entries(F0).map(([v, arr]) => [v, arr.slice(a, b)]));
+    const satMap = new Map(S.time.map((t, h) => [t, h]));
+    const pickSat = (v, t) => { const h = satMap.get(t); if (h == null) return null; for (const m of SAT_MODELS){ const x = S[`${v}_${m}`]?.[h]; if (x != null) return x; } return null; };
+    state.wx.set(`${c.key}|${date}`, {
+      fetchedAt: Date.now(), t: F.time,
+      fc: {ghi: F.shortwave_radiation_previous_day1, dir: F.direct_radiation_previous_day1, ta: F.temperature_2m_previous_day1, ws: F.wind_speed_10m_previous_day1},
+      d0: {ghi: F.shortwave_radiation, dir: F.direct_radiation, ta: F.temperature_2m, ws: F.wind_speed_10m},
+      sat: {ghi: F.time.map(t => pickSat('shortwave_radiation', t)), dir: F.time.map(t => pickSat('direct_radiation', t))},
+    });
+  });
+}
+
+/* ---------- Solar position (NOAA / Meeus, ±0.01°) ---------- */
+function sunPos(sec, lat, lon){
+  const T = (sec / 86400 + 2440587.5 - 2451545) / 36525;
+  const L0 = (280.46646 + T * (36000.76983 + 0.0003032 * T)) % 360;
+  const M = 357.52911 + T * (35999.05029 - 0.0001537 * T), Mr = M * D2R;
+  const e = 0.016708634 - T * (0.000042037 + 0.0000001267 * T);
+  const C = Math.sin(Mr) * (1.914602 - T * (0.004817 + 0.000014 * T)) + Math.sin(2 * Mr) * (0.019993 - 0.000101 * T) + Math.sin(3 * Mr) * 0.000289;
+  const om = (125.04 - 1934.136 * T) * D2R;
+  const lam = (L0 + C - 0.00569 - 0.00478 * Math.sin(om)) * D2R;
+  const eps0 = 23 + (26 + (21.448 - T * (46.815 + T * (0.00059 - T * 0.001813))) / 60) / 60;
+  const eps = (eps0 + 0.00256 * Math.cos(om)) * D2R;
+  const decl = Math.asin(Math.sin(eps) * Math.sin(lam));
+  const y = Math.tan(eps / 2) ** 2, L0r = L0 * D2R;
+  const eot = 4 / D2R * (y * Math.sin(2 * L0r) - 2 * e * Math.sin(Mr) + 4 * e * y * Math.sin(Mr) * Math.cos(2 * L0r) - 0.5 * y * y * Math.sin(4 * L0r) - 1.25 * e * e * Math.sin(2 * Mr));
+  const utcMin = ((sec % 86400) + 86400) % 86400 / 60;
+  const ha = ((utcMin + eot + 4 * lon) / 4 - 180) * D2R;
+  const la = lat * D2R;
+  const cz = Math.sin(la) * Math.sin(decl) + Math.cos(la) * Math.cos(decl) * Math.cos(ha);
+  const az = Math.atan2(Math.sin(ha), Math.cos(ha) * Math.sin(la) - Math.tan(decl) * Math.cos(la)) + Math.PI; // from north, clockwise
+  return {cz, sz: Math.sqrt(Math.max(0, 1 - cz * cz)), az};
+}
+/* Sun positions at 5-min steps inside each hourly interval (Open-Meteo hourly radiation is the mean
+   over the hour ending at the timestamp). Only steps with the sun above the horizon are kept. */
+function sunGeometry(cell, date, times){
+  const k = `${cell.key}|${date}`;
+  if (state.geo.has(k)) return state.geo.get(k);
+  const g = times.map(t => {
+    const cz = [], sz = [], az = [];
+    for (let s = 0; s < SUBSTEPS; s++){
+      const p = sunPos(t - 3600 + (s + 0.5) * 3600 / SUBSTEPS, cell.lat, cell.lon);
+      if (p.cz > 0){ cz.push(p.cz); sz.push(p.sz); az.push(p.az); }
+    }
+    return {cz, sz, az, scz: cz.reduce((a, b) => a + b, 0)};
+  });
+  state.geo.set(k, g);
+  return g;
+}
+
+/* ---------- PV model ----------
+   Per kWp, for one hour: G_poa = B·Rb + D·(1+cosβ)/2 + G·ρ·(1−cosβ)/2 with Rb = Σcosθ⁺ / Σcos z over the
+   hour's sunlit sub-steps (isotropic sky), then the pvwatts DC power with Faiman cell temperature.
+   PR is applied afterwards (linear), so the envelope only needs the orientation scenarios. */
+function perKwp(g, beta, azP, ghi, dir, ta, ws, tcorr){
+  const dif = Math.max(0, ghi - Math.max(0, dir));
+  const cb = Math.cos(beta * D2R), sb = Math.sin(beta * D2R), ap = azP * D2R;
+  let sct = 0;
+  for (let s = 0; s < g.cz.length; s++) sct += Math.max(0, g.cz[s] * cb + g.sz[s] * sb * Math.cos(g.az[s] - ap));
+  const rb = g.scz > 0 ? Math.min(RB_MAX, sct / g.scz) : 0;
+  const poa = Math.max(0, dir) * rb + dif * (1 + cb) / 2 + ghi * ALBEDO * (1 - cb) / 2;
+  let f = poa / 1000;
+  if (tcorr && ta != null){
+    const tc = ta + poa / (FAIMAN_U0 + FAIMAN_U1 * Math.max(0, ws ?? 1));
+    f *= 1 + GAMMA * (tc - 25);
+  }
+  return f;
+}
+/* Per hour {mid, lo, hi} in kW (null where unavailable) for one weather source, plus each orientation class's
+   central output per hour (kW per kWp) for the map. */
+function simulate(cells, date, source, hyp, availableAt){
+  const scen = [];
+  for (const dt of [0, -hyp.dtilt, hyp.dtilt]) for (const da of [0, -hyp.daz, hyp.daz]) scen.push([dt, da]);
+  const n = state.wx.get(`${cells[0].wkey}|${date}`).t.length, out = [], perCell = new Map(cells.map(c => [c.key, new Array(n).fill(null)]));
+  for (let h = 0; h < n; h++){
+    if (!availableAt(h)){ out.push(null); continue; }
+    const tot = new Array(scen.length).fill(0);
+    for (const c of cells){
+      const w = state.wx.get(`${c.wkey}|${date}`), src = w[source], met = source === 'fc' ? w.fc : w.d0;
+      const g = sunGeometry(c.pt, date, w.t)[h];
+      const ghi = src.ghi[h], dir = src.dir[h];
+      if (ghi == null || dir == null) continue;
+      const beta0 = hyp.orient === 'fix' ? hyp.tilt : c.tilt, az0 = hyp.orient === 'fix' ? hyp.az : c.az;
+      scen.forEach(([dt, da], s) => {
+        const f = perKwp(g, Math.min(90, Math.max(0, beta0 + dt)), az0 + da, ghi, dir, met.ta[h], met.ws[h], hyp.tcorr);
+        tot[s] += c.kwp * f;
+        if (s === 0) perCell.get(c.key)[h] = f * hyp.pr;
+      });
+    }
+    out.push({mid: tot[0] * hyp.pr, lo: Math.min(...tot) * Math.max(0, hyp.pr - hyp.dpr), hi: Math.max(...tot) * (hyp.pr + hyp.dpr)});
+  }
+  return {out, perCell};
+}
+
+/* ---------- Quarter-hour rendering ----------
+   Drawing only: no call, and the figures, table and hero stay on the hourly values. Linear interpolation
+   at 15 min, centred on each hourly mean (mid-hour), of the clear-sky index k = GHI / GHI_clear (Haurwitz),
+   the direct fraction DNI·cos z / GHI, air temperature and wind; GHI is rebuilt from k and the quarter's
+   own clear-sky value, and the output recomputed with the sun at that quarter. Interpolating k rather than
+   GHI keeps the curve on the sun's shape at dawn and dusk. */
+const haurwitz = cz => cz > 0 ? 1098 * cz * Math.exp(-0.057 / cz) : 0;
+function quarterGeometry(pt, date, times){
+  const k = `${pt.key}|${date}|q`;
+  if (state.geo.has(k)) return state.geo.get(k);
+  const out = [];
+  for (const t of times) for (let q = 0; q < 4; q++){
+    const cz = [], sz = [], az = []; let cs = 0;
+    for (let s = 0; s < 3; s++){
+      const p = sunPos(t - 3600 + q * 900 + (s + 0.5) * 300, pt.lat, pt.lon);
+      if (p.cz > 0){ cz.push(p.cz); sz.push(p.sz); az.push(p.az); cs += haurwitz(p.cz); }
+    }
+    out.push({cz, sz, az, scz: cz.reduce((a, b) => a + b, 0), cs: cs / 3});
+  }
+  state.geo.set(k, out);
+  return out;
+}
+function simulateQ(cells, date, source, hyp, availableAt){
+  const pt = cells[0].pt, w = state.wx.get(`${pt.key}|${date}`), src = w[source], met = source === 'fc' ? w.fc : w.d0;
+  const n = w.t.length, G = sunGeometry(pt, date, w.t), Q = quarterGeometry(pt, date, w.t);
+  const scen = [];
+  for (const dt of [0, -hyp.dtilt, hyp.dtilt]) for (const da of [0, -hyp.daz, hyp.daz]) scen.push([dt, da]);
+  const ok = h => h >= 0 && h < n && availableAt(h) && src.ghi[h] != null && src.dir[h] != null;
+  const K = [], B = [];
+  for (let h = 0; h < n; h++){
+    if (!ok(h)){ K.push(null); B.push(null); continue; }
+    const cs = G[h].cz.reduce((a, c) => a + haurwitz(c), 0) / SUBSTEPS;
+    K.push(cs > 10 ? Math.min(1.2, src.ghi[h] / cs) : null);
+    B.push(src.ghi[h] > 1 ? Math.min(1, Math.max(0, src.dir[h] / src.ghi[h])) : null);
+  }
+  // Value at offset f (hours, −0.5…0.5) from the centre of hour h, linear towards the neighbouring centre.
+  const lerp = (arr, h, f) => {
+    const j = f < 0 ? h - 1 : h + 1, a = arr[h], b = ok(j) ? arr[j] : null;
+    if (a == null) return b; if (b == null) return a;
+    return a + (b - a) * Math.abs(f);
+  };
+  const out = [], perCell = new Map(cells.map(c => [c.key, new Array(4 * n).fill(null)]));
+  for (let h = 0; h < n; h++) for (let q = 0; q < 4; q++){
+    if (!ok(h)){ out.push(null); continue; }
+    const f = (q + 0.5) / 4 - 0.5, g = Q[4 * h + q];
+    const ghi = (lerp(K, h, f) ?? 0) * g.cs, dir = ghi * (lerp(B, h, f) ?? 0);
+    const ta = lerp(met.ta, h, f), ws = lerp(met.ws, h, f);
+    const tot = new Array(scen.length).fill(0);
+    for (const c of cells){
+      const beta0 = hyp.orient === 'fix' ? hyp.tilt : c.tilt, az0 = hyp.orient === 'fix' ? hyp.az : c.az;
+      scen.forEach(([dt, da], s) => {
+        const f = perKwp(g, Math.min(90, Math.max(0, beta0 + dt)), az0 + da, ghi, dir, ta, ws, hyp.tcorr);
+        tot[s] += c.kwp * f;
+        if (s === 0) perCell.get(c.key)[4 * h + q] = f * hyp.pr;
+      });
+    }
+    out.push({mid: tot[0] * hyp.pr, lo: Math.min(...tot) * Math.max(0, hyp.pr - hyp.dpr), hi: Math.max(...tot) * (hyp.pr + hyp.dpr)});
+  }
+  return {out, perCell};
+}
+
+/* ---------- Engine: runs straight after the zone ---------- */
+async function runEngine(){
+  const rows = currentRows(); if (!rows.length) return;
+  const id = ++engRun, date = state.date, today = parisDate();
+  syncDays();
+  if (date < MIN_DATE || date > today){ setStatus(T.errDate(fmtDay(MIN_DATE), fmtDay(today)), 'error'); return; }
+  try {
+    const cells = buildCells(rows, state.hyp.ratio);
+    if (cells.some(c => !wxFresh(state.wx.get(`${c.wkey}|${date}`), date))) setStatus(T.loadWx, 'info', true);
+    await loadWeather(cells, date);
+    if (id !== engRun) return;
+    setStatus('');
+    compute();
+  } catch (e){
+    if (id !== engRun) return;
+    console.error(e); setStatus(errMsg(e), 'error');
+  }
+}
+/* Everything after the fetches: cheap, re-run on every assumption change. */
+function compute(){
+  const rows = currentRows(); if (!rows.length) return;
+  const hyp = state.hyp, date = state.date, isToday = date === parisDate();
+  const cells = buildCells(rows, hyp.ratio);
+  if (cells.some(c => !state.wx.has(`${c.wkey}|${date}`))){ runEngine(); return; }
+  const wxs = [state.wx.get(`${cells[0].wkey}|${date}`)], times = wxs[0].t, n = times.length;
+  const nowSec = Date.now() / 1000;
+
+  const fcOk = h => wxs.every(w => w.fc.ghi[h] != null && w.fc.dir[h] != null);
+  if (!times.some((_, h) => fcOk(h))){ setStatus(T.errNoFc, 'error'); return; }
+  const daylight = h => wxs.some(w => (w.fc.ghi[h] || 0) > 0 || (w.d0.ghi[h] || 0) > 0);
+  const elapsed = h => !isToday || times[h] <= nowSec;
+  const satOk = h => wxs.every(w => w.sat.ghi[h] != null && w.sat.dir[h] != null);
+  const satHours = times.filter((_, h) => elapsed(h) && daylight(h) && satOk(h)).length;
+  const dayHoursElapsed = times.filter((_, h) => elapsed(h) && daylight(h)).length;
+  // Whole past day without satellite data → fall back to the latest forecast (day 0), and say so.
+  const fallback = !isToday && satHours === 0 && dayHoursElapsed > 0;
+  const reOk = h => elapsed(h) && (fallback ? wxs.every(w => w.d0.ghi[h] != null) : satOk(h));
+
+  const F = simulate(cells, date, 'fc', hyp, fcOk), R = simulate(cells, date, fallback ? 'd0' : 'sat', hyp, reOk);
+  const fc = F.out, re = R.out;
+  const FQ = simulateQ(cells, date, 'fc', hyp, fcOk), RQ = simulateQ(cells, date, fallback ? 'd0' : 'sat', hyp, reOk), fcQ = FQ.out, reQ = RQ.out;
+
+  // Energies (hourly means × 1 h). The gap compares like with like: only hours that have both series.
+  const sum = (arr, k, f = () => true) => arr.reduce((s, v, h) => s + (v && f(h) ? v[k] : 0), 0);
+  const eFc = sum(fc, 'mid'), eRe = sum(re, 'mid');
+  const lastRe = re.reduce((l, v, h) => v ? h : l, -1);
+  const reHasDay = re.some((v, h) => v && daylight(h));
+  const partial = isToday && lastRe < n - 1;
+
+  // Exposure step (0–6) per orientation class and quarter-hour: actual where it exists, else forecast,
+  // relative to the brightest class-quarter of the day, so the roofs read as a print of this day's light.
+  const cellOut = new Map(cells.map(c => [c.key, RQ.perCell.get(c.key).map((v, i) => v ?? FQ.perCell.get(c.key)[i] ?? 0)]));
+  const peak = Math.max(1e-6, ...[...cellOut.values()].flat());
+  const cellStep = new Map([...cellOut].map(([k, arr]) => [k, arr.map(v => v <= 0.002 ? 1 : Math.min(6, 2 + Math.round(4 * v / peak)))]));
+
+  const totalKwp = cells.reduce((s, c) => s + c.kwp, 0);
+  const prev = state.view;
+  state.view = {times, fc, re, fcQ, reQ, isToday, nowSec, n, lastRe, cellStep, totalKwp, nRows: rows.length, date};
+  // Default scrubbed quarter-hour: the last satellite quarter today, the brightest one on a past day.
+  if (!prev || prev.date !== date || state.qi == null || state.qi >= 4 * n){
+    let best = 0, bv = -1; reQ.forEach((v, i) => { if (v && v.mid > bv){ bv = v.mid; best = i; } });
+    const lastQ = reQ.reduce((l, v, i) => v ? i : l, -1);
+    state.qi = isToday ? (lastQ >= 0 ? lastQ : Math.max(0, fcQ.findIndex(p => p && p.mid > 0))) : best;
+  }
+  const hIn = $('hour'), hM = $('hour-m'); hIn.max = hM.max = 4 * n - 1; hIn.value = hM.value = state.qi;
+  $('s-a').textContent = fmtH(times[0] - 3600); $('s-b').textContent = EN ? '24:00' : '24 h';
+  // Scrubber track: the day's light, hour by hour, in the 7-step ramp.
+  const totStep = times.map((_, h) => { const v = (re[h] || fc[h])?.mid || 0, mx = Math.max(1e-6, ...fc.map(p => p?.mid || 0), ...re.map(p => p?.mid || 0)); return v <= 0 ? 1 : Math.min(6, 2 + Math.round(4 * v / mx)); });
+  hIn.style.setProperty('--track', `linear-gradient(90deg,${totStep.map((s, h) => `${RAMP[s]} ${(100 * h / n).toFixed(2)}% ${(100 * (h + 1) / n).toFixed(2)}%`).join(',')})`);
+  hM.style.setProperty('--track', hIn.style.getPropertyValue('--track'));
+
+  const hEnd = lastRe >= 0 ? fmtH(times[lastRe]) : '';
+  $('f-fc').textContent = fmtKwh(eFc);
+  $('f-re').textContent = reHasDay ? fmtKwh(eRe) : '–';
+  $('f-re-l').textContent = !reHasDay ? T.reNone : partial ? T.reLnow(hEnd) : '';
+  const missing = fallback ? 0 : times.filter((_, h) => elapsed(h) && daylight(h) && !satOk(h) && h < lastRe).length;
+  $('src-note').textContent = T.srcSat((fallback ? T.srcFallback : missing ? T.srcPartial(missing) : '') + (isToday ? T.srcLive : ''));
+  renderHour();
+  renderTable();
+}
+/* Hero number, chart cursor and rooftop exposure all follow the scrubbed quarter-hour (the table row: its hour). */
+function renderHour(){
+  const v = state.view; if (!v) return;
+  const qi = state.qi, h = qi >> 2, r = v.reQ[qi], f = v.fcQ[qi], p = r || f, k = fmtKwp(v.totalKwp), nRoofs = nf0.format(v.nRows);
+  const t0q = v.times[h] - 3600 + (qi % 4) * 900, label = `${fmtH(t0q)}–${fmtH(t0q + 900)}`;
+  const [num, unit] = powParts(p ? p.mid : 0, T.kw, T.mw);
+  $('hero-v').textContent = $('m-v').textContent = num; $('hero-u').textContent = $('m-u').textContent = unit;
+  $('m-cap').textContent = `${label} · ${!p || p.mid < 0.05 ? T.miniNight : r ? T.miniRe : T.miniFc}`;
+  $('hour-m').value = qi; $('hour-m').setAttribute('aria-valuetext', `${label} : ${num} ${unit}`);
+  $('f-at').textContent = T.atRow(fmtH(t0q));
+  $('f-fc-p').textContent = f ? fmtKw(f.mid) : '–';
+  $('f-re-p').textContent = r ? fmtKw(r.mid) : '–';
+  $('hero-cap').innerHTML = !p || p.mid < 0.05 ? T.heroNight(nRoofs, esc(k), esc(label)) : r ? T.heroRe(nRoofs, esc(k), esc(label)) : T.heroFc(nRoofs, esc(k), esc(label));
+  $('hour').setAttribute('aria-valuetext', `${label} : ${num} ${unit}`);
+  document.querySelectorAll('#tbl tr[data-h]').forEach(tr => tr.classList.toggle('on', +tr.dataset.h === h));
+  draw();
+  exposeDots();
+}
+for (const id of ['hour', 'hour-m']) $(id).addEventListener('input', e => { state.qi = +e.target.value; $('hour').value = state.qi; renderHour(); });
+
+/* ---------- Chart (canvas): hourly steps, forecast dashed, actual printed white ---------- */
+const cv = $('chart'), tip = $('tip');
+let hover = null;
+function niceScale(v){
+  if (v <= 0) return {max: 1, div: 4};
+  const p = 10 ** Math.floor(Math.log10(v)), m = v / p;
+  const top = m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10;
+  return {max: top * p, div: top === 2 || top === 1 ? 4 : 5};
+}
+function draw(){
+  const v = state.view; if (!v) return;
+  const dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight, L = 46, R = 6, Tp = 8, B = 20;
+  if (!W) return;
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+  const all = [...v.fc, ...v.re, ...v.fcQ, ...v.reQ].filter(Boolean).map(p => p.hi);
+  const {max: yMax, div} = niceScale(Math.max(0.001, ...all) * 1.05);
+  const pw = W - L - R, ph = H - Tp - B;
+  const X = x => L + pw * x / v.n, Y = y => Tp + ph * (1 - y / yMax);
+  g.font = '11px Archivo, sans-serif'; g.textBaseline = 'middle'; g.textAlign = 'right';
+  for (let i = 0; i <= div; i++){
+    const y = yMax * i / div, py = Math.round(Y(y)) + .5;
+    g.strokeStyle = i === 0 ? RAMP[4] : RAMP[2]; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(L, py); g.lineTo(W - R, py); g.stroke();
+    if (i % (div === 5 ? 1 : 2) === 0 || i === div){ g.fillStyle = '#8fbbe8'; g.fillText(fmtTick(y, yMax >= 1000), L - 6, py); }
+  }
+  g.textBaseline = 'top'; g.fillStyle = '#8fbbe8';
+  const t0 = v.times[0] - 3600, step = pw < 380 ? 6 : 3;
+  for (let h = 0; h <= v.n; h += step){
+    g.textAlign = h === 0 ? 'left' : h + step > v.n ? 'right' : 'center';
+    g.fillText(fmtH(t0 + h * 3600), X(h), H - B + 6);
+  }
+  // Runs of consecutive available quarter-hours (index i = 4·hour + quarter), joined by straight segments.
+  const runs = arr => { const out = []; let cur = []; arr.forEach((p, h) => { if (p) cur.push([h, p]); else if (cur.length){ out.push(cur); cur = []; } }); if (cur.length) out.push(cur); return out; };
+  const pts = (run, key) => run.map(([i, p]) => [X((i + 0.5) / 4), Y(p[key])]);
+  const curve = (P, start) => P.forEach(([x, y], i) => (i === 0 && start ? g.moveTo(x, y) : g.lineTo(x, y)));
+  const band = (arr, color, alpha) => {
+    g.fillStyle = color; g.globalAlpha = alpha;
+    for (const run of runs(arr)){ g.beginPath(); curve(pts(run, 'hi'), true); curve(pts(run, 'lo').reverse(), false); g.closePath(); g.fill(); }
+    g.globalAlpha = 1;
+  };
+  // Actual: printed area (exposed paper) with its envelope as a lighter halo, and a white edge.
+  band(v.reQ, RAMP[6], 0.22);
+  for (const run of runs(v.reQ)){
+    const P = pts(run, 'mid');
+    g.beginPath(); g.moveTo(P[0][0], Y(0)); curve(P, false); g.lineTo(P[P.length - 1][0], Y(0)); g.closePath();
+    g.fillStyle = RAMP[6]; g.globalAlpha = 0.85; g.fill(); g.globalAlpha = 1;
+    g.beginPath(); curve(P, true); g.strokeStyle = RAMP[6]; g.lineWidth = 2; g.lineJoin = 'round'; g.stroke();
+  }
+  // Forecast: envelope + dashed curve.
+  band(v.fcQ, RAMP[4], 0.2);
+  g.strokeStyle = RAMP[4]; g.lineWidth = 2; g.setLineDash([5, 4]); g.lineJoin = 'round';
+  for (const run of runs(v.fcQ)){ g.beginPath(); curve(pts(run, 'mid'), true); g.stroke(); }
+  g.setLineDash([]);
+  // Now
+  if (v.isToday){
+    const xn = X((v.nowSec - t0) / 3600);
+    if (xn > L && xn < W - R){
+      g.strokeStyle = RAMP[5]; g.lineWidth = 1; g.setLineDash([2, 3]);
+      g.beginPath(); g.moveTo(Math.round(xn) + .5, Tp); g.lineTo(Math.round(xn) + .5, Tp + ph); g.stroke(); g.setLineDash([]);
+      g.fillStyle = RAMP[5]; g.textBaseline = 'top'; const right = xn > W - 80; g.textAlign = right ? 'right' : 'left';
+      g.fillText(T.now, xn + (right ? -4 : 4), Tp);
+    }
+  }
+  // Scrubbed quarter-hour: a faint column, a cursor line at its middle and a marker on each curve.
+  const hs = hover ?? state.qi;
+  if (hs != null){
+    const x0 = X(hs / 4), x1 = X((hs + 1) / 4), xm = Math.round(X((hs + .5) / 4)) + .5;
+    g.fillStyle = 'rgba(244,247,250,.08)'; g.fillRect(x0, Tp, x1 - x0, ph);
+    g.strokeStyle = RAMP[5]; g.lineWidth = 1; g.beginPath(); g.moveTo(xm, Tp); g.lineTo(xm, Tp + ph); g.stroke();
+    const dot = (p, fill) => { if (!p) return; g.beginPath(); g.arc(xm, Y(p.mid), 4.5, 0, 2 * Math.PI); g.fillStyle = fill; g.fill(); g.lineWidth = 2; g.strokeStyle = '#0f2f63'; g.stroke(); };
+    dot(v.fcQ[hs], RAMP[4]); dot(v.reQ[hs], RAMP[6]);
+  }
+  cv.setAttribute('aria-label', `${T.fc} ${$('f-fc').textContent}, ${T.re} ${$('f-re').textContent}.`);
+  v.geom = {X, L, pw};
+}
+function showTip(){
+  const v = state.view;
+  if (hover == null || !v?.geom){ tip.hidden = true; return; }
+  const f = v.fcQ[hover], r = v.reQ[hover], t = v.times[hover >> 2] - 3600 + (hover % 4) * 900;
+  const row = (name, p) => p ? `<div><span>${esc(name)}</span><strong class="tnum">${esc(fmtKw(p.mid))}</strong></div>` : '';
+  tip.innerHTML = `<b class="tnum">${esc(fmtH(t))} – ${esc(fmtH(t + 900))}</b>` + row(T.fc, f) + row(T.re, r);
+  tip.hidden = false;
+  const px = v.geom.X((hover + .5) / 4), W = cv.clientWidth, tw = tip.offsetWidth;
+  tip.style.left = `${Math.max(0, px + 12 + tw > W ? px - 12 - tw : px + 12)}px`;
+}
+function hourAt(e){ const v = state.view; if (!v?.geom) return null; const x = e.clientX - cv.getBoundingClientRect().left; const i = Math.floor((x - v.geom.L) / v.geom.pw * 4 * v.n); return i >= 0 && i < 4 * v.n ? i : null; }
+cv.addEventListener('pointermove', e => { hover = hourAt(e); draw(); showTip(); });
+cv.addEventListener('pointerleave', () => { hover = null; draw(); showTip(); });
+cv.addEventListener('click', e => { const h = hourAt(e); if (h != null){ state.qi = h; hover = null; showTip(); renderHour(); } });
+cv.addEventListener('keydown', e => {
+  if (!state.view) return;
+  if (e.key === 'ArrowRight' || e.key === 'ArrowLeft'){ e.preventDefault(); state.qi = Math.max(0, Math.min(4 * state.view.n - 1, state.qi + (e.key === 'ArrowRight' ? 1 : -1))); $('hour').value = state.qi; renderHour(); }
+});
+new ResizeObserver(() => { draw(); showTip(); }).observe(cv);
+
+function renderTable(){
+  const v = state.view, k = p => p ? nf1.format(p.mid) : '–', b = p => p ? `${nf1.format(p.lo)}–${nf1.format(p.hi)}` : '';
+  let html = `<thead><tr><th>${T.tHour}</th><th>${T.tFc} (kW)</th><th>${T.tRange}</th><th>${T.tRe} (kW)</th><th>${T.tRange}</th></tr></thead><tbody>`;
+  v.times.forEach((t, h) => {
+    const f = v.fc[h], r = v.re[h];
+    if ((!f || f.hi === 0) && (!r || r.hi === 0)) return;
+    html += `<tr data-h="${h}" class="${h === state.qi >> 2 ? 'on' : ''}"><td class="tnum">${esc(fmtHour(t - 3600))}</td><td class="tnum">${k(f)}</td><td class="tnum">${b(f)}</td><td class="tnum">${k(r)}</td><td class="tnum">${b(r)}</td></tr>`;
+  });
+  $('tbl').innerHTML = html + '</tbody>';
+}
+
+/* ---------- Controls ---------- */
+// Day
+const dateIn = $('date');
+function syncDays(){
+  const today = parisDate();
+  dateIn.min = MIN_DATE; dateIn.max = today; dateIn.value = state.date;
+  $('date-label').textContent = fmtDayShort(state.date);
+  dateIn.parentElement.classList.toggle('custom', state.date !== today && state.date !== shiftDate(today, -1));
+  $('d-today').setAttribute('aria-pressed', String(state.date === today));
+  $('d-yest').setAttribute('aria-pressed', String(state.date === shiftDate(today, -1)));
+}
+function setDate(d){ state.date = d; state.qi = null; runEngine(); }
+dateIn.addEventListener('change', () => { if (dateIn.value) setDate(dateIn.value); });
+$('d-today').addEventListener('click', () => setDate(parisDate()));
+$('d-yest').addEventListener('click', () => setDate(shiftDate(parisDate(), -1)));
+syncDays();
+
+// Radius (point zones): logarithmic, live ring, fetch on release (a smaller radius reuses the loaded set).
+const rFromSlider = s => Math.round(R_MIN * (R_MAX / R_MIN) ** (s / 1000) / 50) * 50;
+const sliderFromR = r => Math.round(1000 * Math.log(r / R_MIN) / Math.log(R_MAX / R_MIN));
+$('radius').value = sliderFromR(state.r);
+$('radius-val').textContent = fmtDist(state.r);
+$('radius').addEventListener('input', e => {
+  state.r = rFromSlider(+e.target.value); $('radius-val').textContent = fmtDist(state.r);
+  if (state.zone?.type === 'circle'){ state.zone.r = state.r; drawZone(); renderZoneName(); }
+});
+$('radius').addEventListener('change', () => { if (state.zone?.type === 'circle'){ fitZone(zoneBounds()); loadZone(); } });
+
+// Map tap: around this point, or the whole commune under it.
+map.on('click', e => {
+  const ll = [e.latlng.lat, e.latlng.lng];
+  if (!inFrance(ll)){ showResults(); setStatus(T.outside, 'error'); return; }
+  const box = document.createElement('div'); box.className = 'pick';
+  const bPoint = document.createElement('button'); bPoint.type = 'button';
+  bPoint.innerHTML = `<span>${esc(T.pickPoint())}<small>${esc(T.pickPointSub(fmtDist(state.r)))}</small></span>`;
+  const bCom = document.createElement('button'); bCom.type = 'button'; bCom.disabled = true;
+  bCom.innerHTML = `<span>${esc(T.pickLoading)}</span>`;
+  box.append(bPoint, bCom);
+  const pop = L.popup({closeButton: false, minWidth: 210}).setLatLng(e.latlng).setContent(box).openOn(map);
+  bPoint.addEventListener('click', () => { $('q').value = ''; selectCircle(ll, T.zonePick); });
+  communeAt(ll).then(f => {
+    if (!f){ bCom.remove(); return; }
+    bCom.disabled = false;
+    bCom.innerHTML = `<span>${esc(T.pickCommune(f.properties.nom))}<small>${esc(T.pickCommuneSub)}</small></span>`;
+    bCom.addEventListener('click', () => { $('q').value = f.properties.nom; selectCommune(f.properties.code, f); });
+    pop.update();
+  }).catch(() => bCom.remove());
+});
+
+// Examples (communes)
+const pickExamples = () => { const a = EXAMPLES.slice(); for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a.slice(0, EXAMPLES_SHOWN); };
+pickExamples().forEach(([name, code]) => {
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'ex'; b.textContent = name;
+  b.addEventListener('click', () => { $('q').value = name; selectCommune(code, null, name); });
+  $('examples').append(b);
+});
+
+$('locate').addEventListener('click', () => {
+  const btn = $('locate');
+  if (!navigator.geolocation){ showResults(); setStatus(T.denied, 'error'); return; }
+  btn.setAttribute('aria-busy', 'true');
+  navigator.geolocation.getCurrentPosition(
+    p => { btn.removeAttribute('aria-busy'); $('q').value = T.myPos; selectCircle([p.coords.latitude, p.coords.longitude], T.myPos); },
+    () => { btn.removeAttribute('aria-busy'); showResults(); setStatus(T.denied, 'error'); },
+    {enableHighAccuracy: false, timeout: 12000, maximumAge: 300000}
+  );
+});
+
+// Unified search: communes (geo.api.gouv.fr) first, then addresses (IGN). Only the typed text is sent.
+const q = $('q'), sugg = $('sugg');
+let items = [], sel = -1, searchAbort = null, debounce = null;
+function renderSugg(){
+  sugg.innerHTML = items.map((it, i) => `<li role="option" id="opt-${i}" aria-selected="${i === sel}"><span>${esc(it.label)}</span><span class="tag">${esc(it.tag)}</span></li>`).join('');
+  sugg.hidden = !items.length; q.setAttribute('aria-expanded', String(!!items.length));
+  if (sel >= 0) q.setAttribute('aria-activedescendant', `opt-${sel}`); else q.removeAttribute('aria-activedescendant');
+}
+function choose(i){
+  const it = items[i]; if (!it) return;
+  q.value = it.name || it.label; items = []; renderSugg(); q.blur();
+  if (it.code) selectCommune(it.code, null, it.name); else selectCircle([it.lat, it.lon], it.label.split(',')[0]);
+}
+async function search(text){
+  searchAbort?.abort(); searchAbort = new AbortController(); const signal = searchAbort.signal;
+  const [c, a] = await Promise.allSettled([searchCommunes(text, signal), /^\d{5}$/.test(text) ? Promise.resolve([]) : searchAddress(text, signal)]);
+  if (signal.aborted) throw new DOMException('aborted', 'AbortError');
+  return [...(c.value || []).slice(0, 3), ...(a.value || []).slice(0, 4)];
+}
+q.addEventListener('input', () => {
+  clearTimeout(debounce); setTag('');
+  const text = q.value.trim();
+  if (text.length < 2){ items = []; renderSugg(); return; }
+  debounce = setTimeout(async () => {
+    try { items = await search(text); sel = -1; renderSugg(); }
+    catch (e){ if (e.name !== 'AbortError'){ items = []; renderSugg(); } }
+  }, 220);
+});
+q.addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown' && items.length){ e.preventDefault(); sel = (sel + 1) % items.length; renderSugg(); }
+  else if (e.key === 'ArrowUp' && items.length){ e.preventDefault(); sel = (sel - 1 + items.length) % items.length; renderSugg(); }
+  else if (e.key === 'Enter'){
+    e.preventDefault();
+    if (items.length) choose(sel >= 0 ? sel : 0);
+    else if (q.value.trim().length >= 2) search(q.value.trim()).then(r => { items = r; if (r.length) choose(0); else { showResults(); setStatus(T.noResult); } }).catch(() => {});
+  } else if (e.key === 'Escape'){ items = []; renderSugg(); }
+});
+sugg.addEventListener('pointerdown', e => { const li = e.target.closest('li'); if (li){ e.preventDefault(); choose(+li.id.slice(4)); } });
+q.addEventListener('blur', () => setTimeout(() => { items = []; renderSugg(); }, 150));
+q.addEventListener('focus', () => { if (!desktop() && sheet.dataset.size === 'full') setSheet('peek'); });
+
+// Sources & limits
+$('more').addEventListener('click', () => { const d = $('d-about'); d.open = true; if (sheet.dataset.size === 'peek') setSheet('full'); d.scrollIntoView({block: 'start', behavior: reduced() ? 'auto' : 'smooth'}); });
+
+// Assumptions: recompute only, never refetch (the ratio changes kWp, not the cells' weather).
+const H = state.hyp;
+const outs = {
+  tilt: v => `${v}°`, az: v => azLabel(v), pr: v => nf2.format(v), ratio: v => `${nf1.format(v)} m²/${T.kwp}`,
+  dtilt: v => `±${v}°`, daz: v => `±${v}°`, dpr: v => `±${nf2.format(v)}`,
+};
+function syncHypUI(){
+  for (const k of Object.keys(outs)){ $(k).value = H[k]; $(`${k}-v`).textContent = outs[k](H[k]); }
+  document.querySelectorAll('input[name=orient]').forEach(r => r.checked = r.value === H.orient);
+  $('tcorr').checked = H.tcorr;
+  const fixed = H.orient === 'fix';
+  $('tilt').disabled = $('az').disabled = !fixed;
+  $('c-tilt').classList.toggle('off', !fixed); $('c-az').classList.toggle('off', !fixed);
+}
+const recompute = () => { if (state.view) compute(); };
+for (const k of Object.keys(outs)) $(k).addEventListener('input', e => {
+  H[k] = +e.target.value; $(`${k}-v`).textContent = outs[k](H[k]);
+  if (k === 'ratio' && currentRows().length) renderInstallInfo(currentRows());
+  recompute();
+});
+document.querySelectorAll('input[name=orient]').forEach(r => r.addEventListener('change', () => { H.orient = r.value; syncHypUI(); recompute(); }));
+$('tcorr').addEventListener('change', e => { H.tcorr = e.target.checked; recompute(); });
+$('reset').addEventListener('click', () => { Object.assign(H, DEF); syncHypUI(); if (currentRows().length) renderInstallInfo(currentRows()); recompute(); });
+syncHypUI();
+
+// Live: refresh today's output every 10 min while the tab is visible (satellite hours keep arriving).
+setInterval(() => { if (state.view && state.date === parisDate() && document.visibilityState === 'visible') runEngine(); }, TODAY_TTL);
+
+// A shared link may carry a commune code (never a position).
+const insee = params.get('insee');
+if (insee && /^[0-9AB]{5}$/i.test(insee)) selectCommune(insee.toUpperCase());
+})();
+</script>
+</body>
+</html>
