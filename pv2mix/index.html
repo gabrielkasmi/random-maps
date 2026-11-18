@@ -535,7 +535,10 @@ document.getElementById('hour').setAttribute('aria-label', T.lHour); document.ge
 document.getElementById('date').setAttribute('aria-label', T.lDate);
 
 /* ---------- Utils ---------- */
-const $ = id => document.getElementById(id);
+// The mini card (#mini) lives in a Leaflet popup on phones and leaves the document whenever the popup is
+// removed (e.g. the full sheet is open), so getElementById alone would return null for its elements.
+const MINI_ELS = new Map([document.getElementById('mini'), ...document.querySelectorAll('#mini [id]')].map(el => [el.id, el]));
+const $ = id => document.getElementById(id) || MINI_ELS.get(id);
 const LOC = EN ? 'en-GB' : 'fr-FR';
 const nf0 = new Intl.NumberFormat(LOC, {maximumFractionDigits: 0});
 const nf1 = new Intl.NumberFormat(LOC, {maximumFractionDigits: 1, minimumFractionDigits: 1});
