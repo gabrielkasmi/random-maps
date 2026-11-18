@@ -458,6 +458,7 @@ const T = {
     errSb: 'L’API des détections ne répond pas. Réessayez dans un instant.',
     errGeo: 'Le service des communes ne répond pas. Réessayez dans un instant.',
     errOm: 'Open-Meteo ne répond pas. Réessayez dans un instant.',
+    errOmReq: 'Open-Meteo a refusé la requête pour ce jour. Essayez une autre date.',
     errRate: 'Limite d’appels Open-Meteo atteinte pour votre connexion. Réessayez dans quelques minutes.',
     errNoFc: 'Pas de prévision archivée pour cette date (archive à partir du 1er février 2024).',
     errDate: (a, b) => `Choisissez une date entre le ${a} et le ${b}.`,
@@ -513,6 +514,7 @@ const T = {
     errSb: 'The detections API is not responding. Try again in a moment.',
     errGeo: 'The commune service is not responding. Try again in a moment.',
     errOm: 'Open-Meteo is not responding. Try again in a moment.',
+    errOmReq: 'Open-Meteo rejected the request for this day. Try another date.',
     errRate: 'Open-Meteo request limit reached for your connection. Try again in a few minutes.',
     errNoFc: 'No archived forecast for this date (the archive starts on 1 February 2024).',
     errDate: (a, b) => `Pick a date between ${a} and ${b}.`,
@@ -583,7 +585,7 @@ async function getRes(url, opts = {}, kind = 'om'){
   if (res.status === 429) throw new ApiError(kind === 'om' ? 'rate' : kind);
   if (!res.ok){
     let reason = ''; try { reason = (await res.json()).reason || ''; } catch {}
-    throw new ApiError(/limit/i.test(reason) ? 'rate' : kind, `HTTP ${res.status} ${reason}`);
+    throw new ApiError(/limit/i.test(reason) ? 'rate' : kind === 'om' && res.status >= 400 && res.status < 500 ? 'omreq' : kind, `HTTP ${res.status} ${reason}`);
   }
   return res;
 }
@@ -635,7 +637,7 @@ function setStatus(msg, kind = 'info', busy = false){
   $('out').classList.toggle('loading', busy);
   $('mini').classList.toggle('loading', busy);
 }
-function errMsg(e){ return e.kind === 'rate' ? T.errRate : e.kind === 'sb' ? T.errSb : e.kind === 'geo' ? T.errGeo : e.kind === 'nofc' ? T.errNoFc : T.errOm; }
+function errMsg(e){ return e.kind === 'rate' ? T.errRate : e.kind === 'sb' ? T.errSb : e.kind === 'geo' ? T.errGeo : e.kind === 'nofc' ? T.errNoFc : e.kind === 'omreq' ? T.errOmReq : T.errOm; }
 
 /* ---------- Map ---------- */
 const map = L.map('map', {zoomControl: false, minZoom: 5, maxZoom: 19, zoomSnap: 0.25}).fitBounds(FRANCE);
@@ -953,12 +955,15 @@ async function loadWeather(cells, date){
   // Hourly values are means over the hour ENDING at the timestamp, so the local day (00:00–24:00) is the
   // stamps in (midnight, next midnight]. Open-Meteo applies today's UTC offset to the whole requested range
   // (wrong across DST), so ask in UTC and cut the local day ourselves. Paris is UTC+1/+2, so the local day
-  // always lies within UTC days date−1 … date (the satellite API rejects any end_date after today).
-  const common = `&start_date=${shiftDate(date, -1)}&end_date=${date}&timezone=GMT&timeformat=unixtime`;
+  // always lies within UTC days date−1 … date. The satellite API rejects any end_date after the current
+  // UTC day, and just after midnight in Paris the Paris date is one ahead of it: cap the satellite end there
+  // (the hours not yet covered simply come back missing). The forecast API accepts future days.
+  const start = shiftDate(date, -1), utcToday = new Date().toISOString().slice(0, 10);
+  const range = end => `&start_date=${start}&end_date=${end}&timezone=GMT&timeformat=unixtime`;
   const t0 = parisMidnight(date), t1 = parisMidnight(shiftDate(date, 1));
   const [fc, sat] = await Promise.all([
-    getJSON(`${OM_FORECAST}?${loc}&hourly=${FC_VARS.join(',')}&wind_speed_unit=ms${common}`),
-    getJSON(`${OM_SATELLITE}?${loc}&hourly=${SAT_VARS.join(',')}&models=${SAT_MODELS.join(',')}${common}`),
+    getJSON(`${OM_FORECAST}?${loc}&hourly=${FC_VARS.join(',')}&wind_speed_unit=ms${range(date)}`),
+    getJSON(`${OM_SATELLITE}?${loc}&hourly=${SAT_VARS.join(',')}&models=${SAT_MODELS.join(',')}${range(date < utcToday ? date : utcToday)}`),
   ]);
   const fcs = Array.isArray(fc) ? fc : [fc], sats = Array.isArray(sat) ? sat : [sat];
   todo.forEach((c, k) => {
