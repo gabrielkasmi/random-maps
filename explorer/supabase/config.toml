@@ -1,0 +1,8 @@
+# Supabase CLI config, only used to deploy the pvx-submit Edge Function (the database is the existing
+# DeepPVMapper project, schema in pvx_setup.sql: do not run `supabase db reset` or `db push` from here).
+project_id = "deeppvmapper"
+
+[functions.pvx-submit]
+# The function checks the bearer token itself (auth.getUser), which works with the new publishable / secret keys
+# and asymmetric JWT signing; the gateway check is left off.
+verify_jwt = false
