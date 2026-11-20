@@ -3,16 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Les rues les plus solarisées</title>
+<title>Rue du Soleil ?</title>
 <meta name="description" content="Rue de l’Église, Impasse des Vignes, Rue du Soleil : quelles sont les rues où l’on trouve le plus de panneaux solaires ? Toute la Base Adresse Nationale croisée avec les installations OpenPVMapper.">
 <meta name="theme-color" content="#1f3a72">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Les rues les plus solarisées">
+<meta property="og:title" content="Rue du Soleil ?">
 <meta property="og:description" content="Les Places de l’Église portent 3 fois moins de panneaux solaires par adresse que le reste de leur commune, les Impasses des Vignes 43 % de plus. Et votre rue ? / Which French street names carry the most solar panels?">
 <meta property="og:url" content="https://gabrielkasmi.github.io/random-maps/streets/">
 <meta property="og:image" content="https://gabrielkasmi.github.io/random-maps/streets/og.png">
 <meta property="og:image:width" content="1200"><meta property="og:image:height" content="627">
-<meta property="og:image:alt" content="Plaques de rue émaillées bleues posées sur un mur, sous le titre « Les rues les plus solarisées » : Impasse des Vignes +43 %, Rue du Soleil +9 %, Place de l’Église 3,4 fois moins, Grande Rue −41 %, Allée des Mésanges +29 %, Rue Victor Hugo −24 %.">
+<meta property="og:image:alt" content="Plaques de rue émaillées bleues posées sur un mur, sous le titre « Rue du Soleil ? » : Impasse des Vignes +43 %, Rue du Soleil +9 %, Place de l’Église 3,4 fois moins, Grande Rue −41 %, Allée des Mésanges +29 %, Rue Victor Hugo −24 %.">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
 <style>
@@ -326,7 +326,7 @@ a{color:var(--email);text-underline-offset:3px}
 var P=new URLSearchParams(location.search);
 var LANG=P.get('lang')==='en'?'en':'fr';
 var T={fr:{
-  title:'Les rues les plus solarisées',sub:'Quelles sont les rues où l’on trouve le plus de panneaux solaires ?',
+  title:'Rue du Soleil ?',sub:'Quelles sont les rues où l’on trouve le plus de panneaux solaires ?',
   lede:'Pour chaque nom de rue, on compare le nombre de panneaux solaires par adresse avec celui des autres rues de la même commune, puis on fait le bilan sur toute la France.',
   shuffle:'Nouveau tirage',qnl:'Un nom de rue',qn:'Rue de la Gare, Impasse des Lilas…',qvl:'Une commune',qv:'Votre commune',
   near:'En bas de chez moi',nearWait:'Recherche de votre position…',nearErr:'Position indisponible. Cherchez plutôt votre commune.',nearLoad:'Chargement des rues autour de vous…',
@@ -379,7 +379,7 @@ var T={fr:{
    +'<h3>Sources</h3><p>Adresses : Base Adresse Nationale (Licence Ouverte 2.0). Installations : OpenPVMapper — DeepPVMapper, Gabriel Kasmi (CC BY 4.0). Fonds : Plan IGN et photographies aériennes © IGN. Police Barlow Condensed (SIL OFL). Projet indépendant, non affilié aux producteurs de ces données.</p>',
   sunTh:['Famille','Rues','Écart','Intervalle à 95 %']
 },en:{
-  title:'France’s most solar streets',sub:'Which streets have the most solar panels?',
+  title:'Sunny Street?',sub:'Which streets have the most solar panels?',
   lede:'For each street name, we compare solar panels per address with the other streets of the same commune, then add it all up across France.',
   shuffle:'New draw',qnl:'A street name',qn:'Rue de la Gare, Impasse des Lilas…',qvl:'A town',qv:'Your town',
   near:'Right where I live',nearWait:'Finding your position…',nearErr:'Position unavailable. Search your town instead.',nearLoad:'Loading the streets around you…',
