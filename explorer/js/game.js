@@ -113,6 +113,22 @@ export class Game {
   }
 }
 
+/**
+ * Random start: a node drawn from a seed string, with at least 3 directions (no dead end). Online, pvx-submit draws
+ * it with a random seed for each game and signs it; offline, the page draws it. Uniform over nodes: since nodes
+ * follow the density of panels, starts land more often where panels are many (lots of power, short steps) than in
+ * the countryside (long steps, suns).
+ */
+export function startNode(N, seed) {
+  const r = prng(hash32(String(seed)));
+  for (let i = 0; i < 10000; i++) {
+    const a = r() % N.count; let k = 0;
+    for (let d = 0; d < 4; d++) if (N.nb[a * 4 + d] >= 0) k++;
+    if (k >= 3) return a;
+  }
+  return 0;
+}
+
 /** Optional rule: no start within `startMin` metres of a bonus. Off in the current config (startMin 0: start anywhere). */
 export function canStart(N, bonuses, a, startMin) {
   return bonuses.every(b => (N.x[b.node] - N.x[a]) ** 2 + (N.y[b.node] - N.y[a]) ** 2 >= startMin * startMin);

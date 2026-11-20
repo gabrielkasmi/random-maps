@@ -1,85 +1,94 @@
 // PV Explorer — page logic (direction B, "Lever de soleil"). Rules live in game.js.
-import { prepareNodes, dailyBonuses, Game, parisDay, sunView, distanceFactor, traceKm } from './game.js';
-import * as BE from './backend.js';
+// Bump ?v= (imports below and the script tag in index.html) at each release: phones keep old scripts otherwise.
+import { prepareNodes, dailyBonuses, Game, parisDay, sunView, distanceFactor, traceKm, startNode } from './game.js?v=20261120e';
+import * as BE from './backend.js?v=20261120e';
 
 /* ================================================================ i18n */
 const T = {
   fr: {
     loading: 'Chargement…', back: '← Random Maps', about: 'À propos', lede: 'Quelle puissance installée arriverez-vous à récolter avant le lever du jour ?',
-    r1: '<b>Choisissez un départ</b> : les zones qui brillent ont le plus de puissance.',
-    r2: '<b>30 pas</b> N, S, E ou O : chaque panneau atteint rapporte sa puissance. Des soleils ×2 et ×3, cachés là où il y a peu de panneaux, multiplient tout ce qui suit.',
-    r3: '<b>À la fin</b>, votre score compte les soleils récoltés et la distance parcourue : chaque kilomètre ajoute un bonus, jusqu’à ×1,5.',
+    r1: '<b>Départ tiré au sort</b> quelque part en France, un nouveau à chaque partie : en ville, beaucoup de puissance mais de petits pas ; à la campagne, moins de panneaux mais de grands pas, et des soleils cachés.',
+    r2: '<b>30 pas</b> N, S, E ou O, d’installation en installation : chacune rapporte sa puissance. Un soleil ×2 ou ×3 multiplie tout ce qui suit.',
+    r3: '<b>Score</b> = puissance récoltée × bonus de distance (jusqu’à ×1,5 à 150 km) : récoltez beaucoup, allez loin, ou les deux.',
     pseudoLabel: 'Votre pseudo', pseudoPh: 'Votre pseudo', suggest: 'Suggérer un pseudo', play: 'Jouer',
     pseudoBad: 'Entre 2 et 24 caractères.', local: 'Votre pseudo apparaîtra dans le classement du jour.', pseudoTaken: 'Ce pseudo est déjà pris.', pseudoRefused: 'Ce pseudo n’est pas accepté. Essayez-en un autre.', offline: 'Hors ligne : votre partie sera envoyée plus tard.',
-    pickT: 'Choisissez votre départ', pickS: 'Touchez la carte. Les zones qui brillent ont beaucoup de panneaux, mais explorer les coins moins connus rapporte : c’est là que se cachent les soleils, et les pas y sont plus longs, donc la distance parcourue compte davantage.',
-    pickNone: 'Aucun panneau par ici : touchez plus près d’une zone qui brille.',
-    startHere: 'Partir d’ici', change: 'Choisir ailleurs', pickAgain: 'Touchez un autre endroit de la carte.',
+    startAt: d => `Départ tiré au sort : ${d}`,
     node: k => `${k} kWc`,
-    startInfo: 'Votre départ', choose: 'Plus une direction est orangée, plus il reste de puissance de ce côté (sur 8 km).',
+    choose: 'Plus une direction est orangée, plus il reste de puissance de ce côté (sur 8 km).',
     practice: 'Partie d’entraînement sur un jour passé : non classée.', newDay: 'Le jour a changé : nouveaux soleils !',
-    spotted: m => `Soleil ×${m} repéré !`, lucky: m => `Départ sur un soleil ×${m} : quelle chance !`, swipeTip: 'Touchez N, S, E ou O sur la carte (ou glissez un doigt) pour avancer ; deux doigts déplacent la carte.', gis: 'gisement',
+    spotted: m => `Soleil ×${m} repéré !`, lucky: m => `Départ sur un soleil ×${m} : quelle chance !`, gis: 'gisement',
     gainTxt: g => `+${g} kWc`, already: 'Déjà visité : rien de plus.', bonusTxt: (m, t) => `Soleil ×${m} ! Tout compte ×${t} désormais.`,
     steps: 'pas', stepsLeft: n => `${n} pas restant${n > 1 ? 's' : ''}`,
     dirs: ['N', 'S', 'E', 'O'], dirNames: ['nord', 'sud', 'est', 'ouest'], dirsGroup: 'Directions', rays: n => ['', ', un peu de puissance par là', ', de la puissance par là', ', beaucoup de puissance par là'][n],
     noDir: 'Aucun panneau dans cette direction.',
-    endT: 'Le jour s’est levé', endRecord: 'Record', endSub: (m, b, km) => `×${m} à l’arrivée · ${b} soleil${b > 1 ? 's' : ''} · ${km} km parcourus`,
-    sCollected: 'récoltés', sExplore: 'distance', exploreNote: () => 'Bonus de distance : +1 % tous les 3 km, jusqu’à ×1,5 (150 km).',
+    endT: 'Le jour s’est levé', endRecord: 'Record', pts: 'points', endSub: (k, f) => `${k} kWc récoltés ${f} de bonus distance`,
+    sCollected: 'récoltés', sWalked: 'parcourus', sSuns: n => n ? `${n} soleil${n > 1 ? 's' : ''}` : 'aucun soleil', sExplore: 'distance',
     sPanels: 'panneaux', sInst: 'installations', sBestDay: 'record du jour',
     share: 'Partager', again: 'Rejouer', view: 'Classement', boardT: d => `Classement du ${d}`, you: 'vous',
-    boardNote: 'Seule la première partie de chaque joueur compte. Les soleils changent à minuit (heure de Paris).', boardLocal: 'Hors ligne : seules les parties de ce navigateur apparaissent.', boardLoading: 'Chargement…',
-    rankTxt: (r, n) => `${r}${r === 1 ? 'er' : 'e'} sur ${n} aujourd’hui.`, unranked: 'Partie hors classement : seule la première partie du jour compte.', sending: 'Envoi du score…', sendFail: r => `Score non enregistré (${r}).`, boardEmpty: 'Aucune partie terminée aujourd’hui.', result: 'Résultat',
-    shareNote: 'Votre trace du jour, sur la carte du jeu.', shareGo: 'Partager l’image', download: 'Télécharger', copy: 'Copier le texte',
-    copied: 'Texte et lien copiés.', shareText: s => `J’ai récolté ${s} kWc en 30 pas sur PV Explorer ☀️ Et vous ?`,
-    cardSub: 'kWc en 30 pas', cardAsk: 'Et vous, combien sur votre route ?', cardSrc: 'OpenPVMapper · détections par IA',
-    menuT: 'Menu', restart: 'Nouvelle partie', changePseudo: 'Changer de pseudo', close: 'Fermer', recenter: 'Recentrer', menu: 'Menu',
+    boardNote: 'Résultats réinitialisés tous les jours à minuit (heure de Paris).', boardLocal: 'Hors ligne : seules les parties de ce navigateur apparaissent.', boardLoading: 'Chargement…',
+    rankTxt: (r, n) => `${r}${r === 1 ? 'er' : 'e'} sur ${n} aujourd’hui.`, newBest: 'Nouveau record personnel !', bestKept: b => `Votre meilleure partie du jour reste à ${b} points.`, sending: 'Envoi du score…', sendFail: r => `Score non enregistré (${r}).`, boardEmpty: 'Aucune partie terminée aujourd’hui.', boardSub: (k, km) => `${k} kWc · ${km} km`, startOff: 'Partie lancée hors ligne depuis un autre départ : non classée.', result: 'Résultat',
+    shareGo: 'Partager l’image', download: 'Télécharger', copy: 'Copier le texte',
+    copied: 'Texte et lien copiés.', shareText: (k, km, r) => `${r ? `Mon itinéraire PV Explorer : ${r}. ` : ''}J’ai récolté ${k} kWc et parcouru ${km} km ☀️ Les installations solaires de France, détectées par IA :`, around: a => `autour de ${a}`,
+    cardSub: 'points en 30 pas', cardLine: (k, km) => `J’ai récolté ${k} kWc et parcouru ${km} km`, cardRoute: 'Mon itinéraire', cardAsk: 'Et vous, jusqu’où irez-vous ?', cardSrc: 'OpenPVMapper · détections par IA',
+    menuT: 'Menu', help: 'Comment jouer', restart: 'Nouvelle partie', changePseudo: 'Changer de pseudo', close: 'Fermer', recenter: 'Recentrer', menu: 'Menu',
     aboutT: 'À propos',
-    aboutHtml: `<p>Récoltez le plus de puissance solaire en 30 pas. Chaque pas mène au panneau le plus proche dans la direction choisie ; chaque panneau compte une fois. Les soleils du jour sont les mêmes pour tout le monde et changent à minuit (heure de Paris).</p>
-      <p>Les lumières de la nuit montrent où la puissance installée est concentrée (floutée à une dizaine de kilomètres). Pendant la partie, les ⚡ au bord de l’écran pointent vers les deux plus gros gisements proches, et la couleur des boutons indique la puissance qui reste à récolter dans chaque direction, sur 8 km.</p>
+    aboutHtml: `<p>Votre départ est tiré au sort à chaque partie. En 30 pas, récoltez le plus de puissance solaire et parcourez le plus de distance. Chaque pas mène à l’installation la plus proche dans la direction choisie ; chacune compte une fois. Les soleils du jour sont les mêmes pour tout le monde et changent à minuit (heure de Paris).</p>
+      <p>Les lumières de la nuit montrent où la puissance installée est concentrée (floutée à une dizaine de kilomètres). Les ⚡ au bord de l’écran pointent vers les deux plus gros gisements proches, et la couleur des directions indique la puissance qui reste à récolter dans chaque direction, sur 8 km.</p>
       <p>Des soleils (×2, ×3) se cachent dans les zones où il y a le moins de panneaux, pour donner une raison d’y aller. Ils apparaissent quand votre trace passe à moins de 10 km. Les multiplicateurs s’additionnent (×2 puis ×3 donnent ×4).</p>
-      <p>Score final = puissance récoltée × bonus de distance : 1 + km parcourus / 300, jusqu’à ×1,5 (150 km). Là où il y a peu de panneaux, chaque pas va plus loin : la distance rééquilibre entre villes et campagnes.</p>
+      <p>Score = puissance récoltée (kWc) × bonus de distance (1 + km parcourus / 300, jusqu’à ×1,5 à 150 km). Ce n’est plus des kWc mais des points : en ville, on récolte beaucoup à petits pas ; à la campagne, chaque pas va plus loin.</p>
       <p>Les installations sont des détections par IA (OpenPVMapper / DeepPVMapper), pas un recensement officiel. Chaque panneau du jeu regroupe les installations voisines ; sa puissance est plafonnée à 1 MWc pour que les grandes centrales ne décident pas de tout.</p>
-      <p class="fine">Le classement garde votre pseudo et vos traces (identifiants des panneaux visités), sans compte ni adresse e-mail. Seule la première partie du jour est classée ; les suivantes servent d’entraînement.</p>
+      <p class="fine">Le classement garde votre pseudo et vos traces (identifiants des panneaux visités), sans compte ni adresse e-mail. Rejouez autant que vous voulez : votre meilleure partie du jour est classée.</p>
       <p class="fine">Données : OpenPVMapper — DeepPVMapper, Gabriel Kasmi (CC BY 4.0). Fond : Plan IGN © IGN. Polices : Unbounded, Manrope (SIL OFL).</p>`,
+    tut: ['Sautez d’installation en installation : chaque pas récolte la puissance installée du panneau atteint. Récoltez le plus possible, et allez le plus loin possible.',
+      'Votre départ est tiré au sort à chaque partie : rejouez pour tenter votre chance ailleurs. En ville, beaucoup de puissance à petits pas ; à la campagne, de grands pas, des soleils cachés et plus de distance.',
+      'Glissez le doigt vers le haut, le bas, la gauche ou la droite pour avancer, ou touchez la manette en bas.',
+      'Un soleil ×2 ou ×3 multiplie tout ce qui suit. À la fin : score = kWc récoltés × bonus de distance (jusqu’à ×1,5).'],
+    tutKeys: 'Flèches du clavier (ou la manette en bas) pour avancer d’un pas vers le N, le S, l’E ou l’O.',
+    tutT: ['Le but', 'Votre départ', 'Avancer', 'Soleils et score'], tutSkip: 'Passer', tutNext: 'Suivant', tutGo: 'C’est parti', tutCity: 'ville', tutCountry: 'campagne', tutKm: 'km',
     adj: ['Téméraire', 'Radieux', 'Curieux', 'Vagabond', 'Lumineux', 'Intrépide', 'Matinal', 'Rayonnant', 'Nomade', 'Vif'],
     noun: ['Onduleur', 'Photon', 'Panneau', 'Rayon', 'Silicium', 'Watt', 'Zénith', 'Albédo', 'Hangar', 'Toit'],
     pseudoOrder: (n, a) => `${n} ${a}`, date: d => new Date(d + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
   },
   en: {
     loading: 'Loading…', back: '← Random Maps', about: 'About', lede: 'How much installed power can you collect before daybreak?',
-    r1: '<b>Pick a start</b>: the glowing areas hold the most power.',
-    r2: '<b>30 steps</b> N, S, E or W: every panel you reach adds its power. ×2 and ×3 suns, hidden where panels are scarce, multiply everything that follows.',
-    r3: '<b>At the end</b>, your score counts the suns you collected and the distance you walked: every kilometre adds a bonus, up to ×1.5.',
+    r1: '<b>Your start is drawn at random</b> somewhere in France, a new one for each game: in a city, lots of power but small steps; in the countryside, fewer panels but long steps, and hidden suns.',
+    r2: '<b>30 steps</b> N, S, E or W, from installation to installation: each adds its power. A ×2 or ×3 sun multiplies everything that follows.',
+    r3: '<b>Score</b> = power collected × distance bonus (up to ×1.5 at 150 km): collect a lot, go far, or both.',
     pseudoLabel: 'Your nickname', pseudoPh: 'Your nickname', suggest: 'Suggest a nickname', play: 'Play',
     pseudoBad: '2 to 24 characters.', local: 'Your nickname will appear in today’s leaderboard.', pseudoTaken: 'This nickname is taken.', pseudoRefused: 'This nickname is not accepted. Try another one.', offline: 'Offline: your game will be sent later.',
-    pickT: 'Pick your start', pickS: 'Tap the map. Glowing areas have many panels, but exploring lesser-known places pays off: that is where the suns hide, and steps are longer there, so the distance walked counts more.',
-    pickNone: 'No panel around here: tap closer to a glowing area.',
-    startHere: 'Start here', change: 'Pick elsewhere', pickAgain: 'Tap another place on the map.',
+    startAt: d => `Start drawn at random: ${d}`,
     node: k => `${k} kWp`,
-    startInfo: 'Your start', choose: 'The more orange a direction, the more power is left that way (over 8 km).',
+    choose: 'The more orange a direction, the more power is left that way (over 8 km).',
     practice: 'Practice game on a past day: not ranked.', newDay: 'A new day: new suns!',
-    spotted: m => `Sun ×${m} spotted!`, lucky: m => `You start on a ×${m} sun: lucky you!`, swipeTip: 'Tap N, S, E or W on the map (or swipe one finger) to move; two fingers move the map.', gis: 'hotspot',
+    spotted: m => `Sun ×${m} spotted!`, lucky: m => `You start on a ×${m} sun: lucky you!`, gis: 'hotspot',
     gainTxt: g => `+${g} kWp`, already: 'Already visited: nothing more.', bonusTxt: (m, t) => `Sun ×${m}! Everything counts ×${t} from now on.`,
     steps: 'steps', stepsLeft: n => `${n} step${n > 1 ? 's' : ''} left`,
     dirs: ['N', 'S', 'E', 'W'], dirNames: ['north', 'south', 'east', 'west'], dirsGroup: 'Directions', rays: n => ['', ', some power that way', ', power that way', ', lots of power that way'][n],
     noDir: 'No panel in that direction.',
-    endT: 'The day has risen', endRecord: 'Record', endSub: (m, b, km) => `×${m} at the end · ${b} sun${b > 1 ? 's' : ''} · ${km} km walked`,
-    sCollected: 'collected', sExplore: 'distance', exploreNote: () => 'Distance bonus: +1 % every 3 km, up to ×1.5 (150 km).',
+    endT: 'The day has risen', endRecord: 'Record', pts: 'points', endSub: (k, f) => `${k} kWp collected ${f} distance bonus`,
+    sCollected: 'collected', sWalked: 'walked', sSuns: n => n ? `${n} sun${n > 1 ? 's' : ''}` : 'no sun', sExplore: 'distance',
     sPanels: 'panels', sInst: 'installations', sBestDay: 'best today',
     share: 'Share', again: 'Play again', view: 'Leaderboard', boardT: d => `Leaderboard, ${d}`, you: 'you',
-    boardNote: 'Only each player’s first game counts. Suns change at midnight (Paris time).', boardLocal: 'Offline: only this browser’s games are listed.', boardLoading: 'Loading…',
-    rankTxt: (r, n) => `${r}${[, 'st', 'nd', 'rd'][r % 100 > 10 && r % 100 < 14 ? 0 : r % 10] || 'th'} of ${n} today.`, unranked: 'Unranked game: only your first game of the day counts.', sending: 'Sending your score…', sendFail: r => `Score not saved (${r}).`, boardEmpty: 'No game finished today.', result: 'Result',
-    shareNote: 'Your trace of the day, on the game map.', shareGo: 'Share the image', download: 'Download', copy: 'Copy the text',
-    copied: 'Text and link copied.', shareText: s => `I collected ${s} kWp in 30 steps on PV Explorer ☀️ Can you beat it?`,
-    cardSub: 'kWp in 30 steps', cardAsk: 'How much is on your way?', cardSrc: 'OpenPVMapper · AI detections',
-    menuT: 'Menu', restart: 'New game', changePseudo: 'Change nickname', close: 'Close', recenter: 'Recentre', menu: 'Menu',
+    boardNote: 'Results reset every day at midnight (Paris time).', boardLocal: 'Offline: only this browser’s games are listed.', boardLoading: 'Loading…',
+    rankTxt: (r, n) => `${r}${[, 'st', 'nd', 'rd'][r % 100 > 10 && r % 100 < 14 ? 0 : r % 10] || 'th'} of ${n} today.`, newBest: 'New personal best!', bestKept: b => `Your best game today stays at ${b} points.`, sending: 'Sending your score…', sendFail: r => `Score not saved (${r}).`, boardEmpty: 'No game finished today.', boardSub: (k, km) => `${k} kWp · ${km} km`, startOff: 'Game started offline from another start: not ranked.', result: 'Result',
+    shareGo: 'Share the image', download: 'Download', copy: 'Copy the text',
+    copied: 'Text and link copied.', shareText: (k, km, r) => `${r ? `My PV Explorer route: ${r}. ` : ''}I collected ${k} kWp and walked ${km} km ☀️ France’s solar installations, detected by AI:`, around: a => `around ${a}`,
+    cardSub: 'points in 30 steps', cardLine: (k, km) => `I collected ${k} kWp and walked ${km} km`, cardRoute: 'My route', cardAsk: 'How far will you go?', cardSrc: 'OpenPVMapper · AI detections',
+    menuT: 'Menu', help: 'How to play', restart: 'New game', changePseudo: 'Change nickname', close: 'Close', recenter: 'Recentre', menu: 'Menu',
     aboutT: 'About',
-    aboutHtml: `<p>Collect as much solar power as you can in 30 steps. Each step goes to the nearest panel in the chosen direction; each panel counts once. Today’s suns are the same for everyone and change at midnight (Paris time).</p>
-      <p>The night lights show where installed power is concentrated (blurred over about ten kilometres). While playing, the ⚡ on the screen edge point to the two biggest hotspots nearby, and the colour of the buttons shows the power left to collect in each direction, over 8 km.</p>
+    aboutHtml: `<p>Your start is drawn at random for each game. In 30 steps, collect as much solar power and walk as far as you can. Each step goes to the nearest installation in the chosen direction; each counts once. Today’s suns are the same for everyone and change at midnight (Paris time).</p>
+      <p>The night lights show where installed power is concentrated (blurred over about ten kilometres). The ⚡ on the screen edge point to the two biggest hotspots nearby, and the colour of the directions shows the power left to collect in each direction, over 8 km.</p>
       <p>Suns (×2, ×3) hide where panels are scarcest, to give a reason to go there. They appear when your trace comes within 10 km. Multipliers add up (×2 then ×3 make ×4).</p>
-      <p>Final score = power collected × distance bonus: 1 + km walked / 300, up to ×1.5 (150 km). Where panels are scarce each step goes farther: distance rebalances cities and countryside.</p>
+      <p>Score = power collected (kWp) × distance bonus (1 + km walked / 300, up to ×1.5 at 150 km). It is points, not kWp: in a city you collect a lot in small steps; in the countryside every step goes farther.</p>
       <p>The installations are AI detections (OpenPVMapper / DeepPVMapper), not an official census. Each panel of the game groups nearby installations; its power is capped at 1 MWp so that large solar farms do not decide everything.</p>
-      <p class="fine">The leaderboard keeps your nickname and your traces (ids of the panels visited), with no account or email address. Only your first game of the day is ranked; the next ones are practice.</p>
+      <p class="fine">The leaderboard keeps your nickname and your traces (ids of the panels visited), with no account or email address. Play as often as you like: your best game of the day is ranked.</p>
       <p class="fine">Data: OpenPVMapper — DeepPVMapper, Gabriel Kasmi (CC BY 4.0). Basemap: Plan IGN © IGN. Fonts: Unbounded, Manrope (SIL OFL).</p>`,
+    tut: ['Hop from installation to installation: each step collects the installed power of the panel you reach. Collect as much as you can, and go as far as you can.',
+      'Your start is drawn at random for each game: play again to try your luck elsewhere. In a city, lots of power in small steps; in the countryside, long steps, hidden suns and more distance.',
+      'Swipe up, down, left or right to move, or tap the controller at the bottom.',
+      'A ×2 or ×3 sun multiplies everything that follows. At the end: score = kWp collected × distance bonus (up to ×1.5).'],
+    tutKeys: 'Arrow keys (or the controller at the bottom) move one step N, S, E or W.',
+    tutT: ['The goal', 'Your start', 'Moving', 'Suns and score'], tutSkip: 'Skip', tutNext: 'Next', tutGo: 'Let’s go', tutCity: 'city', tutCountry: 'countryside', tutKm: 'km',
     adj: ['Bold', 'Radiant', 'Curious', 'Roaming', 'Bright', 'Fearless', 'Early', 'Beaming', 'Nomad', 'Swift'],
     noun: ['Inverter', 'Photon', 'Panel', 'Ray', 'Silicon', 'Watt', 'Zenith', 'Albedo', 'Barn', 'Rooftop'],
     pseudoOrder: (n, a) => `${a} ${n}`, date: d => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
@@ -93,11 +102,13 @@ for (const el of document.querySelectorAll('[data-t]')) { const v = t[el.dataset
 for (const el of document.querySelectorAll('[data-t-html]')) el.innerHTML = t[el.dataset.tHtml];
 for (const el of document.querySelectorAll('[data-t-aria]')) el.setAttribute('aria-label', t[el.dataset.tAria]);
 for (const el of document.querySelectorAll('[data-t-ph]')) el.placeholder = t[el.dataset.tPh];
+for (const el of document.querySelectorAll('[data-t-title]')) el.title = t[el.dataset.tTitle];
 for (const a of document.querySelectorAll('.lang a')) a.setAttribute('aria-current', a.dataset.l === LANG);
 document.getElementById('aboutBody').innerHTML = t.aboutHtml;
 document.getElementById('unit').textContent = LANG === 'fr' ? 'kWc' : 'kWp';
 const $ = id => document.getElementById(id);
 const NF = new Intl.NumberFormat(LANG === 'fr' ? 'fr-FR' : 'en-GB');
+const XF = v => '×' + v.toLocaleString(LANG === 'fr' ? 'fr-FR' : 'en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ================================================================ storage (this browser only) */
@@ -115,6 +126,7 @@ const TODAY = parisDay();
 const DAY = /^\d{4}-\d{2}-\d{2}$/.test(qs.get('day') || '') && qs.get('day') < TODAY ? qs.get('day') : TODAY;
 const PRACTICE = DAY !== TODAY;
 const REVEAL_M = 2500;
+const TOP = 100;   // height of the floating counter: markers and pins stay below it
 let CFG, N, LL, BON, BK, LIGHTS, GIS, VIEW = [], TGT = [], RAYS = [0, 0, 0, 0];
 const bkey = (i, j) => i * 100000 + j;
 
@@ -138,14 +150,10 @@ function within(x, y, r, fn) {
   for (let i = -s; i <= s; i++) for (let j = -s; j <= s; j++) for (const b of BK.get(bkey(ci + i, cj + j)) || [])
     if ((N.x[b] - x) ** 2 + (N.y[b] - y) ** 2 <= r * r) fn(b);
 }
-function nearestNode(x, y) {
-  for (const r of [3000, 10000, 30000]) { let best = -1, bd = Infinity; within(x, y, r, b => { const d = (N.x[b] - x) ** 2 + (N.y[b] - y) ** 2; if (d < bd) { bd = d; best = b; } }); if (best >= 0) return best; }
-  return -1;
-}
 
 /* ================================================================ map + night canvas */
 let map, cv, ctx, W = 0, H = 0, DPR = 1;
-let mode = 'intro', g = null, cand = -1, anim = null, shown = 0;
+let mode = 'intro', g = null, anim = null, shown = 0;
 const open = new Set();   // nodes uncovered by the trace (drawn as dots)
 
 function initMap() {
@@ -156,7 +164,6 @@ function initMap() {
   cv = $('fx'); ctx = cv.getContext('2d');
   map.on('render', draw);
   map.on('click', e => {
-    if (mode === 'pick') return pickAt(e.lngLat);
     if (mode !== 'play') return;
     const h = TGT.find(q => Math.hypot(q.x - e.point.x, q.y - e.point.y) <= q.r + 12);   // tap a N / S / E / W marker
     if (h) step(h.d);
@@ -168,7 +175,7 @@ function size() { DPR = Math.min(devicePixelRatio || 1, 2); W = innerWidth; H = 
 const P = a => map.project(ll(a));
 const mpx = () => 40075016.686 * Math.cos(map.getCenter().lat * Math.PI / 180) / (512 * 2 ** map.getZoom());
 let raf = 0;
-function kick() { if (!raf) raf = requestAnimationFrame(() => { raf = 0; draw(); if (anim || mode === 'pick' || mode === 'play' || mode === 'intro') kick(); }); }
+function kick() { if (!raf) raf = requestAnimationFrame(() => { raf = 0; draw(); if (anim || mode === 'draw' || mode === 'play' || mode === 'intro') kick(); }); }
 
 function trailPts(step) {
   if (!g) return [];
@@ -273,7 +280,7 @@ function draw() {
         if (L < 1) { [vx, vy] = FACE[d]; L = 1; }
         if (L < 58) p = { x: head.x + vx / L * 58, y: head.y + vy / L * 58 };
       }
-      p = { x: Math.min(W - m, Math.max(m, p.x)), y: Math.min(H - m - 20, Math.max(150 + m, p.y)) };
+      p = { x: Math.min(W - m, Math.max(m, p.x)), y: Math.min(H - m - (COARSE ? 170 : 20), Math.max(TOP + m, p.y)) };
       ctx.setLineDash([3, 4]); ctx.strokeStyle = 'rgba(255,207,107,.8)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(head.x, head.y); ctx.lineTo(p.x, p.y); ctx.stroke(); ctx.setLineDash([]);
       const seen = g.seen.has(b), lit = RAYS[d] || 0;   // warmer = more power left that way
       if (lit) { const gl = ctx.createRadialGradient(p.x, p.y, R * .8, p.x, p.y, R * (1.6 + lit * .35)); gl.addColorStop(0, `rgba(255,159,28,${.18 * lit})`); gl.addColorStop(1, 'rgba(255,159,28,0)'); ctx.fillStyle = gl; ctx.fillRect(p.x - R * 3, p.y - R * 3, R * 6, R * 6); }
@@ -286,14 +293,8 @@ function draw() {
     const hop = anim ? Math.sin(Math.PI * anim.f) * 16 : REDUCED ? 0 : (1 + Math.sin(performance.now() / 320)) * 1.2;
     avatar(head.x, head.y, hop);
   }
-  // candidate start
-  if (mode === 'pick' && cand >= 0) {
-    const p = P(cand), s = REDUCED ? 0 : (performance.now() / 900) % 1;
-    ctx.beginPath(); ctx.arc(p.x, p.y, 10 + s * 18, 0, 7); ctx.strokeStyle = `rgba(255,207,107,${1 - s})`; ctx.lineWidth = 2; ctx.stroke();
-    ctx.beginPath(); ctx.arc(p.x, p.y, 7, 0, 7); ctx.fillStyle = '#ffb22e'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#fff4dc'; ctx.stroke();
-  }
-  if (!g || mode === 'pick') return;
-  const top = 150, bot = mode === 'play' ? 200 : 300, inside = p => p.x > 16 && p.y > top && p.x < W - 16 && p.y < H - bot;
+  if (!g) return;
+  const top = TOP, bot = mode === 'play' ? 200 : 300, inside = p => p.x > 16 && p.y > top && p.x < W - 16 && p.y < H - bot;
   // hotspots (⚡): a soft circle on screen, a pin on the edge otherwise
   if (mode === 'play') for (const h of gisements()) {
     const [lo, la] = PJ.inverse([h.x, h.y]), p = map.project([lo, la]);
@@ -323,7 +324,6 @@ function setMode(m) {
   mode = m; touchMode(m === 'play');
   document.body.classList.toggle('playing', m === 'play' || m === 'end');
   $('intro').hidden = m !== 'intro';
-  $('pickHud').hidden = $('pickBot').hidden = m !== 'pick';
   $('playHud').hidden = $('playBot').hidden = $('sideBtns').hidden = !(m === 'play' || m === 'end');
   $('end').hidden = m !== 'end';
   $('playBot').hidden = m !== 'play';
@@ -349,41 +349,47 @@ $('pseudoForm').onsubmit = async e => {
   if (!r.ok && r.reason === 'taken') { $('pseudoErr').textContent = t.pseudoTaken; return; }
   if (!r.ok && r.reason === 'invalid') { $('pseudoErr').textContent = t.pseudoRefused; return; }   // length is checked above: 'invalid' = refused by the filter
   if (!r.ok) console.warn('pseudo not saved online', r.error);   // offline: play anyway, sent later
-  store.pseudo = v; store.pseudoOnline = r.ok; save(); startPick();
+  store.pseudo = v; store.pseudoOnline = r.ok; save(); newGame();
 };
 
-function startPick() {
-  g = null; cand = -1; open.clear(); if (!PRACTICE) store.game = null; save();
-  $('pickInfo').innerHTML = '';
-  $('pickBot').hidden = true;
-  setMode('pick'); $('pickBot').hidden = true;
-  if (map.getZoom() > 7) map.flyTo({ zoom: 5.4, center: [2.6, 46.6], duration: REDUCED ? 0 : 900 });
+
+// The start is drawn, not chosen, anew for each game. Online, pvx-submit draws it and signs it (ticket); the ticket
+// goes back with the finished trace so the server knows the start was not picked. Without a ticket (offline,
+// practice day) the page draws the start itself and the game is not ranked.
+const settle = (pr, ms) => Promise.race([pr, new Promise(res => setTimeout(() => res(null), ms))]);
+let ticket = null;
+async function drawStart() {
+  const local = () => { ticket = null; return startNode(N, 'local:' + Math.random()); };
+  if (PRACTICE) return local();
+  let r = await settle(BE.newStart(DAY), 6000);
+  if (r && !r.ok && r.reason === 'pseudo' && store.pseudo) {   // pseudo chosen offline: register it, then ask again
+    const c = await settle(BE.claimPseudo(store.pseudo), 6000);
+    if (c?.ok) { store.pseudoOnline = true; r = await settle(BE.newStart(DAY), 6000); }
+  }
+  if (!r?.ok || !(r.node >= 0 && r.node < N.count)) return local();
+  ticket = r.ticket; return r.node;
 }
-function pickAt(lngLat) {
-  const [x, y] = PJ.forward([lngLat.lng, lngLat.lat]);
-  const a = nearestNode(x, y);
-  if (a < 0) { toast(t.pickNone); return; }
-  cand = a;
-  $('pickBot').hidden = false;
-  $('pickInfo').innerHTML = `<b>${t.startInfo}</b>${t.node(NF.format(N.k[a]))}<div class="act"><button class="cta" id="goBtn" type="button">${t.startHere}</button><button class="ghost" id="elseBtn" type="button">${t.change}</button></div>`;
-  $('goBtn').onclick = () => begin(cand);
-  $('elseBtn').onclick = () => { cand = -1; $('pickBot').hidden = true; toast(t.pickAgain); map.flyTo({ zoom: Math.min(map.getZoom(), 6.5), duration: REDUCED ? 0 : 800 }); kick(); };
-  if (map.getZoom() < 9) map.flyTo({ center: ll(a), zoom: 9.5, duration: REDUCED ? 0 : 1100 });
-  kick();
+async function newGame() {
+  g = null; open.clear(); if (!PRACTICE) store.game = null; save();
+  setMode('draw');
+  if (map.getZoom() > 7) map.flyTo({ zoom: 5.4, center: [2.6, 46.6], duration: REDUCED ? 0 : 900 });
+  const [a] = await Promise.all([drawStart(), store.tuto ? null : new Promise(res => tutorial(res))]);
+  begin(a, [], true);
 }
 
-function begin(a, replay = []) {
+function begin(a, replay = [], fresh = false) {
   g = new Game(N, CFG.game.steps, BON);
   g.start(a);
   for (let i = 1; i < replay.length; i++) { const d = [0, 1, 2, 3].find(e => N.nb[replay[i - 1] * 4 + e] === replay[i]); if (d === undefined || !g.move(d)) break; }
   open.clear(); g.path.forEach(uncover); VIEW = [];
   if (g.path.length > 1) { const p = g.path, i = p.length - 1, f = [0, 1, 2, 3].find(e => N.nb[p[i - 1] * 4 + e] === p[i]); if (f !== undefined) facing = f; }
-  if (!PRACTICE) store.game = { day: DAY, path: g.path }; save();
+  if (!PRACTICE) store.game = { day: DAY, path: g.path, ticket }; save();
   shown = g.score; $('score').textContent = NF.format(shown);
-  $('who').textContent = '☀ ' + (store.pseudo || '');
   setMode('play'); hud();
-  if (replay.length <= 1 && g.taken.size) toast(t.lucky(g.mult));
-  map.flyTo({ center: ll(g.node), zoom: Math.max(map.getZoom(), 10.5), duration: REDUCED ? 0 : 1000 });
+  const dep = CFG.depts[N.dp[a]];
+  if (fresh) toast(t.startAt(dep ? dep[1] : ''));
+  if (replay.length <= 1 && g.taken.size) setTimeout(() => toast(t.lucky(g.mult)), fresh ? 2800 : 0);
+  map.flyTo({ center: ll(g.node), zoom: Math.max(map.getZoom(), 10.5), duration: REDUCED ? 0 : fresh ? 2200 : 1000 });
   if (g.left <= 0) finish(true);
 }
 function uncover(a) { within(N.x[a], N.y[a], REVEAL_M + 400, b => open.add(b)); }
@@ -404,9 +410,11 @@ function hud(last) {
   VIEW = sunView(N, g.path, g.taken, BON, CFG.game.bonus);
   if (last) for (const v of VIEW) if (v.state === 'seen' && !v.taken && !before.has(v.node)) toast(t.spotted(v.mult));
   if (last && last.bonus) toast(t.bonusTxt(last.bonus, g.mult));
-  if (!last && COARSE && !store.swipeTip) { store.swipeTip = 1; save(); setTimeout(() => toast(t.swipeTip), g.taken.size && g.path.length === 1 ? 3200 : 1200); }
-  $('steps').textContent = t.stepsLeft(g.left);
-  $('left').textContent = g.left;
+  const L = g.left, col = stepColor(L), st = $('steps');
+  $('stepsN').textContent = $('left').textContent = L;
+  st.style.setProperty('--sc', col); $('left').style.color = col;
+  st.classList.toggle('urgent', L > 0 && L <= 3); st.setAttribute('aria-label', t.stepsLeft(L));
+  $('meta').innerHTML = `<b>${NF.format(Math.round(traceKm(N, g.path)))} km</b>`;
   const m = $('mult'); m.textContent = '×' + g.mult; m.classList.toggle('x1', g.mult === 1);
   if (last && last.bonus) { m.classList.remove('pop'); void m.offsetWidth; m.classList.add('pop'); }
   const a = g.node;
@@ -423,6 +431,8 @@ function hud(last) {
   }
   countUp();
 }
+// steps left: daylight, then amber to red over the last 15 steps
+function stepColor(L) { return L > 15 ? '' : `hsl(${Math.round(42 * Math.max(0, L - 1) / 14)} 100% ${L > 5 ? 64 : 60}%)`; }
 function countUp() {
   const from = shown, to = g.score, t0 = performance.now();
   if (REDUCED || from === to) { shown = to; $('score').textContent = NF.format(to); return; }
@@ -441,10 +451,10 @@ function step(d) {
     anim.pos = { x: pa.x + (pb.x - pa.x) * e, y: pa.y + (pb.y - pa.y) * e }; anim.f = f;
     if (f < 1) { draw(); return requestAnimationFrame(run); }
     anim = null; uncover(b);
-    if (!PRACTICE) store.game = { day: DAY, path: g.path }; save();
+    if (!PRACTICE) store.game = { day: DAY, path: g.path, ticket }; save();
     hud(res); flash(res);
     const p = P(b);
-    if (p.x < 60 || p.x > W - 60 || p.y < 190 || p.y > H - 240) map.easeTo({ center: ll(b), duration: REDUCED ? 0 : 450 });
+    if (p.x < 60 || p.x > W - 60 || p.y < TOP + 50 || p.y > H - 240) map.easeTo({ center: ll(b), duration: REDUCED ? 0 : 450 });
     draw();
     if (g.left <= 0) setTimeout(() => finish(), REDUCED ? 0 : 700);
   };
@@ -460,7 +470,7 @@ function flash(res) {
 for (const b of document.querySelectorAll('.pad button')) b.addEventListener('click', () => step(+b.dataset.d));
 const KEYS = { ArrowUp: 0, ArrowDown: 1, ArrowRight: 2, ArrowLeft: 3, w: 0, z: 0, s: 1, d: 2, a: 3, q: 3 };
 addEventListener('keydown', e => {
-  if (mode !== 'play' || e.target.closest('input,dialog') || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (mode !== 'play' || !$('tuto').hidden || e.target.closest('input,dialog') || e.metaKey || e.ctrlKey || e.altKey) return;
   const d = KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key];
   if (d !== undefined) { e.preventDefault(); step(d); }
 });
@@ -490,27 +500,26 @@ function finish(silent) {
   if (rec) store.best[DAY] = { score: final, path: g.path };
   if (!store.bestAll || final > store.bestAll.score) store.bestAll = { score: final, day: DAY };
   const sc = ((store.scores || {})[DAY] || []).filter(r => r.path !== g.path.join(','));
-  store.scores = { [DAY]: sc.concat([{ pseudo: store.pseudo, score: final, mult: g.mult, ex, path: g.path.join(',') }]) };
-  if (!PRACTICE) store.game = { day: DAY, path: g.path, done: true }; save();
-  g.final = final; g.explore = ex;
-  const U = LANG === 'fr' ? 'kWc' : 'kWp', XF = v => '×' + v.toLocaleString(LANG === 'fr' ? 'fr-FR' : 'en-GB', { minimumFractionDigits: 2 });
+  store.scores = { [DAY]: sc.concat([{ pseudo: store.pseudo, score: final, k: g.score, km, mult: g.mult, ex, path: g.path.join(',') }]) };
+  if (!PRACTICE) store.game = { day: DAY, path: g.path, ticket, done: true }; save();
+  g.final = final; g.explore = ex; g.km = km;
   $('endT').innerHTML = t.endT + (rec && prev ? ` <span class="record">${t.endRecord}</span>` : '');
-  $('endScore').textContent = `${NF.format(final)} ${U}`;
-  $('endSub').textContent = t.endSub(g.mult, g.taken.size, NF.format(km));
-  $('endStats').innerHTML = `<div><b>${NF.format(g.score)}</b>${U} ${t.sCollected}</div><div><b>${XF(ex)}</b>${t.sExplore}</div><div><b>${NF.format(Math.max(prev, final))}</b>${t.sBestDay}</div>`;
-  $('endNote').textContent = t.exploreNote(NF.format(km)); $('endRank').textContent = '';
+  $('endScore').innerHTML = `${NF.format(final)}<small>${t.pts}</small>`;
+  $('endSub').textContent = t.endSub(NF.format(g.score), XF(ex));
+  $('endStats').innerHTML = `<div><b>${NF.format(km)} km</b>${t.sWalked}</div><div><b>☀ ×${g.mult}</b>${t.sSuns(g.taken.size)}</div><div><b>${NF.format(Math.max(prev, final))}</b>${t.sBestDay}</div>`;
+  $('endRank').textContent = '';
   setMode('end');
-  if (!PRACTICE) { queue(DAY, g.path); sendPending(g.path); } else $('endRank').textContent = t.practice;
+  if (!PRACTICE) { queue(DAY, g.path, ticket); sendPending(g.path); } else $('endRank').textContent = t.practice;
   if (!silent) fitTrace();
 }
 function fitTrace() {
   const b = g.path.reduce((bb, a) => bb.extend(ll(a)), new maplibregl.LngLatBounds(ll(g.path[0]), ll(g.path[0])));
   map.fitBounds(b, { padding: { top: 170, bottom: Math.min(H * .5, 360), left: 40, right: 40 }, maxZoom: 12, duration: REDUCED ? 0 : 1000 });
 }
-$('againBtn').onclick = () => { if (dayChanged()) reloadDay(); else startPick(); };
+$('againBtn').onclick = () => { if (dayChanged()) reloadDay(); else newGame(); };
 const dayChanged = () => !PRACTICE && parisDay() !== DAY;
 function reloadDay() { const q = new URLSearchParams(location.search); q.delete('day'); try { sessionStorage.setItem('pvx.newDay', '1'); } catch {} location.search = q.toString(); }
-function checkDay() { if (dayChanged() && (mode === 'intro' || mode === 'pick')) reloadDay(); }
+function checkDay() { if (dayChanged() && mode === 'intro') reloadDay(); }
 setInterval(checkDay, 60000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) checkDay(); });
 // leaderboard of the day: Supabase (pvx_leaderboard), this browser's games when offline
@@ -520,20 +529,20 @@ $('viewBtn').onclick = async () => {
   $('board').showModal();
   try {
     const rows = await BE.leaderboard(DAY);
-    $('boardList').innerHTML = rows.length ? rows.map((r, i) => `${i && r.rank > rows[i - 1].rank + 1 ? '<li class="gap">…</li>' : ''}<li${r.me ? ' class="me"' : ''}><span class="rk">${r.rank}</span><span class="who">${esc(r.pseudo)}${r.me ? ` <em>(${t.you})</em>` : ''}</span><span class="pts">${NF.format(r.final)}</span></li>`).join('') : `<li class="empty">${t.boardEmpty}</li>`;
+    $('boardList').innerHTML = rows.length ? rows.map((r, i) => `${i && r.rank > rows[i - 1].rank + 1 ? '<li class="gap">…</li>' : ''}<li${r.me ? ' class="me"' : ''}><span class="rk">${r.rank}</span><span class="who">${esc(r.pseudo)}${r.me ? ` <em>(${t.you})</em>` : ''}${r.score != null ? `<small>${t.boardSub(NF.format(r.score), NF.format(Math.round(r.km)))}</small>` : ''}</span><span class="pts">${NF.format(r.final)}<small>${t.pts}</small></span></li>`).join('') : `<li class="empty">${t.boardEmpty}</li>`;
   } catch (err) { console.warn('leaderboard offline', err); localBoard(); }
 };
 function localBoard() {
   const rows = [...((store.scores || {})[DAY] || [])].sort((p, q) => q.score - p.score).slice(0, 50), mine = g && g.path.join(',');
   $('boardT').textContent = t.boardT(t.date(DAY));
-  $('boardList').innerHTML = rows.length ? rows.map((r, i) => `<li${r.path === mine ? ' class="me"' : ''}><span class="rk">${i + 1}</span><span class="who">${esc(r.pseudo)}${r.path === mine ? ` <em>(${t.you})</em>` : ''}</span><span class="pts">${NF.format(r.score)}</span></li>`).join('') : `<li class="empty">${t.boardEmpty}</li>`;
+  $('boardList').innerHTML = rows.length ? rows.map((r, i) => `<li${r.path === mine ? ' class="me"' : ''}><span class="rk">${i + 1}</span><span class="who">${esc(r.pseudo)}${r.path === mine ? ` <em>(${t.you})</em>` : ''}${r.k != null ? `<small>${t.boardSub(NF.format(r.k), NF.format(r.km))}</small>` : ''}</span><span class="pts">${NF.format(r.score)}<small>${t.pts}</small></span></li>`).join('') : `<li class="empty">${t.boardEmpty}</li>`;
   $('boardNote').textContent = t.boardLocal;
 }
 // online scores: finished traces wait in store.pending until pvx-submit accepted (or refused) them
 const sendable = day => day === parisDay() || day === parisDay(new Date(Date.now() - 2 * 3600e3));   // same 2 h grace as the server
-function queue(day, path) {
+function queue(day, path, ticket) {
   const k = path.join(',');
-  store.pending = (store.pending || []).filter(p => sendable(p.day) && p.path.join(',') !== k).concat([{ day, path: [...path] }]); save();
+  store.pending = (store.pending || []).filter(p => sendable(p.day) && p.path.join(',') !== k).concat([{ day, path: [...path], ticket }]); save();
 }
 let sending = false;
 async function sendPending(cur) {
@@ -545,22 +554,38 @@ async function sendPending(cur) {
     for (const p of [...store.pending]) {
       const isCur = p.path.join(',') === ck;
       if (isCur) $('endRank').textContent = t.sending;
-      let r = await BE.submit(p.day, p.path, CFG.data);
+      let r = await BE.submit(p.day, p.path, CFG.data, p.ticket);
       if (!r.ok && r.reason === 'pseudo' && store.pseudo) {        // pseudo chosen offline or before the backend existed
         const c = await BE.claimPseudo(store.pseudo);
-        r = c.ok ? await BE.submit(p.day, p.path, CFG.data) : { ok: false, reason: c.reason === 'taken' ? 'taken' : 'network' };
+        r = c.ok ? await BE.submit(p.day, p.path, CFG.data, p.ticket) : { ok: false, reason: c.reason === 'taken' ? 'taken' : 'network' };
       }
       const retry = !r.ok && ['network', 'taken', 'race', 'db'].includes(r.reason);
       if (!retry) { store.pending = store.pending.filter(q => q !== p); save(); }
       if (!r.ok) console.warn('score not saved', r);
-      if (isCur) $('endRank').textContent = r.ok ? (r.ranked ? t.rankTxt(r.rank, r.players) : t.unranked)
-        : r.reason === 'network' ? t.offline : r.reason === 'taken' ? t.pseudoTaken : t.sendFail(r.reason);
+      const rk = r.ok && r.rank ? t.rankTxt(r.rank, r.players) : '';
+      if (isCur) $('endRank').textContent = r.ok ? (r.best ? (r.attempt > 1 ? t.newBest + ' ' : '') + rk : `${t.bestKept(NF.format(r.bestFinal))} ${rk}`).trim()
+        : r.reason === 'network' ? t.offline : r.reason === 'taken' ? t.pseudoTaken : r.reason === 'start' ? t.startOff : t.sendFail(r.reason);
     }
   } finally { sending = false; }
 }
 const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 /* ---------------- share (story card: the trace on the game map) ---------------- */
+// start and end towns, from geo.api.gouv.fr (commune containing the point); the department name if it does not answer
+const towns = new Map();
+function town(a) {
+  if (!towns.has(a)) {
+    const [lon, lat] = ll(a), dep = CFG.depts[N.dp[a]]?.[1] || '';
+    towns.set(a, fetch(`https://geo.api.gouv.fr/communes?lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}&fields=nom&format=json`, { signal: AbortSignal.timeout(4000) })
+      .then(r => r.json()).then(j => j[0]?.nom || dep).catch(() => dep));
+  }
+  return towns.get(a);
+}
+async function route() {
+  const [a, b] = await Promise.all([town(g.path[0]), town(g.path[g.path.length - 1])]);
+  return !a ? '' : a === b || !b ? t.around(a) : `${a} → ${b}`;
+}
+const OPM = LANG === 'fr' ? 'https://deeppvmapper.fr/fr/' : 'https://deeppvmapper.fr/';
 let shareBlob = null;
 const nextRender = () => new Promise(res => { map.once('render', res); map.triggerRepaint(); });
 // frame the trace in the middle of the screen, then copy the map + night canvases (same frame) into a 960×1040 picture
@@ -590,33 +615,135 @@ async function card() {
     x.save(); x.beginPath(); x.rect(60, 270, 960, 1040); x.clip(); x.drawImage(shot, 60, 270); x.restore();
     x.lineWidth = 3; x.strokeStyle = 'rgba(255,178,46,.5)'; x.beginPath(); x.rect(60, 270, 960, 1040); x.stroke();
   } catch (e) { console.warn('map snapshot failed', e); }
-  x.fillStyle = '#ffcf6b'; x.font = '900 150px Unbounded'; x.fillText(NF.format(g.final ?? g.score), Wc / 2, 1500);
-  x.fillStyle = '#fff4dc'; x.font = '700 50px Unbounded'; x.fillText(t.cardSub, Wc / 2, 1580);
-  x.globalAlpha = .8; x.font = '700 40px Manrope';
-  x.fillText(`☀ ×${g.mult} · ${t.sExplore} ×${(g.explore ?? 1).toLocaleString(LANG === 'fr' ? 'fr-FR' : 'en-GB')}`, Wc / 2, 1670);
-  x.globalAlpha = .65; x.font = '600 36px Manrope'; x.fillText(t.cardAsk, Wc / 2, 1780); x.fillText(t.cardSrc, Wc / 2, 1835); x.globalAlpha = 1;
+  x.fillStyle = '#ffcf6b'; x.font = '900 150px Unbounded'; x.fillText(NF.format(g.final ?? g.score), Wc / 2, 1490);
+  x.fillStyle = '#fff4dc'; x.font = '700 46px Unbounded'; x.fillText(t.cardSub, Wc / 2, 1565);
+  x.globalAlpha = .85; x.font = '700 40px Manrope'; x.fillText(t.cardLine(NF.format(g.score), NF.format(g.km ?? Math.round(traceKm(N, g.path)))), Wc / 2, 1650);
+  const rt = await route();
+  if (rt) {
+    x.globalAlpha = .6; x.font = '700 30px Manrope'; x.fillText(t.cardRoute.toUpperCase(), Wc / 2, 1730);
+    let fs = 48; do { x.font = `800 ${fs}px Unbounded`; fs -= 2; } while (x.measureText(rt).width > Wc - 120 && fs > 24);
+    x.globalAlpha = 1; x.fillStyle = '#ffcf6b'; x.fillText(rt, Wc / 2, 1792);
+  }
+  x.fillStyle = '#fff4dc'; x.globalAlpha = .6; x.font = '600 32px Manrope'; x.fillText('deeppvmapper.fr', Wc / 2, 1865); x.globalAlpha = 1;
   return new Promise(res => c.toBlob(res, 'image/png'));
 }
-const shareUrl = () => location.origin + location.pathname;
+const shareUrl = () => OPM;
+const shareTxt = async () => t.shareText(NF.format(g.score), NF.format(g.km ?? 0), await route());
 $('shareBtn').onclick = async () => {
   $('share').hidden = false; $('shareMsg').textContent = '';
   $('shareImgBox').replaceChildren(); shareBlob = await card(); fitTrace();
   const box = $('shareImgBox'); box.replaceChildren();
-  const img = new Image(); img.alt = t.shareNote; img.width = 1080; img.height = 1920; img.src = URL.createObjectURL(shareBlob); box.appendChild(img);
+  const img = new Image(); img.alt = t.share; img.width = 1080; img.height = 1920; img.src = URL.createObjectURL(shareBlob); box.appendChild(img);
 };
 $('shareClose').onclick = () => { $('share').hidden = true; };
 $('shareGo').onclick = async () => {
-  const file = new File([shareBlob], 'pv-explorer.png', { type: 'image/png' }), text = t.shareText(NF.format(g.final ?? g.score));
+  const file = new File([shareBlob], 'pv-explorer.png', { type: 'image/png' }), text = await shareTxt();
   if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], text, url: shareUrl() }); return; } catch (e) { if (e.name === 'AbortError') return; } }
   download();
 };
 function download() { const a = document.createElement('a'); a.href = URL.createObjectURL(shareBlob); a.download = 'pv-explorer.png'; document.body.appendChild(a); a.click(); a.remove(); }
 $('shareDl').onclick = download;
-$('shareCopy').onclick = async () => { try { await navigator.clipboard.writeText(`${t.shareText(NF.format(g.final ?? g.score))} ${shareUrl()}`); $('shareMsg').textContent = t.copied; } catch { $('shareMsg').textContent = shareUrl(); } };
+$('shareCopy').onclick = async () => { try { await navigator.clipboard.writeText(`${await shareTxt()} ${shareUrl()}`); $('shareMsg').textContent = t.copied; } catch { $('shareMsg').textContent = shareUrl(); } };
+
+/* ---------------- tutorial: four illustrated slides (first game, then Menu → How to play) ---------------- */
+// Scenes are small SVGs animated with SMIL (one clock per scene, so the trace, the walker and the gains stay in step);
+// with reduced motion they show their last frame.
+const AN = !REDUCED;
+const SV = (body, defs = '') => `<svg viewBox="0 0 300 150"><defs><filter id="tg" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>${defs}</defs>${body}</svg>`;
+const WALKER = '<ellipse cy="1" rx="6" ry="2" fill="rgba(14,22,49,.5)"/><g transform="translate(0 -9)"><rect x="-8" y="-14" width="16" height="5.5" fill="#18234a" stroke="#ffb22e" stroke-width="1.2" transform="rotate(-14)"/><circle r="6.5" fill="#fff4dc" stroke="#0e1631" stroke-width="1.5"/><circle cx="-2.3" cy=".5" r="1.2" fill="#0e1631"/><circle cx="2.3" cy=".5" r="1.2" fill="#0e1631"/></g>';
+const fx = v => +v.toFixed(3);
+// a trace walked in `dur` s, drawn up to `hold` of the loop then held; gains[i] pops when the walker reaches pts[i]
+function tTrace(pts, dur, { gains = [], hold = .72, dot = 3, sun = null } = {}) {
+  const c = [0]; for (let i = 1; i < pts.length; i++) c.push(c[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  const L = c[c.length - 1], d = 'M' + pts.map(q => q.join(' ')).join('L'), rep = `dur="${dur}s" repeatCount="indefinite"`;
+  const at = i => fx(c[i] / L * hold), pop = i => AN && i ? `<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;${at(i)};${fx(at(i) + .02)};1" ${rep}/>` : '';
+  let o = `<path d="${d}" fill="none" stroke="#ffb22e" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" filter="url(#tg)" stroke-dasharray="${fx(L)}" stroke-dashoffset="${AN ? fx(L) : 0}">${AN ? `<animate attributeName="stroke-dashoffset" values="${fx(L)};0;0" keyTimes="0;${hold};1" ${rep}/>` : ''}</path>`;
+  pts.forEach(([x, y], i) => {
+    o += `<circle cx="${x}" cy="${y}" r="${dot}" fill="#ffcf6b" opacity="${AN && i ? 0 : 1}">${pop(i)}</circle>`;
+    if (gains[i]) o += `<text x="${x}" y="${y - 9}" text-anchor="middle" font="" style="font:800 9px Manrope,sans-serif" fill="#ffcf6b" stroke="#0e1631" stroke-width="3" paint-order="stroke" opacity="${AN ? 0 : 1}">${gains[i]}${pop(i)}</text>`;
+  });
+  const [ex, ey] = pts[pts.length - 1];
+  o += AN ? `<g>${WALKER}<animateMotion path="${d}" keyPoints="0;1;1" keyTimes="0;${hold};1" calcMode="linear" ${rep}/></g>` : `<g transform="translate(${ex} ${ey})">${WALKER}</g>`;
+  return o;
+}
+function tSun(x, y, m, r = 13) {
+  let rays = ''; for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; rays += `M${fx(Math.cos(a) * (r + 3))} ${fx(Math.sin(a) * (r + 3))}L${fx(Math.cos(a) * (r + 8))} ${fx(Math.sin(a) * (r + 8))}`; }
+  return `<g transform="translate(${x} ${y})"><path d="${rays}" stroke="#ffcf3f" stroke-width="2.2" stroke-linecap="round">${AN ? '<animateTransform attributeName="transform" type="rotate" from="0" to="45" dur="3s" repeatCount="indefinite"/>' : ''}</path><circle r="${r}" fill="#ffcf3f"/><text y="1" text-anchor="middle" dominant-baseline="middle" style="font:900 ${Math.round(r * .8)}px Unbounded,sans-serif" fill="#0e1631">×${m}</text></g>`;
+}
+// scattered panels (seeded, so every visit draws the same scene)
+function tDots(n, x0, y0, w, h, seed, rmax = 2.6) {
+  let r = seed, o = ''; const rnd = () => (r = (r * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < n; i++) o += `<circle cx="${fx(x0 + rnd() * w)}" cy="${fx(y0 + rnd() * h)}" r="${fx(1 + rnd() * rmax)}" fill="none" stroke="#ff9f1c" stroke-width="1"/>`;
+  return o;
+}
+const SCENES = [
+  // 1. the goal: hop from installation to installation, collect power, go far
+  () => SV(tDots(46, 10, 14, 280, 124, 7) + tTrace([[34, 118], [72, 118], [72, 84], [122, 84], [122, 48], [178, 48], [178, 100], [236, 100], [236, 40], [272, 40]], 5,
+    { gains: [0, '+85', '+40', '+120', '+60', '+210', '+95', '+150', '+70', '+35'] })),
+  // 2. the drawn start: city (many panels, small steps) or countryside (long steps, suns)
+  () => SV(`<line x1="150" y1="14" x2="150" y2="124" stroke="rgba(255,178,46,.3)" stroke-dasharray="3 4"/>` +
+    tDots(60, 30, 30, 90, 80, 11, 2) + tTrace([[50, 98], [58, 98], [58, 88], [68, 88], [68, 78], [80, 78], [80, 68], [92, 68], [92, 56], [104, 56], [104, 46]], 4.4, { dot: 2.4 }) +
+    tDots(9, 160, 18, 130, 100, 5) + tSun(256, 62, 2, 11) + tTrace([[172, 112], [214, 112], [214, 62], [256, 62], [256, 26]], 4.4) +
+    `<g style="font:700 11px Manrope,sans-serif" fill="#c9c3b4" text-anchor="middle"><text x="75" y="140">${t.tutCity}</text><text x="225" y="140">${t.tutCountry}</text></g>`),
+  // 3. moving: swipe on the map, or the controller
+  () => {
+    const C = [83, 80], seqs = [[0, 22, 0, -22], [-22, 0, 22, 0], [0, -22, 0, 22], [22, 0, -22, 0]], lab = [0, 2, 1, 3], dur = 5.6, rep = `dur="${dur}s" repeatCount="indefinite"`;
+    // finger: four swipes (up, right, down, left), each over a quarter of the loop
+    let kt = [0], cx = [C[0]], cy = [C[1] + 22], op = [0];
+    seqs.forEach(([x1, y1, x2, y2], k) => { const s0 = k / 4; for (const [f, x, y, o] of [[.02, x1, y1, 0], [.06, x1, y1, 1], [.17, x2, y2, 1], [.21, x2, y2, 0]]) { kt.push(fx(s0 + f)); cx.push(C[0] + x); cy.push(C[1] + y); op.push(o); } });
+    kt.push(1); cx.push(cx[cx.length - 1]); cy.push(cy[cy.length - 1]); op.push(0);
+    const finger = AN ? `<circle r="9" fill="rgba(255,244,220,.28)" stroke="#fff4dc" stroke-width="1.5"><animate attributeName="cx" values="${cx.join(';')}" keyTimes="${kt.join(';')}" ${rep}/><animate attributeName="cy" values="${cy.join(';')}" keyTimes="${kt.join(';')}" ${rep}/><animate attributeName="opacity" values="${op.join(';')}" keyTimes="${kt.join(';')}" ${rep}/></circle>`
+      : `<circle cx="${C[0]}" cy="${C[1] - 10}" r="9" fill="rgba(255,244,220,.28)" stroke="#fff4dc" stroke-width="1.5"/>`;
+    const lit = k => AN ? `<animate attributeName="fill" values="#18234a;#18234a;#ffb22e;#ffb22e;#18234a;#18234a" keyTimes="0;${fx(k / 4 + .06)};${fx(k / 4 + .1)};${fx(k / 4 + .2)};${fx(k / 4 + .24)};1" ${rep}/>` : '';
+    const D = [[0, -30], [0, 30], [30, 0], [-30, 0]], P0 = [222, 76];
+    let pad = `<circle cx="${P0[0]}" cy="${P0[1]}" r="13" fill="rgba(14,22,49,.9)" stroke="rgba(255,178,46,.38)"/><text x="${P0[0]}" y="${P0[1] + 4}" text-anchor="middle" style="font:900 11px Unbounded,sans-serif" fill="#fff4dc">30</text>`;
+    D.forEach(([dx, dy], d) => { pad += `<circle cx="${P0[0] + dx}" cy="${P0[1] + dy}" r="13" fill="#18234a" stroke="rgba(255,178,46,.6)">${lit(lab.indexOf(d))}</circle><text x="${P0[0] + dx}" y="${P0[1] + dy + 4}" text-anchor="middle" style="font:800 11px Unbounded,sans-serif" fill="#ffcf6b">${t.dirs[d]}</text>`; });
+    let marks = ''; D.forEach(([dx, dy], d) => { marks += `<text x="${C[0] + dx * 1.25}" y="${C[1] + dy * 1.25 + 4}" text-anchor="middle" style="font:800 10px Unbounded,sans-serif" fill="#ffcf6b" opacity=".8">${t.dirs[d]}</text>`; });
+    return SV(`<rect x="40" y="10" width="86" height="132" rx="9" fill="#18234a" stroke="#c9c3b4" stroke-width="1.5"/>` + tDots(14, 46, 18, 74, 116, 3, 1.6) + marks +
+      `<g transform="translate(${C[0]} ${C[1] + 8})">${WALKER}</g>` + finger + pad +
+      `<text x="164" y="80" text-anchor="middle" style="font:700 11px Manrope,sans-serif" fill="#c9c3b4">${LANG === 'fr' ? 'ou' : 'or'}</text>`);
+  },
+  // 4. suns and score
+  () => SV(tDots(16, 10, 16, 130, 120, 9) + tTrace([[20, 120], [60, 120], [60, 74], [104, 74], [104, 34]], 4, { gains: [0, '+60', '+45', '×2', '+180'] }) + tSun(104, 74, 2, 11) +
+    `<g text-anchor="end" style="font-variant-numeric:tabular-nums"><text x="284" y="44" style="font:800 15px Unbounded,sans-serif" fill="#fff4dc">${NF.format(1240)} <tspan style="font-size:10px" fill="#ffcf6b">${LANG === 'fr' ? 'kWc' : 'kWp'}</tspan></text>` +
+    `<text x="284" y="70" style="font:800 15px Unbounded,sans-serif" fill="#fff4dc">${XF(1.32)} <tspan style="font-size:10px" fill="#ffcf6b">96 ${t.tutKm}</tspan></text>` +
+    `<line x1="170" y1="84" x2="284" y2="84" stroke="rgba(255,178,46,.5)"/><text x="284" y="114" style="font:900 24px Unbounded,sans-serif" fill="#ffcf6b">${NF.format(1637)} <tspan style="font-size:11px">${t.pts}</tspan></text></g>`),
+];
+let tutI = 0, tutThen = null;
+function tutorial(then) {
+  tutThen = then || null; tutI = 0; $('tuto').hidden = false;
+  $('tutoDots').innerHTML = SCENES.map((_, i) => `<button type="button" aria-label="${i + 1} / ${SCENES.length}"></button>`).join('');
+  [...$('tutoDots').children].forEach((b, i) => { b.onclick = () => { tutI = i; tutShow(); }; });
+  tutShow(); $('tutoNext').focus();
+}
+function tutShow() {
+  $('tutoScene').innerHTML = SCENES[tutI]();
+  $('tutoT').textContent = t.tutT[tutI];
+  $('tutoCap').textContent = tutI === 2 && !COARSE ? t.tutKeys : t.tut[tutI];
+  [...$('tutoDots').children].forEach((b, i) => b.setAttribute('aria-current', i === tutI));
+  $('tutoNext').textContent = tutI === SCENES.length - 1 ? t.tutGo : t.tutNext;
+}
+function tutClose() {
+  $('tuto').hidden = true; $('tutoScene').innerHTML = ''; store.tuto = 1; save();
+  const f = tutThen; tutThen = null; if (f) f();
+}
+$('tutoNext').onclick = () => { if (tutI < SCENES.length - 1) { tutI++; tutShow(); } else tutClose(); };
+$('tutoSkip').onclick = tutClose;
+addEventListener('keydown', e => {
+  if ($('tuto').hidden) return;
+  if (e.key === 'Escape') { e.preventDefault(); tutClose(); }
+  else if (e.key === 'ArrowRight' && tutI < SCENES.length - 1) { tutI++; tutShow(); }
+  else if (e.key === 'ArrowLeft' && tutI > 0) { tutI--; tutShow(); }
+});
+{ let x0 = null;   // swipe between slides
+  $('tutoCard').addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+  $('tutoCard').addEventListener('touchend', e => { if (x0 === null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null;
+    if (dx < -40 && tutI < SCENES.length - 1) { tutI++; tutShow(); } else if (dx > 40 && tutI > 0) { tutI--; tutShow(); } }, { passive: true }); }
 
 /* ---------------- menu, about, toast ---------------- */
 $('menuBtn').onclick = () => $('menu').showModal();
-$('mRestart').onclick = () => { $('menu').close(); if (dayChanged()) reloadDay(); else startPick(); };
+$('mRestart').onclick = () => { $('menu').close(); if (dayChanged()) reloadDay(); else newGame(); };
+$('mHelp').onclick = () => { $('menu').close(); tutorial(); };
 $('mAbout').onclick = () => { $('menu').close(); $('about').showModal(); };
 $('mPseudo').onclick = () => { $('menu').close(); showIntro(); };
 $('aboutBtn').onclick = () => $('about').showModal();
@@ -633,11 +760,11 @@ try {
     .catch(err => console.warn('backend unavailable, local mode', err.message));
   const sg = store.game;
   if (sg && sg.day === DAY && Array.isArray(sg.path) && sg.path.length && store.pseudo) {
-    begin(sg.path[0], sg.path);
+    ticket = sg.ticket || null; begin(sg.path[0], sg.path);
   } else showIntro();
 } catch (err) {
   console.error(err);
   $('loading').textContent = (LANG === 'fr' ? 'Impossible de charger le jeu. ' : 'Could not load the game. ') + err.message;
 }
 // console / test hook
-window.__pvx = { get g() { return g; }, get mode() { return mode; }, get N() { return N; }, get BON() { return BON; }, step, begin, pickAt, startPick, map: () => map, tgt: () => TGT };
+window.__pvx = { get g() { return g; }, get mode() { return mode; }, get N() { return N; }, get BON() { return BON; }, step, begin, newGame, tutorial, map: () => map, tgt: () => TGT };

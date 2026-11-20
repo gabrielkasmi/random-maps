@@ -52,6 +52,8 @@ a{color:inherit;text-underline-offset:3px}
 .cta:active{transform:scale(.97)}
 .ghost{min-height:44px;padding:10px 16px;border:1px solid var(--edge);border-radius:var(--r);background:transparent;color:var(--day);font-weight:700}
 .ghost:hover{background:rgba(255,178,46,.12)}
+.ico{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:square;stroke-linejoin:miter}
+.ghost{display:inline-flex;align-items:center;justify-content:center;gap:.5em}
 .link{border:0;background:none;padding:6px 2px;color:var(--day-soft);text-decoration:underline;text-underline-offset:3px;font-size:14px}
 
 /* ---------- top bar ---------- */
@@ -87,14 +89,24 @@ body.playing .bar{display:none}
 /* ---------- HUD ---------- */
 .hud{position:fixed;z-index:10;left:0;right:0;margin:0 auto;width:min(32rem,100%);padding:0 12px;pointer-events:none}
 .hud *{pointer-events:auto}
-.hud.top{top:calc(10px + var(--st))}
+.hud.top{top:calc(10px + var(--st));display:flex;align-items:flex-start;gap:12px}
+.hud.top,.hud.top *{pointer-events:none}
 .hud.bot{bottom:calc(12px + var(--sb));display:flex;align-items:flex-end;justify-content:center;gap:10px}
 .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
-.chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:var(--r);font-weight:700;font-size:13px;white-space:nowrap;max-width:60%;overflow:hidden;text-overflow:ellipsis}
-.scorebox{margin-top:8px;padding:10px 12px 10px 16px;border-radius:var(--r);display:flex;align-items:center;gap:10px}
+/* floating counter: no panel, the night behind it is dark enough; a soft shadow keeps it legible over lit areas */
+.float{flex:1;min-width:0;padding-top:2px;text-shadow:0 1px 2px rgba(0,0,0,.85),0 2px 10px rgba(0,0,0,.5)}
+.float .kw{display:flex;align-items:baseline;gap:6px}
+.float .meta{margin-top:5px;font:700 14px var(--sans);color:var(--day);font-variant-numeric:tabular-nums;white-space:nowrap}
+.float .meta b{color:var(--amber-2);font-weight:800}
+.steps{flex:none;min-width:48px;display:flex;flex-direction:column;align-items:center;line-height:1;padding-top:2px;color:var(--sc,var(--day));
+  text-shadow:0 1px 2px rgba(0,0,0,.85),0 2px 10px rgba(0,0,0,.5);transition:color .4s}
+.steps b{font:900 30px var(--display);font-variant-numeric:tabular-nums}
+.steps small{font:700 10px var(--sans);letter-spacing:.08em;text-transform:uppercase;margin-top:4px}
+.steps.urgent b{animation:beat .9s ease-in-out infinite}
+@keyframes beat{50%{transform:scale(1.15)}}
 .score{font:900 clamp(26px,8vw,34px)/1 var(--display);color:var(--amber-2);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .unit{font:600 13px var(--display);color:var(--amber-2)}
-.mult{margin-left:auto;flex:none;width:48px;height:48px;border-radius:50%;display:grid;place-items:center;font:900 17px var(--display);color:var(--night);background:radial-gradient(circle at 40% 35%,#ffe7a3,var(--amber))}
+.mult{flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font:900 17px var(--display);color:var(--night);background:radial-gradient(circle at 40% 35%,#ffe7a3,var(--amber))}
 .mult.x1{background:var(--night-2);color:var(--day-soft);border:1px solid var(--edge)}
 .mult.pop{animation:pop .5s var(--ease)}
 @keyframes pop{40%{transform:scale(1.25)}}
@@ -118,21 +130,13 @@ body.playing .bar{display:none}
 .rays.r1 b:first-child,.rays.r2 b:nth-child(-n+2),.rays.r3 b{background:var(--amber-2)}
 .pad .n{grid-area:1/2}.pad .w{grid-area:2/1}.pad .e{grid-area:2/3}.pad .s{grid-area:3/2}
 .pad .mid{grid-area:2/2;border-radius:50%;background:var(--glass);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
-.pad .mid b{font:900 20px var(--display)}
+.pad .mid b{font:900 20px var(--display);transition:color .4s}
 .pad .mid small{font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--amber-2);margin-top:3px}
-.gain{position:fixed;z-index:11;left:50%;top:calc(150px + var(--st));transform:translate(-50%,0);padding:4px 12px;border-radius:var(--r);
+.gain{position:fixed;z-index:11;left:50%;top:calc(124px + var(--st));transform:translate(-50%,0);padding:4px 12px;border-radius:var(--r);
   font:900 19px var(--display);color:var(--amber-2);background:var(--glass);opacity:0;transition:opacity .2s,transform .7s var(--ease);pointer-events:none;white-space:nowrap}
 .gain.on{opacity:1;transform:translate(-50%,-12px)}
 .gain.bonus{color:var(--night);background:var(--sun)}
-.side-btns{position:fixed;z-index:10;right:12px;top:calc(140px + var(--st));display:grid;gap:8px}
-
-/* pick mode */
-#pickHud{top:calc(58px + var(--st))}
-.hint{padding:12px 14px;border-radius:var(--r);font-size:14px}
-.hint b{display:block;font:800 15px var(--sans)}
-.legend{display:flex;align-items:flex-start;gap:8px;margin-top:8px;color:var(--day-soft);font-size:13px}
-.legend b{color:var(--day);font-weight:700}
-.legend i{width:16px;height:16px;margin-top:1px;border-radius:50%;border:2px dashed var(--sun);flex:none}
+.side-btns{position:fixed;z-index:10;right:12px;top:calc(84px + var(--st));display:grid;gap:8px}
 
 /* sheets */
 .sheet{position:fixed;z-index:40;left:0;right:0;bottom:0;margin:0 auto;width:min(30rem,100%);padding:20px 18px calc(18px + var(--sb));border-radius:var(--r) var(--r) 0 0;
@@ -144,8 +148,8 @@ body.playing .bar{display:none}
 .sheet .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 16px}
 .sheet .stats div{padding:8px;border-radius:var(--r);background:var(--night-2);text-align:center;font-size:12px;color:var(--day-soft)}
 .sheet .stats b{display:block;font:800 16px var(--display);color:var(--day)}
-.sheet .btns{display:flex;flex-wrap:wrap;gap:8px}
-.sheet .btns .cta{flex:1}
+.sheet .btns{display:flex;justify-content:center;gap:8px}
+.sq{width:48px;min-height:48px;padding:0;flex:none}
 .record{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:var(--r);background:var(--sun);color:var(--night);font:800 11px var(--sans);vertical-align:middle}
 
 /* share */
@@ -155,7 +159,7 @@ body.playing .bar{display:none}
 .share-card h2{margin:0;font:900 18px var(--display)}
 #shareImgBox{min-height:200px;display:grid;place-items:center}
 #shareImgBox img{display:block;width:100%;height:auto;max-height:58dvh;object-fit:contain;border-radius:var(--r);background:var(--night)}
-.share-card .note{font-size:13px;color:var(--day-soft);margin:10px 0 12px}
+#shareGo{margin-top:12px}
 .share-card .alt{display:flex;justify-content:center;gap:18px;margin-top:6px}
 .msg{min-height:1.3em;font-size:13px;color:var(--amber-2);margin:6px 0 0}
 
@@ -170,20 +174,36 @@ dialog .fine{font-size:12.5px;color:var(--day-soft)}
 .board .rk{width:1.8em;font:800 14px var(--display);color:var(--amber-2)}
 .board .who{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
 .board .who em{font-style:normal;color:var(--day-soft);font-weight:500}
-.board .pts{font:800 15px var(--display);font-variant-numeric:tabular-nums}
+.board .who small{display:block;font:500 12px var(--sans);color:var(--day-soft);font-variant-numeric:tabular-nums}
+.board .pts{font:800 15px var(--display);font-variant-numeric:tabular-nums;text-align:right}
+.board .pts small{display:block;font:600 10px var(--sans);color:var(--day-soft)}
+.sheet .big small{font:700 .4em var(--display);margin-left:.2em}
 .board .gap{background:none;justify-content:center;padding:0;color:var(--day-soft)}
 .rank{margin:-4px 0 10px;font-weight:700;color:var(--amber-2);min-height:1.2em}
 .rank:empty{display:none}
 .board .empty{color:var(--day-soft)}
-.toast{position:fixed;z-index:60;left:50%;top:calc(70px + var(--st));transform:translateX(-50%);width:max-content;max-width:calc(100vw - 32px);padding:9px 14px;border-radius:var(--r);font-size:14px;
+.toast{position:fixed;z-index:60;left:50%;top:calc(84px + var(--st));transform:translateX(-50%);width:max-content;max-width:calc(100vw - 32px);padding:9px 14px;border-radius:var(--r);font-size:14px;
   text-align:center;opacity:0;transition:opacity .25s;pointer-events:none}
 .toast.on{opacity:1}
 .loading{position:fixed;z-index:70;inset:0;display:grid;place-items:center;background:var(--night);color:var(--day-soft);font-weight:700}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
 @media (min-width:720px){.hud.bot{width:min(36rem,100%)}}
-/* touch screens: the N / S / E / W markers on the map are the buttons (plus swipes); the d-pad is for desktop */
-@media (pointer:coarse){.pad{display:none}}
+/* touch screens: swipes, the N / S / E / W markers on the map, and a smaller controller at the bottom */
+@media (pointer:coarse){.pad{grid-template-columns:repeat(3,48px);grid-template-rows:repeat(3,48px);gap:3px}.pad button{font-size:14px;gap:3px}.pad .mid b{font-size:17px}}
+/* ---------- tutorial (first game, then from the menu) ---------- */
+#tuto{position:fixed;z-index:45;inset:0;display:grid;place-items:center;padding:calc(16px + var(--st)) 16px calc(16px + var(--sb));background:rgba(5,9,22,.72)}
+.tuto-card{width:min(24rem,100%);padding:16px 16px 14px;border-radius:var(--r);text-align:center;touch-action:pan-y}
+.tuto-scene{aspect-ratio:2/1;border:1px solid var(--edge);border-radius:var(--r);background:var(--night);overflow:hidden}
+.tuto-scene svg{display:block;width:100%;height:100%}
+#tuto h2{margin:14px 0 6px;font:900 20px/1.15 var(--display);letter-spacing:-.02em;color:var(--amber-2)}
+.tuto-cap{margin:0;min-height:4.4em;font-size:15px;text-wrap:pretty}
+.tuto-dots{display:flex;justify-content:center;gap:4px;margin:10px 0 12px}
+.tuto-dots button{width:28px;height:28px;padding:0;border:0;background:none;display:grid;place-items:center}
+.tuto-dots button::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--night-2);border:1px solid var(--edge)}
+.tuto-dots button[aria-current="true"]::after{background:var(--amber);border-color:var(--amber)}
+.tuto-btns{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.tuto-btns .cta{flex:1;max-width:14rem}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -219,19 +239,14 @@ dialog .fine{font-size:12.5px;color:var(--day-soft)}
   </div>
 </section>
 
-<!-- 2. pick a start -->
-<div class="hud top" id="pickHud" hidden>
-  <div class="hint glass"><b data-t="pickT"></b><span data-t="pickS"></span>
-</div>
-</div>
-<div class="hud bot" id="pickBot" hidden>
-  <div class="info glass" id="pickInfo" aria-live="polite"></div>
-</div>
-
 <!-- 3. play -->
 <div class="hud top" id="playHud" hidden>
-  <div class="row"><span class="chip glass" id="who"></span><span class="chip glass" id="steps"></span></div>
-  <div class="scorebox glass"><span class="score" id="score">0</span><span class="unit" id="unit">kWc</span><span class="mult x1" id="mult">×1</span></div>
+  <div class="float">
+    <div class="kw"><span class="score" id="score">0</span><span class="unit" id="unit">kWc</span></div>
+    <div class="meta" id="meta"></div>
+  </div>
+  <span class="mult x1" id="mult">×1</span>
+  <span class="steps" id="steps"><b id="stepsN">30</b><small data-t="steps"></small></span>
 </div>
 <div class="side-btns" id="sideBtns" hidden>
   <button class="round glass" id="recenter" type="button" data-t-aria="recenter">◎</button>
@@ -254,16 +269,14 @@ dialog .fine{font-size:12.5px;color:var(--day-soft)}
   <p class="sub" id="endSub"></p>
   <div class="stats" id="endStats"></div>
   <p class="rank" id="endRank" aria-live="polite"></p>
-  <p class="fine" id="endNote" style="margin:-6px 0 14px"></p>
-  <div class="btns"><button class="cta" id="shareBtn" type="button" data-t="share"></button><button class="ghost" id="againBtn" type="button" data-t="again"></button><button class="ghost" id="viewBtn" type="button" data-t="view"></button></div>
+  <div class="btns"><button class="ghost" id="againBtn" type="button"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 3v4h4"/></svg><span data-t="again"></span></button><button class="cta sq" id="shareBtn" type="button" data-t-aria="share" data-t-title="share"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M5 12v8h14v-8"/></svg></button><button class="ghost sq" id="viewBtn" type="button" data-t-aria="view" data-t-title="view"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21V14h6v7M9 21V8h6v13M15 21v-10h6v10M3 21h18"/></svg></button></div>
 </section>
 
 <div id="share" hidden>
   <div class="share-card glass" role="dialog" aria-modal="true" aria-labelledby="shareT">
     <div class="head"><h2 id="shareT" data-t="share"></h2><button class="round glass" id="shareClose" type="button" data-t-aria="close">✕</button></div>
     <div id="shareImgBox"></div>
-    <p class="note" data-t="shareNote"></p>
-    <button class="cta" id="shareGo" type="button" data-t="shareGo"></button>
+    <button class="cta" id="shareGo" type="button"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M5 12v8h14v-8"/></svg><span data-t="shareGo"></span></button>
     <div class="alt"><button class="link" id="shareDl" type="button" data-t="download"></button><button class="link" id="shareCopy" type="button" data-t="copy"></button></div>
     <p class="msg" id="shareMsg" role="status"></p>
   </div>
@@ -272,7 +285,8 @@ dialog .fine{font-size:12.5px;color:var(--day-soft)}
 <dialog id="menu">
   <h2 data-t="menuT"></h2>
   <div style="display:grid;gap:8px;margin-top:12px">
-    <button class="ghost" id="mRestart" type="button" data-t="restart"></button>
+    <button class="ghost" id="mRestart" type="button"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 3v4h4"/></svg><span data-t="restart"></span></button>
+    <button class="ghost" id="mHelp" type="button" data-t="help"></button>
     <button class="ghost" id="mAbout" type="button" data-t="about"></button>
     <button class="ghost" id="mPseudo" type="button" data-t="changePseudo"></button>
     <form method="dialog"><button class="cta" style="width:100%" data-t="close"></button></form>
@@ -289,10 +303,19 @@ dialog .fine{font-size:12.5px;color:var(--day-soft)}
   <div id="aboutBody"></div>
   <form method="dialog" style="text-align:right;margin-top:12px"><button class="cta" data-t="close"></button></form>
 </dialog>
+<section id="tuto" hidden role="dialog" aria-modal="true" aria-labelledby="tutoT">
+  <div class="tuto-card glass" id="tutoCard">
+    <div class="tuto-scene" id="tutoScene" aria-hidden="true"></div>
+    <h2 id="tutoT"></h2>
+    <p class="tuto-cap" id="tutoCap" aria-live="polite"></p>
+    <div class="tuto-dots" id="tutoDots"></div>
+    <div class="tuto-btns"><button class="link" id="tutoSkip" type="button" data-t="tutSkip"></button><button class="cta" id="tutoNext" type="button" data-t="tutNext"></button></div>
+  </div>
+</section>
 <div class="toast glass" id="toast" role="status"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
-<script type="module" src="js/app.js"></script>
+<script type="module" src="js/app.js?v=20261120e"></script>
 </body>
 </html>

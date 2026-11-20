@@ -36,6 +36,18 @@ async function session() {
   return data.session;
 }
 
+/** Draws the start of a new game on the server. Resolves to {ok:true, node, ticket} or {ok:false, reason}
+ *  (reason 'pseudo': no pseudo registered yet; 'network': try later). The ticket goes back with submit(). */
+export async function newStart(day) {
+  try {
+    await session();
+    const { data: res, error } = await sb.functions.invoke('pvx-submit', { body: { action: 'start', day } });
+    if (!error) return res;
+    const body = await error.context?.json?.().catch(() => null);
+    return body && body.reason ? body : { ok: false, reason: 'network', error };
+  } catch (error) { return { ok: false, reason: 'network', error }; }
+}
+
 /** Saves the pseudo for this player. Resolves to {ok:true} or {ok:false, reason:'taken'|'invalid'|'error'}. */
 export async function claimPseudo(pseudo) {
   const p = pseudo.trim();
@@ -50,10 +62,10 @@ export async function claimPseudo(pseudo) {
 
 /** Sends a finished trace. Resolves to the function's answer ({ok:true, final, rank, players, ranked, attempt…}
  *  or {ok:false, reason}); reason 'network' means "try again later". */
-export async function submit(day, path, data) {
+export async function submit(day, path, data, ticket) {
   try {
     await session();
-    const { data: res, error } = await sb.functions.invoke('pvx-submit', { body: { day, path, data } });
+    const { data: res, error } = await sb.functions.invoke('pvx-submit', { body: { day, path, data, ticket } });
     if (!error) return res;
     const body = await error.context?.json?.().catch(() => null);   // FunctionsHttpError: the function's JSON reply
     return body && body.reason ? body : { ok: false, reason: 'network', error };

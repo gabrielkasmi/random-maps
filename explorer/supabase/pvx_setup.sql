@@ -5,10 +5,12 @@
 --   pvx_players  the player's pseudo, keyed on auth.uid() (anonymous sign-in). Written by the page itself (RLS: own row).
 --   pvx_games    one row per finished game. Written ONLY by the Edge Function pvx-submit (service role), which replays
 --                the trace with js/game.js and recomputes the score: the page cannot insert a score of its own.
---   pvx_leaderboard(day)  public read of the day's ranking (first game of each player only).
+--   pvx_leaderboard(day)  public read of the day's ranking (best game of each player).
+--   pvx_rank(day, user)   rank of a player's best game, for pvx-submit only (service role).
 --
--- Ranking rule: a player's FIRST finished game of the day is ranked; later games ("Rejouer") are stored too
--- (attempt 2, 3…, useful for the trace visualisation) but not ranked, since the suns seen in game 1 are no longer hidden.
+-- Ranking rule: a player may send as many games as they like; their BEST game of the day is ranked (ties: the
+-- earliest). Each game starts on a node drawn by pvx-submit (action 'start') and signed: the page cannot choose it.
+-- All games are stored (attempt 1, 2, …), which also feeds the trace visualisation.
 
 -- ─── players ───────────────────────────────────────────────────────────────
 create table if not exists public.pvx_players (
@@ -70,7 +72,8 @@ create table if not exists public.pvx_games (
     created_at  timestamptz not null default now(),
     unique (user_id, day, attempt)
 );
-create index if not exists pvx_games_rank on public.pvx_games (day, final desc) where attempt = 1;
+drop index if exists public.pvx_games_rank;
+create index if not exists pvx_games_best on public.pvx_games (day, user_id, final desc, created_at);
 
 alter table public.pvx_games enable row level security;
 -- no insert / update / delete policy: only the service role (Edge Function) writes.
@@ -82,22 +85,43 @@ create policy "pvx: read own games" on public.pvx_games
 -- Top p_limit of the day + the caller's own row (wherever it ranks). Pseudos of other players are only readable here.
 drop function if exists public.pvx_leaderboard(date, integer);
 create function public.pvx_leaderboard(p_day date, p_limit integer default 100)
-returns table (rank bigint, pseudo text, final integer, mult smallint, factor real, km real, me boolean, players bigint)
+returns table (rank bigint, pseudo text, final integer, score integer, mult smallint, factor real, km real, me boolean, players bigint)
 language sql stable security definer set search_path = public as $$
-    with r as (
-        select g.user_id, p.pseudo, g.final, g.mult, g.factor, g.km,
-               row_number() over (order by g.final desc, g.created_at) as rank,
+    with b as (       -- best game of each player
+        select distinct on (g.user_id) g.user_id, g.final, g.score, g.mult, g.factor, g.km, g.created_at
+        from pvx_games g where g.day = p_day
+        order by g.user_id, g.final desc, g.created_at
+    ), r as (
+        select b.user_id, p.pseudo, b.final, b.score, b.mult, b.factor, b.km,
+               row_number() over (order by b.final desc, b.created_at) as rank,
                count(*) over () as players
-        from pvx_games g join pvx_players p on p.id = g.user_id
-        where g.day = p_day and g.attempt = 1
+        from b join pvx_players p on p.id = b.user_id
     )
-    select r.rank, r.pseudo, r.final, r.mult, r.factor, r.km, r.user_id = auth.uid(), r.players
+    select r.rank, r.pseudo, r.final, r.score, r.mult, r.factor, r.km, r.user_id = auth.uid(), r.players
     from r
     where r.rank <= least(greatest(p_limit, 1), 500) or r.user_id = auth.uid()
     order by r.rank;
 $$;
 revoke all on function public.pvx_leaderboard(date, integer) from public;
 grant execute on function public.pvx_leaderboard(date, integer) to anon, authenticated;
+
+-- rank of p_user's best game of the day (same order as the leaderboard); called by pvx-submit with the service role
+drop function if exists public.pvx_rank(date, uuid);
+create function public.pvx_rank(p_day date, p_user uuid)
+returns table (best integer, rank bigint, players bigint)
+language sql stable security definer set search_path = public as $$
+    with b as (
+        select distinct on (g.user_id) g.user_id, g.final, g.created_at
+        from pvx_games g where g.day = p_day
+        order by g.user_id, g.final desc, g.created_at
+    ), r as (
+        select b.user_id, b.final, row_number() over (order by b.final desc, b.created_at) as rank, count(*) over () as players
+        from b
+    )
+    select r.final, r.rank, r.players from r where r.user_id = p_user;
+$$;
+revoke all on function public.pvx_rank(date, uuid) from public, anon, authenticated;
+grant execute on function public.pvx_rank(date, uuid) to service_role;
 
 -- ─── telling the apps apart in auth.users (shared with PV Check) ──────────────
 -- PV Explorer tags its anonymous accounts at sign-in: raw_user_meta_data->>'app' = 'pv-explorer' (js/backend.js).
