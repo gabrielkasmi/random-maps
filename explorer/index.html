@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PV Explorer</title>
+<meta name="description" content="Marchez de panneau solaire en panneau solaire et récoltez le plus de puissance en 30 pas. Walk from solar panel to solar panel and collect as much power as you can in 30 steps.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="PV Explorer">
+<meta property="og:description" content="Quelle puissance installée arriverez-vous à récolter avant le lever du jour ? 30 pas de panneau solaire en panneau solaire, les mêmes soleils pour tout le monde, un classement chaque jour.">
+<meta property="og:url" content="https://gabrielkasmi.github.io/random-maps/explorer/">
+<meta property="og:image" content="https://gabrielkasmi.github.io/random-maps/explorer/og.jpg">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="PV Explorer : une trace lumineuse traverse la France de nuit, un petit marcheur avec un panneau solaire sur la tête, un soleil ×3 à proximité.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#0e1631">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preload" href="fonts/unbounded-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.css">
+<style>
+@font-face{font-family:Unbounded;src:url(fonts/unbounded-latin.woff2) format('woff2');font-weight:500 900;font-display:swap}
+@font-face{font-family:Manrope;src:url(fonts/manrope-latin.woff2) format('woff2');font-weight:500 800;font-display:swap}
+/* World: France at night. Every step makes the day rise around a solar panel; the trace is a lit filament.
+   One night blue, one amber family; daylight is the (recoloured) IGN map itself. */
+:root{--r:3px;
+  --night:#0e1631;--night-2:#18234a;--glass:rgba(14,22,49,.86);--edge:rgba(255,178,46,.38);
+  --amber:#ffb22e;--amber-2:#ffcf6b;--sun:#ffcf3f;--day:#fff4dc;--day-soft:#c9c3b4;
+  --display:Unbounded,"Arial Black",system-ui,sans-serif;--sans:Manrope,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --ease:cubic-bezier(.16,1,.3,1);
+  --st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);
+  color-scheme:dark; /* the night is the material, not a theme */
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--night);color:var(--day);font:15px/1.45 var(--sans);-webkit-font-smoothing:antialiased;overflow:hidden;overscroll-behavior:none}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;touch-action:manipulation}
+a{color:inherit;text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--amber-2);outline-offset:2px}
+[hidden]{display:none!important}
+#map{position:fixed;inset:0;background:var(--night)}
+#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
+.maplibregl-ctrl-attrib{font-size:10px;background:rgba(14,22,49,.7)!important;color:var(--day-soft)}
+.maplibregl-ctrl-attrib a{color:var(--day)}
+.maplibregl-ctrl-attrib-button{filter:invert(1)}
+
+.glass{background:var(--glass);border:1px solid var(--edge);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.cta{display:inline-flex;align-items:center;justify-content:center;gap:.5em;min-height:48px;padding:12px 22px;border:0;border-radius:var(--r);
+  background:var(--amber);color:var(--night);font:800 16px var(--sans);transition:transform .12s var(--ease),background .15s}
+.cta:hover{background:var(--amber-2)}
+.cta:active{transform:scale(.97)}
+.ghost{min-height:44px;padding:10px 16px;border:1px solid var(--edge);border-radius:var(--r);background:transparent;color:var(--day);font-weight:700}
+.ghost:hover{background:rgba(255,178,46,.12)}
+.link{border:0;background:none;padding:6px 2px;color:var(--day-soft);text-decoration:underline;text-underline-offset:3px;font-size:14px}
+
+/* ---------- top bar ---------- */
+.bar{position:fixed;z-index:20;top:0;left:0;right:0;display:flex;align-items:center;gap:12px;padding:calc(10px + var(--st)) 16px 10px;pointer-events:none}
+.bar>*{pointer-events:auto}
+.bar .back{font-size:13px;color:var(--day-soft);text-decoration:none}
+.bar .back:hover{color:var(--day);text-decoration:underline}
+.bar .sp{flex:1}
+.lang{display:flex;gap:.7em;font-size:13px}
+.lang a{text-decoration:none;color:var(--day-soft)}
+.lang a[aria-current="true"]{color:var(--day);font-weight:800;text-decoration:underline;text-decoration-color:var(--amber);text-decoration-thickness:2px}
+.round{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:800}
+body.playing .bar{display:none}
+
+/* ---------- intro ---------- */
+#intro{position:fixed;z-index:30;inset:0;display:flex;align-items:center;justify-content:center;padding:calc(60px + var(--st)) 16px calc(24px + var(--sb));
+  background:radial-gradient(ellipse at 50% 120%,rgba(255,159,28,.22),transparent 60%),rgba(14,22,49,.55);overflow:auto}
+.intro-card{width:min(26rem,100%);padding:26px 22px 22px;border-radius:var(--r);text-align:center}
+.logo{font:900 clamp(34px,10vw,46px)/1 var(--display);letter-spacing:-.03em;color:var(--amber-2);margin:0}
+.lede{font-size:17px;margin:12px 0 18px;text-wrap:pretty}
+.rules{list-style:none;padding:0;margin:0 0 20px;display:grid;gap:8px;text-align:left;font-size:14px;color:var(--day-soft)}
+.rules li{display:flex;gap:10px;align-items:flex-start}
+.rules b{color:var(--day)}
+.rules .n{flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--night-2);border:1px solid var(--edge);color:var(--amber-2);font:800 12px var(--display)}
+.pseudo{display:flex;gap:8px;margin:0 0 14px}
+.pseudo input{flex:1;min-width:0;min-height:48px;padding:10px 14px;border:1px solid var(--edge);border-radius:var(--r);background:var(--night);color:var(--day);font-size:16px;font-weight:700}
+.pseudo input::placeholder{color:#8a8fa3}
+.pseudo .dice{width:48px;border:1px solid var(--edge);border-radius:var(--r);background:var(--night-2);font-size:20px}
+.intro-card .cta{width:100%}
+.fine{font-size:12px;color:var(--day-soft);margin:14px 0 0}
+.err{color:var(--amber-2);font-size:13px;min-height:1.2em;margin:-6px 0 8px}
+
+/* ---------- HUD ---------- */
+.hud{position:fixed;z-index:10;left:0;right:0;margin:0 auto;width:min(32rem,100%);padding:0 12px;pointer-events:none}
+.hud *{pointer-events:auto}
+.hud.top{top:calc(10px + var(--st))}
+.hud.bot{bottom:calc(12px + var(--sb));display:flex;align-items:flex-end;justify-content:center;gap:10px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:var(--r);font-weight:700;font-size:13px;white-space:nowrap;max-width:60%;overflow:hidden;text-overflow:ellipsis}
+.scorebox{margin-top:8px;padding:10px 12px 10px 16px;border-radius:var(--r);display:flex;align-items:center;gap:10px}
+.score{font:900 clamp(26px,8vw,34px)/1 var(--display);color:var(--amber-2);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.unit{font:600 13px var(--display);color:var(--amber-2)}
+.mult{margin-left:auto;flex:none;width:48px;height:48px;border-radius:50%;display:grid;place-items:center;font:900 17px var(--display);color:var(--night);background:radial-gradient(circle at 40% 35%,#ffe7a3,var(--amber))}
+.mult.x1{background:var(--night-2);color:var(--day-soft);border:1px solid var(--edge)}
+.mult.pop{animation:pop .5s var(--ease)}
+@keyframes pop{40%{transform:scale(1.25)}}
+.info{flex:1;min-width:0;padding:10px 12px;border-radius:var(--r);font-size:13px;line-height:1.35}
+.info b{display:block;font-size:14px}
+.info .act{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.info .act button{min-height:36px;padding:6px 12px;font-size:13px}
+.pad{flex:none;display:grid;grid-template-columns:repeat(3,56px);grid-template-rows:repeat(3,56px);gap:4px}
+.pad button{border-radius:50%;font:800 16px var(--display);color:var(--amber-2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;transition:transform .1s var(--ease),background .15s}
+.pad button:not(:disabled):active{transform:scale(.9);background:var(--night-2)}
+.pad button:disabled{opacity:.28;cursor:default}
+/* warmer button = more power left that way (0-3) */
+.pad button[data-r="1"]{background:rgba(255,159,28,.22)}
+.pad button[data-r="2"]{background:rgba(255,159,28,.5);color:var(--day)}
+.pad button[data-r="3"]{background:var(--amber);color:var(--night);border-color:var(--amber-2)}
+.pad button[data-r="3"] .rays b{background:var(--night)!important}
+.pad button[data-r="2"] .rays.r2 b:nth-child(-n+2){background:var(--day)}
+.pad button.seen{color:rgba(255,207,107,.45);border-style:dashed}
+.rays{display:flex;gap:3px}
+.rays b{width:5px;height:5px;border-radius:50%;background:rgba(255,207,107,.2)}
+.rays.r1 b:first-child,.rays.r2 b:nth-child(-n+2),.rays.r3 b{background:var(--amber-2)}
+.pad .n{grid-area:1/2}.pad .w{grid-area:2/1}.pad .e{grid-area:2/3}.pad .s{grid-area:3/2}
+.pad .mid{grid-area:2/2;border-radius:50%;background:var(--glass);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
+.pad .mid b{font:900 20px var(--display)}
+.pad .mid small{font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--amber-2);margin-top:3px}
+.gain{position:fixed;z-index:11;left:50%;top:calc(150px + var(--st));transform:translate(-50%,0);padding:4px 12px;border-radius:var(--r);
+  font:900 19px var(--display);color:var(--amber-2);background:var(--glass);opacity:0;transition:opacity .2s,transform .7s var(--ease);pointer-events:none;white-space:nowrap}
+.gain.on{opacity:1;transform:translate(-50%,-12px)}
+.gain.bonus{color:var(--night);background:var(--sun)}
+.side-btns{position:fixed;z-index:10;right:12px;top:calc(140px + var(--st));display:grid;gap:8px}
+
+/* pick mode */
+#pickHud{top:calc(58px + var(--st))}
+.hint{padding:12px 14px;border-radius:var(--r);font-size:14px}
+.hint b{display:block;font:800 15px var(--sans)}
+.legend{display:flex;align-items:flex-start;gap:8px;margin-top:8px;color:var(--day-soft);font-size:13px}
+.legend b{color:var(--day);font-weight:700}
+.legend i{width:16px;height:16px;margin-top:1px;border-radius:50%;border:2px dashed var(--sun);flex:none}
+
+/* sheets */
+.sheet{position:fixed;z-index:40;left:0;right:0;bottom:0;margin:0 auto;width:min(30rem,100%);padding:20px 18px calc(18px + var(--sb));border-radius:var(--r) var(--r) 0 0;
+  animation:up .35s var(--ease)}
+@keyframes up{from{transform:translateY(30px);opacity:0}}
+.sheet h2{margin:0;font:900 22px/1.15 var(--display);letter-spacing:-.02em}
+.sheet .big{font:900 clamp(36px,11vw,48px)/1 var(--display);color:var(--amber-2);margin:12px 0 2px;font-variant-numeric:tabular-nums}
+.sheet .sub{color:var(--day-soft);margin:0 0 14px;font-size:14px}
+.sheet .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 16px}
+.sheet .stats div{padding:8px;border-radius:var(--r);background:var(--night-2);text-align:center;font-size:12px;color:var(--day-soft)}
+.sheet .stats b{display:block;font:800 16px var(--display);color:var(--day)}
+.sheet .btns{display:flex;flex-wrap:wrap;gap:8px}
+.sheet .btns .cta{flex:1}
+.record{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:var(--r);background:var(--sun);color:var(--night);font:800 11px var(--sans);vertical-align:middle}
+
+/* share */
+#share{position:fixed;z-index:50;inset:0;display:grid;place-items:center;padding:12px;background:rgba(5,9,22,.8)}
+.share-card{width:min(24rem,100%);max-height:calc(100dvh - 24px);overflow:auto;padding:16px;border-radius:var(--r);text-align:center}
+.share-card .head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.share-card h2{margin:0;font:900 18px var(--display)}
+#shareImgBox{min-height:200px;display:grid;place-items:center}
+#shareImgBox img{display:block;width:100%;height:auto;max-height:58dvh;object-fit:contain;border-radius:var(--r);background:var(--night)}
+.share-card .note{font-size:13px;color:var(--day-soft);margin:10px 0 12px}
+.share-card .alt{display:flex;justify-content:center;gap:18px;margin-top:6px}
+.msg{min-height:1.3em;font-size:13px;color:var(--amber-2);margin:6px 0 0}
+
+dialog{border:1px solid var(--edge);border-radius:var(--r);background:var(--night);color:var(--day);padding:20px;width:min(32rem,calc(100vw - 32px));max-height:calc(100dvh - 40px)}
+dialog::backdrop{background:rgba(5,9,22,.7)}
+dialog h2{margin:0 0 8px;font:900 19px var(--display)}
+dialog p{margin:.6em 0;font-size:14px}
+dialog .fine{font-size:12.5px;color:var(--day-soft)}
+.board{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:4px;max-height:50dvh;overflow:auto}
+.board li{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r);background:var(--night-2)}
+.board li.me{outline:1.5px solid var(--amber)}
+.board .rk{width:1.8em;font:800 14px var(--display);color:var(--amber-2)}
+.board .who{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
+.board .who em{font-style:normal;color:var(--day-soft);font-weight:500}
+.board .pts{font:800 15px var(--display);font-variant-numeric:tabular-nums}
+.board .gap{background:none;justify-content:center;padding:0;color:var(--day-soft)}
+.rank{margin:-4px 0 10px;font-weight:700;color:var(--amber-2);min-height:1.2em}
+.rank:empty{display:none}
+.board .empty{color:var(--day-soft)}
+.toast{position:fixed;z-index:60;left:50%;top:calc(70px + var(--st));transform:translateX(-50%);width:max-content;max-width:calc(100vw - 32px);padding:9px 14px;border-radius:var(--r);font-size:14px;
+  text-align:center;opacity:0;transition:opacity .25s;pointer-events:none}
+.toast.on{opacity:1}
+.loading{position:fixed;z-index:70;inset:0;display:grid;place-items:center;background:var(--night);color:var(--day-soft);font-weight:700}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+@media (min-width:720px){.hud.bot{width:min(36rem,100%)}}
+/* touch screens: the N / S / E / W markers on the map are the buttons (plus swipes); the d-pad is for desktop */
+@media (pointer:coarse){.pad{display:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="loading" id="loading" data-t="loading">…</div>
+<div id="map"></div>
+<canvas id="fx"></canvas>
+
+<header class="bar">
+  <a class="back" href="../" data-t="back"></a>
+  <div class="sp"></div>
+  <nav class="lang" aria-label="Langue / Language"><a href="?lang=fr" data-l="fr">FR</a><a href="?lang=en" data-l="en">EN</a></nav>
+  <button class="round glass" id="aboutBtn" type="button" data-t-aria="about">?</button>
+</header>
+
+<!-- 1. intro: pseudo -->
+<section id="intro" hidden>
+  <div class="intro-card glass">
+    <h1 class="logo">PV Explorer</h1>
+    <p class="lede" data-t="lede"></p>
+    <ol class="rules">
+      <li><span class="n">1</span><span data-t-html="r1"></span></li>
+      <li><span class="n">2</span><span data-t-html="r2"></span></li>
+      <li><span class="n">3</span><span data-t-html="r3"></span></li>
+    </ol>
+    <form id="pseudoForm" autocomplete="off">
+      <label class="sr" for="pseudoIn" data-t="pseudoLabel"></label>
+      <div class="pseudo"><input id="pseudoIn" maxlength="24" minlength="2" required data-t-ph="pseudoPh"><button class="dice" type="button" id="dice" data-t-aria="suggest">🎲</button></div>
+      <p class="err" id="pseudoErr" role="alert"></p>
+      <button class="cta" type="submit" data-t="play"></button>
+    </form>
+    <p class="fine" data-t="local"></p>
+  </div>
+</section>
+
+<!-- 2. pick a start -->
+<div class="hud top" id="pickHud" hidden>
+  <div class="hint glass"><b data-t="pickT"></b><span data-t="pickS"></span>
+</div>
+</div>
+<div class="hud bot" id="pickBot" hidden>
+  <div class="info glass" id="pickInfo" aria-live="polite"></div>
+</div>
+
+<!-- 3. play -->
+<div class="hud top" id="playHud" hidden>
+  <div class="row"><span class="chip glass" id="who"></span><span class="chip glass" id="steps"></span></div>
+  <div class="scorebox glass"><span class="score" id="score">0</span><span class="unit" id="unit">kWc</span><span class="mult x1" id="mult">×1</span></div>
+</div>
+<div class="side-btns" id="sideBtns" hidden>
+  <button class="round glass" id="recenter" type="button" data-t-aria="recenter">◎</button>
+  <button class="round glass" id="menuBtn" type="button" data-t-aria="menu">⋯</button>
+</div>
+<div class="gain" id="gain" aria-hidden="true"></div>
+<div class="hud bot" id="playBot" hidden>
+  <div class="sr" id="info" aria-live="polite"></div>
+  <div class="pad" role="group" data-t-aria="dirs">
+    <button class="n glass" data-d="0"></button><button class="w glass" data-d="3"></button>
+    <div class="mid"><b id="left">30</b><small data-t="steps"></small></div>
+    <button class="e glass" data-d="2"></button><button class="s glass" data-d="1"></button>
+  </div>
+</div>
+
+<!-- 4. end -->
+<section class="sheet glass" id="end" hidden aria-labelledby="endT">
+  <h2 id="endT"></h2>
+  <div class="big" id="endScore"></div>
+  <p class="sub" id="endSub"></p>
+  <div class="stats" id="endStats"></div>
+  <p class="rank" id="endRank" aria-live="polite"></p>
+  <p class="fine" id="endNote" style="margin:-6px 0 14px"></p>
+  <div class="btns"><button class="cta" id="shareBtn" type="button" data-t="share"></button><button class="ghost" id="againBtn" type="button" data-t="again"></button><button class="ghost" id="viewBtn" type="button" data-t="view"></button></div>
+</section>
+
+<div id="share" hidden>
+  <div class="share-card glass" role="dialog" aria-modal="true" aria-labelledby="shareT">
+    <div class="head"><h2 id="shareT" data-t="share"></h2><button class="round glass" id="shareClose" type="button" data-t-aria="close">✕</button></div>
+    <div id="shareImgBox"></div>
+    <p class="note" data-t="shareNote"></p>
+    <button class="cta" id="shareGo" type="button" data-t="shareGo"></button>
+    <div class="alt"><button class="link" id="shareDl" type="button" data-t="download"></button><button class="link" id="shareCopy" type="button" data-t="copy"></button></div>
+    <p class="msg" id="shareMsg" role="status"></p>
+  </div>
+</div>
+
+<dialog id="menu">
+  <h2 data-t="menuT"></h2>
+  <div style="display:grid;gap:8px;margin-top:12px">
+    <button class="ghost" id="mRestart" type="button" data-t="restart"></button>
+    <button class="ghost" id="mAbout" type="button" data-t="about"></button>
+    <button class="ghost" id="mPseudo" type="button" data-t="changePseudo"></button>
+    <form method="dialog"><button class="cta" style="width:100%" data-t="close"></button></form>
+  </div>
+</dialog>
+<dialog id="board" aria-labelledby="boardT">
+  <h2 id="boardT"></h2>
+  <ol class="board" id="boardList"></ol>
+  <p class="fine" id="boardNote"></p>
+  <form method="dialog" style="text-align:right;margin-top:12px"><button class="cta" data-t="close"></button></form>
+</dialog>
+<dialog id="about">
+  <h2 data-t="aboutT"></h2>
+  <div id="aboutBody"></div>
+  <form method="dialog" style="text-align:right;margin-top:12px"><button class="cta" data-t="close"></button></form>
+</dialog>
+<div class="toast glass" id="toast" role="status"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

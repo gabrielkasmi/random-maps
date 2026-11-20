@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- PV Explorer tab icon: the in-game walker (avatar() in js/app.js), solar panel on its head, on a night tile. -->
+  <rect width="100" height="100" rx="12" fill="#0e1631"/>
+  <g transform="translate(52 63)">
+    <g transform="rotate(-12)">
+      <rect x="-31" y="-52" width="62" height="22" rx="3" fill="#18234a" stroke="#ffb22e" stroke-width="4.5"/>
+      <path d="M-15.5 -52v22M0 -52v22M15.5 -52v22" stroke="#ffb22e" stroke-opacity=".75" stroke-width="3"/>
+    </g>
+    <circle r="26" fill="#fff4dc" stroke="#ffb22e" stroke-width="5"/>
+    <circle cx="-8.5" cy="3" r="4.8" fill="#0e1631"/>
+    <circle cx="8.5" cy="3" r="4.8" fill="#0e1631"/>
+  </g>
+</svg>
