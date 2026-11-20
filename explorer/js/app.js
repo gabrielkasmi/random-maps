@@ -1,7 +1,7 @@
 // PV Explorer — page logic (direction B, "Lever de soleil"). Rules live in game.js.
 // Bump ?v= (imports below and the script tag in index.html) at each release: phones keep old scripts otherwise.
-import { prepareNodes, dailyBonuses, Game, parisDay, sunView, distanceFactor, traceKm, startNode } from './game.js?v=20261120e';
-import * as BE from './backend.js?v=20261120e';
+import { prepareNodes, dailyBonuses, Game, parisDay, sunView, distanceFactor, traceKm, startNode } from './game.js?v=20261120g';
+import * as BE from './backend.js?v=20261120g';
 
 /* ================================================================ i18n */
 const T = {
@@ -31,7 +31,7 @@ const T = {
     copied: 'Texte et lien copiés.', shareText: (k, km, r) => `${r ? `Mon itinéraire PV Explorer : ${r}. ` : ''}J’ai récolté ${k} kWc et parcouru ${km} km ☀️ Les installations solaires de France, détectées par IA :`, around: a => `autour de ${a}`,
     cardSub: 'points en 30 pas', cardLine: (k, km) => `J’ai récolté ${k} kWc et parcouru ${km} km`, cardRoute: 'Mon itinéraire', cardAsk: 'Et vous, jusqu’où irez-vous ?', cardSrc: 'OpenPVMapper · détections par IA',
     menuT: 'Menu', help: 'Comment jouer', restart: 'Nouvelle partie', changePseudo: 'Changer de pseudo', close: 'Fermer', recenter: 'Recentrer', menu: 'Menu',
-    aboutT: 'À propos',
+    aboutT: 'À propos', shareGame: 'Partager le jeu', linkCopied: 'Lien copié', gameText: 'PV Explorer : 30 pas de nuit, d’installation solaire en installation solaire ☀️',
     aboutHtml: `<p>Votre départ est tiré au sort à chaque partie. En 30 pas, récoltez le plus de puissance solaire et parcourez le plus de distance. Chaque pas mène à l’installation la plus proche dans la direction choisie ; chacune compte une fois. Les soleils du jour sont les mêmes pour tout le monde et changent à minuit (heure de Paris).</p>
       <p>Les lumières de la nuit montrent où la puissance installée est concentrée (floutée à une dizaine de kilomètres). Les ⚡ au bord de l’écran pointent vers les deux plus gros gisements proches, et la couleur des directions indique la puissance qui reste à récolter dans chaque direction, sur 8 km.</p>
       <p>Des soleils (×2, ×3) se cachent dans les zones où il y a le moins de panneaux, pour donner une raison d’y aller. Ils apparaissent quand votre trace passe à moins de 10 km. Les multiplicateurs s’additionnent (×2 puis ×3 donnent ×4).</p>
@@ -75,7 +75,7 @@ const T = {
     copied: 'Text and link copied.', shareText: (k, km, r) => `${r ? `My PV Explorer route: ${r}. ` : ''}I collected ${k} kWp and walked ${km} km ☀️ France’s solar installations, detected by AI:`, around: a => `around ${a}`,
     cardSub: 'points in 30 steps', cardLine: (k, km) => `I collected ${k} kWp and walked ${km} km`, cardRoute: 'My route', cardAsk: 'How far will you go?', cardSrc: 'OpenPVMapper · AI detections',
     menuT: 'Menu', help: 'How to play', restart: 'New game', changePseudo: 'Change nickname', close: 'Close', recenter: 'Recentre', menu: 'Menu',
-    aboutT: 'About',
+    aboutT: 'About', shareGame: 'Share the game', linkCopied: 'Link copied', gameText: 'PV Explorer: 30 steps at night, from solar installation to solar installation ☀️',
     aboutHtml: `<p>Your start is drawn at random for each game. In 30 steps, collect as much solar power and walk as far as you can. Each step goes to the nearest installation in the chosen direction; each counts once. Today’s suns are the same for everyone and change at midnight (Paris time).</p>
       <p>The night lights show where installed power is concentrated (blurred over about ten kilometres). The ⚡ on the screen edge point to the two biggest hotspots nearby, and the colour of the directions shows the power left to collect in each direction, over 8 km.</p>
       <p>Suns (×2, ×3) hide where panels are scarcest, to give a reason to go there. They appear when your trace comes within 10 km. Multipliers add up (×2 then ×3 make ×4).</p>
@@ -747,6 +747,14 @@ $('mHelp').onclick = () => { $('menu').close(); tutorial(); };
 $('mAbout').onclick = () => { $('menu').close(); $('about').showModal(); };
 $('mPseudo').onclick = () => { $('menu').close(); showIntro(); };
 $('aboutBtn').onclick = () => $('about').showModal();
+// About → share the game itself (its link, not a score)
+$('shareGame').onclick = async () => {
+  const url = location.origin + location.pathname + (LANG === 'en' ? '?lang=en' : '');
+  if (navigator.share) { try { await navigator.share({ title: 'PV Explorer', text: t.gameText, url }); return; } catch (e) { if (e.name === 'AbortError') return; } }
+  const lab = $('shareGame').querySelector('span');   // the dialog sits above the toast: confirm on the button itself
+  try { await navigator.clipboard.writeText(url); lab.textContent = t.linkCopied; } catch { lab.textContent = url; }
+  setTimeout(() => { lab.textContent = t.shareGame; }, 2500);
+};
 let toastT;
 function toast(s) { const el = $('toast'); el.textContent = s; el.style.pointerEvents = 'none'; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 2600); }
 
