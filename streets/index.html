@@ -1,0 +1,789 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Les rues les plus solarisées</title>
+<meta name="description" content="Rue de l’Église, Impasse des Vignes, Rue du Soleil : quelles sont les rues où l’on trouve le plus de panneaux solaires ? Toute la Base Adresse Nationale croisée avec les installations OpenPVMapper.">
+<meta name="theme-color" content="#1f3a72">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Les rues les plus solarisées">
+<meta property="og:description" content="Les Places de l’Église portent 3 fois moins de panneaux solaires par adresse que le reste de leur commune, les Impasses des Vignes 43 % de plus. Et votre rue ? / Which French street names carry the most solar panels?">
+<meta property="og:url" content="https://gabrielkasmi.github.io/random-maps/streets/">
+<meta property="og:image" content="https://gabrielkasmi.github.io/random-maps/streets/og.png">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="627">
+<meta property="og:image:alt" content="Plaques de rue émaillées bleues posées sur un mur, sous le titre « Les rues les plus solarisées » : Impasse des Vignes +43 %, Rue du Soleil +9 %, Place de l’Église 3,4 fois moins, Grande Rue −41 %, Allée des Mésanges +29 %, Rue Victor Hugo −24 %.">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<style>
+@font-face{font-family:"Plaque";src:url(fonts/barlow-condensed-500.woff2) format("woff2");font-weight:500;font-display:swap}
+@font-face{font-family:"Plaque";src:url(fonts/barlow-condensed-600.woff2) format("woff2");font-weight:600;font-display:swap}
+@font-face{font-family:"Plaque";src:url(fonts/barlow-condensed-700.woff2) format("woff2");font-weight:700;font-display:swap}
+:root{
+  --email:#1f3a72;--email-deep:#152a55;--email-soft:#c9d3e6;--vert:#2f6b3a;--blanc:#f7f6f0;
+  --pierre:#d9d3c7;--pierre-deep:#c9c1b2;--joint:#b9b0a0;--ink:#1c2230;--ink2:#46505e;
+  --up:#2f7a3a;--down:#c8321f;--sun:#f2c200;--gray:#8d96a3;
+  --plaque:"Plaque","Barlow Condensed","Arial Narrow",sans-serif;
+}
+*{box-sizing:border-box}
+html{scrollbar-color:var(--joint) var(--pierre)}
+body{margin:0;font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:var(--pierre);caret-color:var(--email);font-variant-numeric:tabular-nums;
+  background-image:linear-gradient(var(--pierre-deep) 1px,transparent 1px),linear-gradient(90deg,var(--pierre-deep) 1px,transparent 1px);background-size:100% 64px,128px 100%;background-position:0 -1px}
+::selection{background:var(--email);color:var(--blanc)}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--email);outline-offset:2px;border-radius:4px}
+a{color:var(--email);text-underline-offset:3px}
+.wrap{max-width:1040px;margin:0 auto;padding:14px 20px 40px}
+[hidden]{display:none!important}
+
+/* top bar */
+.top{display:flex;align-items:center;gap:8px;margin-bottom:16px}
+.top a.back,.top button.back{display:inline-flex;align-items:center;gap:6px;font:600 15px/1 var(--plaque);letter-spacing:.06em;text-transform:uppercase;color:var(--ink2);text-decoration:none;
+  background:var(--blanc);border:0;border-radius:7px;padding:8px 10px;cursor:pointer}
+.top a.back:hover,.top button.back:hover{color:var(--email)}
+.infob{margin-left:auto;display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--email);background:var(--blanc);color:var(--email);border-radius:6px;padding:5px 9px;cursor:pointer;
+  font:700 13px/1 var(--plaque);letter-spacing:.1em;text-transform:uppercase}
+.infob[aria-expanded=true]{background:var(--email);color:var(--blanc)}
+.lang{display:flex;border:1.5px solid var(--email);border-radius:6px;overflow:hidden;background:var(--blanc)}
+.lang a{font:700 13px/1 var(--plaque);letter-spacing:.1em;color:var(--email);text-decoration:none;padding:7px 9px}
+.lang a[aria-current=true]{background:var(--email);color:var(--blanc)}
+
+/* info panel (method, sources) */
+#info{background:var(--blanc);border-radius:10px;padding:16px 18px 18px;margin:0 0 18px;box-shadow:0 12px 26px -16px rgba(28,34,48,.7);font-size:14px}
+#info h2{font:700 22px/1.1 var(--plaque);letter-spacing:.04em;text-transform:uppercase;color:var(--email);margin:0 0 8px}
+#info h3{font:700 16px/1.2 var(--plaque);letter-spacing:.06em;text-transform:uppercase;color:var(--ink);margin:18px 0 6px}
+#info p,#info li{max-width:76ch;margin:0 0 8px;color:var(--ink)}
+#info ul{padding-left:18px;margin:0}
+#info table{border-collapse:collapse;font-size:13.5px;margin-top:4px}
+#info td,#info th{padding:4px 12px 4px 0;text-align:left;border-bottom:1px solid var(--pierre)}
+#info th{font:600 13px/1.2 var(--plaque);letter-spacing:.06em;text-transform:uppercase;color:var(--ink2)}
+#info td.n{text-align:right}
+
+/* the enamel plate */
+.plaque{position:relative;background:var(--email);border:6px solid var(--vert);border-radius:14px;padding:6px;color:var(--blanc);
+  box-shadow:0 14px 28px -10px rgba(28,34,48,.55),0 3px 6px -2px rgba(28,34,48,.3);text-align:center}
+.plaque .in{border:2px solid var(--blanc);border-radius:8px;padding:18px 16px 20px;display:flex;flex-direction:column;justify-content:center;align-items:center}
+.scr{position:absolute;width:9px;height:9px;border-radius:50%;background:#e6e4dc;box-shadow:inset 0 0 0 1px #8a92a3}
+.scr:after{content:"";position:absolute;left:1.5px;right:1.5px;top:4px;height:1px;background:#4f586b;transform:rotate(-35deg)}
+.plaque .vis{top:50%;margin-top:-4.5px}.plaque .vis.l{left:-1px}.plaque .vis.r{right:-1px}
+.plaque h1,.plaque h2{overflow-wrap:anywhere;font:700 clamp(30px,7vw,60px)/.98 var(--plaque);text-transform:uppercase;letter-spacing:.02em;margin:0;text-wrap:balance}
+.plaque h2{font-size:clamp(30px,6.4vw,52px)}
+.plaque .com{font:600 clamp(15px,2vw,18px)/1.25 var(--plaque);letter-spacing:.14em;text-transform:uppercase;margin:10px 0 0;color:#dfe5f2;text-wrap:balance}
+.plaque .meta{font:500 16px/1.3 var(--plaque);letter-spacing:.05em;margin:6px 0 0;color:#dfe5f2}
+.cart{position:relative;display:inline-flex;align-items:center;gap:7px;margin-top:14px;background:var(--blanc);color:var(--email);border-radius:5px;
+  padding:5px 24px 4px;font:700 22px/1.1 var(--plaque);letter-spacing:.03em;transform-origin:50% 0}
+.cart .scr{width:7px;height:7px;top:50%;margin-top:-3.5px}.cart .scr:after{top:3px}.cart .scr.l{left:7px}.cart .scr.r{right:7px}
+.cart small{font:600 13px/1 var(--plaque);letter-spacing:.12em;text-transform:uppercase}
+.cart.na{background:var(--email-soft);color:var(--email-deep)}
+/* commune: the entry sign (white, red border, black lettering) instead of the street plate */
+.plaque.ville{background:#fff;border:0;padding:7px;color:#141414;box-shadow:0 14px 28px -10px rgba(28,34,48,.55),0 3px 6px -2px rgba(28,34,48,.3),inset 0 0 0 1px #d8d4cc}
+.plaque.ville .in{border:6px solid var(--down);border-radius:10px}
+.plaque.ville .com,.plaque.ville .meta{color:#3a3f48}
+.plaque.ville .cart{background:#efece5;color:#141414}
+.list b.ville{background:#fff;color:#141414;border:2px solid var(--down);box-shadow:inset 0 0 0 1px #fff}
+.arr{display:inline-block;flex:none;vertical-align:-.08em}
+.arr.up{color:var(--up)}.arr.down{color:var(--down)}
+@media (prefers-reduced-motion:no-preference){
+  .plaque.swap .in>*{animation:rise .42s cubic-bezier(.16,1,.3,1) both}
+  .plaque.swap .cart{animation:screw .6s cubic-bezier(.16,1,.3,1) .12s both}
+  .pile.deal .vig{animation:deal .45s cubic-bezier(.16,1,.3,1) both;animation-delay:calc(var(--i) * 35ms)}
+}
+@keyframes rise{from{opacity:.4;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes screw{from{opacity:.5;transform:rotate(-7deg) translateY(-6px)}to{opacity:1;transform:none}}
+@keyframes deal{from{opacity:.2;transform:translateY(-18px) rotate(calc(var(--r) * 2.5))}}
+
+/* home: title plate */
+.hero{max-width:720px;margin:0 auto}
+.hero .in{padding:20px 20px 18px}
+.lede{max-width:60ch;margin:14px auto 0;text-align:center;font-size:15px;color:var(--ink)}
+
+/* the pile of plates, laid on top of each other */
+.pile{display:flex;flex-wrap:wrap;justify-content:center;align-content:center;margin:20px auto 0;padding:6px 4px 0;max-width:900px}
+.vig{--r:0deg;position:relative;display:inline-flex;flex-direction:column;align-items:center;border:0;background:none;padding:0;margin:3px -8px;cursor:pointer;
+  transform:rotate(var(--r)) translateY(var(--y,0));transition:transform .25s cubic-bezier(.16,1,.3,1)}
+.vig:hover,.vig:focus-visible{transform:rotate(0) translateY(-4px) scale(1.04);z-index:50!important}
+.vig .p{display:block;background:var(--email);color:var(--blanc);border:3px solid var(--vert);border-radius:6px;
+  box-shadow:inset 0 0 0 1.5px var(--email),inset 0 0 0 3px var(--blanc),0 10px 16px -8px rgba(28,34,48,.65),0 2px 3px -1px rgba(28,34,48,.35);
+  font:700 var(--fs,18px)/1.05 var(--plaque);letter-spacing:.05em;text-transform:uppercase;padding:10px 15px 9px;white-space:nowrap}
+.vig .c{display:inline-flex;align-items:center;gap:4px;margin-top:-3px;background:var(--blanc);color:var(--email-deep);border-radius:0 0 5px 5px;padding:3px 10px 3px;
+  font:700 16px/1.1 var(--plaque);letter-spacing:.02em;box-shadow:0 6px 10px -6px rgba(28,34,48,.65)}
+.homeacts{display:flex;justify-content:center;margin-top:18px}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:2px solid var(--email);background:var(--email);color:var(--blanc);border-radius:8px;padding:10px 14px;cursor:pointer;
+  font:700 16px/1 var(--plaque);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;text-decoration:none}
+.btn:hover{background:var(--email-deep);border-color:var(--email-deep)}
+.btn[disabled]{opacity:.55;cursor:progress}
+.btn.ghost{background:var(--blanc);color:var(--email)}
+.btn.ghost:hover{background:var(--email-soft)}
+.btn.sm{padding:7px 10px;font-size:14px}
+
+/* two searches */
+.finds{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:820px;margin:34px auto 0}
+.fbox label{display:block;font:700 18px/1.15 var(--plaque);letter-spacing:.05em;text-transform:uppercase;color:var(--email);margin:0 0 6px}
+.frow{position:relative}
+.frow input{width:100%;padding:12px 40px 12px 13px;border:2px solid var(--email);border-radius:8px;background:var(--blanc);font-size:16px;outline:0}
+.frow input::placeholder{color:#5d6675}
+.frow input:focus{box-shadow:0 0 0 3px rgba(31,58,114,.25)}
+.frow .chev{position:absolute;right:12px;top:50%;margin-top:-7px;color:var(--email);pointer-events:none}
+.sug{position:absolute;left:0;right:0;top:calc(100% + 6px);background:var(--blanc);border:2px solid var(--email);border-radius:8px;box-shadow:0 14px 30px -8px rgba(28,34,48,.45);
+  max-height:330px;overflow:auto;z-index:1600;padding:4px;text-align:left}
+.sug button{display:flex;gap:10px;align-items:center;width:100%;text-align:left;border:0;background:none;padding:8px 9px;border-radius:5px;cursor:pointer}
+.sug button:hover,.sug button.act{background:var(--email-soft)}
+.sug b{font:700 17px/1.15 var(--plaque);letter-spacing:.02em;flex:1;min-width:0}
+.sug small{color:var(--ink2);text-align:right;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;font:700 15px/1 var(--plaque)}
+.sug p{margin:8px;color:var(--ink2)}
+.sug .hd{font:600 12.5px/1 var(--plaque);letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);padding:8px 9px 4px;margin:0}
+.opt{display:flex;align-items:center;gap:4px}
+.opt>button[data-i]{flex:1;min-width:0}
+.sug .opt .add{flex:none;width:34px;height:34px;border:2px solid var(--email);border-radius:7px;background:var(--blanc);color:var(--email);display:grid;place-items:center;padding:0}
+.sug .opt .add:hover{background:var(--email-soft)}
+.sug .opt .add[aria-pressed=true]{background:var(--email);color:var(--blanc)}
+.cmpbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--email);color:var(--blanc);border:2px solid var(--vert);border-radius:5px;box-shadow:inset 0 0 0 1px var(--blanc);padding:4px 3px 3px 8px;font:700 14px/1.1 var(--plaque);letter-spacing:.05em;text-transform:uppercase;max-width:100%}
+.chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip button{border:0;background:none;color:inherit;cursor:pointer;padding:3px;display:grid;border-radius:3px}
+.chip button:hover{background:rgba(255,255,255,.18)}
+.sw{display:inline-block;flex:none;width:12px;height:12px;border-radius:50%;border:2px solid var(--blanc);box-shadow:0 0 0 1px rgba(28,34,48,.5)}
+.cmphint{font-size:13.5px;color:var(--ink2);margin:0}
+.near{margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.linkb{border:0;background:none;padding:2px 0;color:var(--email);cursor:pointer;text-decoration:underline;text-underline-offset:3px;font-size:14px;display:inline-flex;align-items:center;gap:5px}
+.linkb[disabled]{opacity:.6;cursor:progress}
+.msg{font-size:13.5px;color:var(--ink2);margin:0;min-height:1.2em}
+
+.panel{background:var(--blanc);border-radius:10px;padding:14px 16px 16px;box-shadow:0 8px 20px -14px rgba(28,34,48,.6)}
+.list{display:flex;flex-direction:column}
+.list button{display:grid;grid-template-columns:auto 1fr auto;gap:0 10px;align-items:center;text-align:left;border:0;border-bottom:1px solid var(--pierre);background:none;padding:8px 2px;cursor:pointer}
+.list button:last-child{border-bottom:0}
+.list button:hover{background:rgba(31,58,114,.07)}
+.list b{justify-self:start;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:var(--email);color:var(--blanc);border:2px solid var(--vert);border-radius:4px;box-shadow:inset 0 0 0 1px var(--blanc);padding:5px 9px 4px;font:700 14px/1.1 var(--plaque);letter-spacing:.06em;text-transform:uppercase}
+.list small{display:block;color:var(--ink2);font-size:12.5px;margin-top:3px}
+.list .v{display:inline-flex;align-items:center;gap:4px;font:700 19px/1 var(--plaque);color:var(--ink);text-align:right;white-space:nowrap}
+.list .v.dim{color:var(--ink2);font-weight:600}
+.list .meta{min-width:0}
+
+/* views: name / town / near me */
+.vtop{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px;align-items:start}
+.vtop .plaque .in{min-height:190px}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.tile{background:var(--blanc);border:2px solid var(--joint);border-radius:7px;padding:9px 10px;color:var(--ink2)}
+.tile.on{border-color:var(--email);color:var(--email)}
+.tile b{display:block;font:700 30px/1 var(--plaque);color:var(--email)}
+.tile small{display:block;font:600 13px/1.15 var(--plaque);letter-spacing:.05em;text-transform:uppercase;margin-top:4px}
+.figcap{font:600 14px/1.2 var(--plaque);letter-spacing:.06em;text-transform:uppercase;color:var(--email);margin:0 0 8px}
+.caprow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 8px}.caprow .figcap{margin:0}
+.verdict{font-size:15px;margin:14px 0 0}
+#mapbox{position:relative;margin-top:24px;border-radius:12px;overflow:hidden;border:3px solid var(--blanc);box-shadow:0 14px 28px -16px rgba(28,34,48,.7)}
+#map{height:min(64vh,620px);background:#e4e1da}
+.muted{filter:saturate(.3) sepia(.08) brightness(1.03)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--ink2);margin-top:10px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:50%;box-shadow:0 0 0 1px rgba(42,47,58,.5)}
+.seg{display:inline-flex;border:2px solid var(--email);border-radius:7px;overflow:hidden;background:var(--blanc)}
+.seg button{border:0;background:transparent;color:var(--email);cursor:pointer;padding:6px 11px;font:600 15px/1 var(--plaque);letter-spacing:.04em}
+.seg button+button{border-left:2px solid var(--email)}
+.seg button[aria-pressed=true]{background:var(--email);color:var(--blanc)}
+.basesw{position:absolute;z-index:1000;right:10px;top:10px;box-shadow:0 6px 16px -6px rgba(28,34,48,.5)}
+.vbody{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px;margin-top:22px;align-items:start}
+#card .plaque .in{padding:14px 12px 16px}
+#card .plaque h2{font-size:clamp(24px,4vw,34px)}
+#card .empty{color:var(--ink2);font-size:14px;margin:0}
+.acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.filt{display:flex;gap:8px;margin-bottom:10px}
+.filt input{flex:1;min-width:0;padding:8px 10px;border:2px solid var(--joint);border-radius:7px;background:var(--blanc);font-size:15px;outline:0}
+.filt input:focus{border-color:var(--email)}
+/* comparison */
+.plaque.cmp h2{font-size:clamp(24px,4.6vw,40px)}
+.plaque .vs{font:600 15px/1 var(--plaque);letter-spacing:.24em;text-transform:uppercase;color:#dfe5f2;margin:8px 0}
+.plaque.cmp h2 .sw{width:16px;height:16px;margin-right:10px;vertical-align:.12em}
+#dash{margin:22px 0;background:var(--blanc);border-radius:10px;padding:16px 18px 18px;box-shadow:0 8px 20px -14px rgba(28,34,48,.6)}
+#dash h2{font:700 22px/1.1 var(--plaque);letter-spacing:.04em;text-transform:uppercase;color:var(--email);margin:0 0 12px}
+#dash h3{font:600 14px/1.2 var(--plaque);letter-spacing:.06em;text-transform:uppercase;color:var(--email);margin:22px 0 10px}
+.ctabw{overflow-x:auto}
+.ctab{border-collapse:collapse;width:100%;font-size:14px;min-width:460px}
+.ctab th{font:600 13px/1.2 var(--plaque);letter-spacing:.06em;text-transform:uppercase;color:var(--ink2);text-align:right;padding:0 8px 6px;border-bottom:2px solid var(--pierre)}
+.ctab th:first-child,.ctab td:first-child{text-align:left;padding-left:0}
+.ctab td{padding:9px 8px;text-align:right;border-bottom:1px solid var(--pierre);font-variant-numeric:tabular-nums}
+.ctab td b.pl{display:inline-flex;align-items:center;gap:7px;background:var(--email);color:var(--blanc);border:2px solid var(--vert);border-radius:4px;box-shadow:inset 0 0 0 1px var(--blanc);padding:5px 9px 4px;font:700 14px/1.1 var(--plaque);letter-spacing:.06em;text-transform:uppercase}
+.ctab td .gv{display:inline-flex;align-items:center;gap:4px;font:700 18px/1 var(--plaque)}
+.hh{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:0 0 14px}
+.hh .big{display:inline-flex;align-items:center;gap:6px;background:var(--email);color:var(--blanc);border:3px solid var(--vert);border-radius:7px;box-shadow:inset 0 0 0 2px var(--blanc);padding:8px 14px 6px;font:700 34px/1 var(--plaque)}
+.hh .big .arr{width:22px;height:22px}
+.hh p{flex:1 1 260px;margin:0;font-size:16px;line-height:1.45}
+.hh small{display:block;font:600 13px/1.2 var(--plaque);letter-spacing:.06em;text-transform:uppercase;color:var(--ink2);margin-bottom:4px}
+.dvb{position:relative;height:34px;background:var(--pierre);border-radius:5px;margin:6px 0 8px}
+.dvb .mid{position:absolute;left:50%;top:-6px;bottom:-6px;width:2px;margin-left:-1px;background:var(--ink)}
+.dvb i{position:absolute;top:0;bottom:0;box-shadow:inset 0 0 0 1px rgba(28,34,48,.35)}
+.dvb{overflow:visible}.dvb i.l{border-radius:5px 0 0 5px}.dvb i.r{border-radius:0 5px 5px 0}
+.dvb .mid{z-index:1;background:var(--ink);box-shadow:0 0 0 1.5px var(--blanc)}
+.dvb b{position:absolute;top:50%;transform:translateY(-50%);font:700 16px/1 var(--plaque);white-space:nowrap}
+.dvl{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:start;font-size:14px}
+.dvl>span{display:flex;align-items:center;gap:6px;min-width:0}
+.dvl>span:last-child{justify-content:flex-end;text-align:right}
+.dvl>span.c{font-size:12px;color:var(--ink2);white-space:nowrap}
+.dvl .sw{width:12px;height:12px}
+@media(max-width:600px){.dvl{grid-template-columns:1fr 1fr}.dvl>span.c{display:none}}
+.rbar{display:grid;grid-template-columns:minmax(0,11em) minmax(0,1fr);align-items:center;gap:10px;margin-bottom:8px;font-size:14px}
+.rbar>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rbar div{position:relative;height:24px;background:var(--pierre);border-radius:4px}
+.rbar i{position:absolute;left:0;top:3px;bottom:3px;border-radius:3px;box-shadow:inset 0 0 0 1px rgba(28,34,48,.35)}
+.rbar b{position:absolute;top:50%;transform:translateY(-50%);font:700 15px/1 var(--plaque)}
+.same p{margin:0 0 8px;max-width:72ch}
+#vlist{background:var(--blanc);border-radius:10px;padding:14px 16px 10px;box-shadow:0 8px 20px -14px rgba(28,34,48,.6)}
+#vlist:empty{display:none}
+#vlist .list{max-height:520px;overflow:auto;scrollbar-width:thin}
+.note{font-size:13.5px;color:var(--ink2);line-height:1.55;margin:12px 0 0;max-width:72ch}
+
+.leaflet-control-zoom a{color:var(--email)!important;font-weight:700}
+.leaflet-container{font:inherit}
+.leaflet-tooltip.tt{background:var(--email);color:var(--blanc);border:2px solid var(--vert);border-radius:5px;box-shadow:0 6px 14px -6px rgba(0,0,0,.5);font:600 14px/1.2 var(--plaque);letter-spacing:.04em;padding:4px 8px}
+.leaflet-tooltip.tt:before{display:none}
+.lab{position:absolute;white-space:nowrap;pointer-events:none;transform:translate(-50%,-50%);background:var(--email);color:var(--blanc);
+  border:2px solid var(--vert);border-radius:4px;box-shadow:inset 0 0 0 1px var(--blanc),0 3px 8px -3px rgba(0,0,0,.45);
+  font:700 12px/1 var(--plaque);letter-spacing:.07em;text-transform:uppercase;padding:4px 7px 3px}
+.lab.dim{background:var(--blanc);color:var(--email);border-color:var(--joint)}
+
+.foot{font-size:12.5px;color:var(--ink2);line-height:1.6;margin:56px 0 0;border-top:2px solid var(--joint);padding-top:12px}
+.foot a,.foot .linkb{color:inherit;font-size:inherit}
+
+@media (max-width:820px){
+  .wrap{padding:10px 14px 32px}
+  .top{margin-bottom:12px}
+  .vtop,.vbody,.finds{grid-template-columns:minmax(0,1fr)}
+  .hero .in{padding:14px 12px 13px}
+  .plaque h1{font-size:30px}
+  .plaque .com{font-size:14px;letter-spacing:.08em;margin-top:8px}
+  .lede{font-size:14px;margin-top:10px}
+  .pile{margin-top:14px}
+  .vig{margin:2px -6px}
+  .vig .p{padding:8px 11px 7px}
+  .vig .c{font-size:15px}
+  .homeacts{margin-top:14px}
+  .finds{margin-top:26px}
+  #map{height:min(58svh,520px)}
+  .ctab{min-width:0;font-size:13px}
+  .ctab th:nth-child(3),.ctab td:nth-child(3){display:none}
+  .ctab td b.pl{font-size:13px;padding:4px 7px 3px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a class="back" id="rmback" href="../"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M8.5 2.5 4 7l4.5 4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Random Maps</a>
+    <button class="back" id="vback" type="button" hidden><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M8.5 2.5 4 7l4.5 4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="t-vback"></span></button>
+    <button class="infob" id="infob" type="button" aria-expanded="false" aria-controls="info"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 7.2v4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="8" cy="4.8" r="1.05" fill="currentColor"/></svg><span id="t-infob"></span></button>
+    <nav class="lang" aria-label="Langue / Language"><a href="?lang=fr" data-l="fr">FR</a><a href="?lang=en" data-l="en">EN</a></nav>
+  </div>
+  <section id="info" hidden aria-labelledby="t-infot"></section>
+
+  <!-- ===================================================== home -->
+  <main id="home">
+    <section class="plaque hero" aria-labelledby="t-title"><span class="scr vis l"></span><span class="scr vis r"></span>
+      <div class="in"><h1 id="t-title"></h1><p class="com" id="t-sub"></p></div></section>
+    <p class="lede" id="t-lede"></p>
+
+    <div class="pile" id="pile"></div>
+    <div class="homeacts">
+      <button class="btn ghost" id="shuffle" type="button"><svg width="17" height="17" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="1.5" width="13" height="13" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="5" cy="5" r="1.2" fill="currentColor"/><circle cx="11" cy="5" r="1.2" fill="currentColor"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/><circle cx="5" cy="11" r="1.2" fill="currentColor"/><circle cx="11" cy="11" r="1.2" fill="currentColor"/></svg><span id="t-shuffle"></span></button>
+    </div>
+
+    <div class="finds">
+      <div class="fbox"><label for="qn" id="t-qnl"></label>
+        <div class="frow"><input id="qn" type="search" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="sugn" aria-expanded="false">
+          <svg class="chev" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 5l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div class="sug" id="sugn" role="listbox" hidden></div></div><div class="cmpbar" id="cmpbar" hidden></div></div>
+      <div class="fbox"><label for="qv" id="t-qvl"></label>
+        <div class="frow"><input id="qv" type="search" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="sugv" aria-expanded="false">
+          <svg class="chev" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 5l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div class="sug" id="sugv" role="listbox" hidden></div></div>
+        <div class="near"><button class="linkb" id="near" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="8" cy="8" r="1.6" fill="currentColor"/><path d="M8 0v3M8 13v3M0 8h3M13 8h3" stroke="currentColor" stroke-width="2"/></svg><span id="t-near"></span></button><p class="msg" id="msg"></p></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ===================================================== view: one name, one town, or near me -->
+  <main id="view" hidden>
+    <div class="vtop">
+      <section class="plaque" id="vplaque" aria-live="polite"></section>
+      <div><div id="vfigs"></div><p class="verdict" id="vverdict"></p></div>
+    </div>
+    <section id="dash" hidden aria-labelledby="t-dash"></section>
+    <div id="mapbox"><div id="map" role="region" aria-label=""></div>
+      <div class="seg basesw" id="basesw"><button data-b="plan" id="b-plan"></button><button data-b="ortho" id="b-ortho"></button></div></div>
+    <div class="legend" id="legend"></div>
+    <div class="vbody">
+      <div id="card"></div>
+      <div id="vlist"></div>
+    </div>
+  </main>
+
+  <p class="foot" id="t-foot"></p>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+(function(){
+'use strict';
+var P=new URLSearchParams(location.search);
+var LANG=P.get('lang')==='en'?'en':'fr';
+var T={fr:{
+  title:'Les rues les plus solarisées',sub:'Quelles sont les rues où l’on trouve le plus de panneaux solaires ?',
+  lede:'Pour chaque nom de rue, on compare le nombre de panneaux solaires par adresse avec celui des autres rues de la même commune, puis on fait le bilan sur toute la France.',
+  shuffle:'Nouveau tirage',qnl:'Un nom de rue',qn:'Rue de la Gare, Impasse des Lilas…',qvl:'Une commune',qv:'Votre commune',
+  near:'En bas de chez moi',nearWait:'Recherche de votre position…',nearErr:'Position indisponible. Cherchez plutôt votre commune.',nearLoad:'Chargement des rues autour de vous…',
+  noneN:'Aucun nom de rue ne correspond.',noneV:'Aucune commune ne correspond.',popular:'Les plus courants',
+  cmpAdd:'Ajouter « {n} » à la comparaison',cmpRm:'Retirer « {n} »',cmpGo:'Comparer',cmpHint:'Ajoutez un second nom avec +',cmpFromName:'Comparer',vs:'contre',
+  cmpTitle:'Face à face',cmpTabName:'Nom',cmpTabK:'Rues',cmpTabA:'Adresses',cmpTabRate:'Pour 100 adresses',cmpFr:'Dans toute la France',
+  cmpHeadV:'« {a} » porte <b>{g}</b> de panneaux par adresse que « {b} ».',cmpHeadEq:'Autant de panneaux par adresse sur « {a} » que sur « {b} ».',
+  cmpRates:'Qui l’emporte ?',cmpMean:'moyenne des deux',cmpLoad:'Calcul du face-à-face…',
+  cmpMethod:'Toutes les rues « {a} » de France face à toutes les rues « {b} » : installations rapportées aux adresses, sans tenir compte de la commune.',cmpNone:'Pas assez d’installations sur ces deux noms pour les comparer.',
+    cmpWins:'Commune par commune : « {a} » l’emporte {wa} fois, « {b} » {wb} fois, égalité {wt} fois (souvent aucune installation des deux côtés).',
+  cmpShare:'{a} contre {b} : quelle rue a le plus de panneaux solaires ?',
+  back:'Toutes les rues',infob:'Méthode',
+  fams:{all:'Toutes les rues « soleil »',levant:'Soleil Levant',couchant:'Soleil Couchant',plein:'Plein Soleil',beau:'Beau Soleil',autre:'Autres « soleil »'},
+  sunPlate:'Rue du Soleil',
+  rues:['rue','rues'],
+  nameMeta:'{k} rues en France',nameMeta2:'{a} adresses · {p} installations',
+  vsCom:'vs commune',vsFr:'vs France',
+  per100:'Installations pour 100 adresses',tName:'Ces rues',tRef:'Leurs communes',tFr:'France',tTown:'La commune',
+  vplus:'Les {k} rues « {n} » portent <b>{g}</b> de panneaux solaires par adresse que les autres rues de leur commune.',
+  vmoins:'Les {k} rues « {n} » portent <b>{g}</b> de panneaux solaires par adresse que les autres rues de leur commune.',
+  vindet:'Les {k} rues « {n} » ne se distinguent pas nettement des autres rues de leur commune ({g}).',
+  more:'{x} % de plus',less:'{x} % de moins',times:'{x} fois plus',timesLess:'{x} fois moins',
+  townMeta:'{k} rues',townMeta2:'{a} adresses · {p} installations',
+  townV:'{c} compte <b>{t} installations pour 100 adresses</b>, contre {f} en moyenne en France.',
+  nearT:'En bas de chez moi',nearMeta:'{k} rues à moins de 1 km',nearV:'Les rues autour de vous, comparées chacune aux autres rues de sa commune. Votre position reste dans votre navigateur : elle n’est ni envoyée ni écrite dans l’adresse de la page.',
+  listName:'Les plus solarisées de ce nom',listTown:'Les rues de {c}',listNear:'Les plus proches',filt:'Filtrer par commune',
+  pick:'Touchez une rue sur la carte pour voir sa plaque.',
+  addr:'adresse',addrs:'adresses',pv:'installation',pvs:'installations',hidden:'moins de 5 adresses : total non publié',
+  sGap:'{g} de panneaux par adresse que les autres rues de {c}.',sPlus:'Un écart net.',sMoins:'Un écart net.',
+  sIndet:'Trop peu d’adresses pour que l’écart soit net.',sNa:'Trop petite pour comparer (il faut 20 adresses dans la rue et 150 dans le reste de la commune).',
+  seeName:'Toutes les {n}',seeTown:'Toutes les rues de {c}',ign:'Vue aérienne IGN',
+  lg:['Nettement plus','Plus','Proche','Moins','Nettement moins','Trop petite'],
+  plan:'Plan',ortho:'Photo',share:'Copier le lien',shareNative:'Partager',copied:'Lien copié',
+  shareText:'{n} : {g} de panneaux solaires par adresse que les autres rues de leur commune.',
+  err:'Données indisponibles. Réessayez plus tard.',
+  foot:'Données : <a href="https://adresse.data.gouv.fr">Base Adresse Nationale</a> (Licence Ouverte 2.0) et <a href="https://deeppvmapper.fr">OpenPVMapper — DeepPVMapper</a>, Gabriel Kasmi (CC BY 4.0). Fonds © IGN. Police Barlow Condensed (SIL OFL). Projet indépendant, non affilié aux producteurs de ces données. ',
+  footMore:'Méthode et sources',
+  info:'<h2 id="t-infot">Méthode et sources</h2>'
+   +'<h3>Le calcul</h3><ul>'
+   +'<li>Une <b>rue</b> = un nom dans une commune, d’après la <a href="https://adresse.data.gouv.fr">Base Adresse Nationale</a> : {a} adresses, {s} rues, France métropolitaine et Corse. Le nombre d’adresses sert d’approximation du nombre de bâtiments.</li>'
+   +'<li>Chaque <b>installation</b> détectée par <a href="https://deeppvmapper.fr">OpenPVMapper</a> compte pour l’adresse la plus proche à moins de 50 m, donc pour une seule rue : {p} installations sur {pt} sont rattachées.</li>'
+   +'<li>Chaque rue est comparée aux <b>autres rues de sa commune</b> (la rue elle-même retirée, au moins 150 adresses) : combien d’installations aurait-elle au taux du reste de la commune ?</li>'
+   +'<li>Pour un nom, on additionne les installations observées et attendues de toutes ses rues : l’écart affiché est observé ÷ attendu. C’est une moyenne des écarts rue par rue, pondérée par la taille des rues, ce qui évite que les petites rues (0 ou 1 installation) dominent.</li>'
+   +'<li>Les flèches n’apparaissent que si l’écart est net : intervalle de confiance à 95 % (bootstrap, 1 000 tirages sur les rues) entièrement au-dessus ou au-dessous de zéro. Pour une rue seule : il faut 20 adresses, et l’intervalle est calculé de façon exacte (Clopper-Pearson).</li>'
+   +'<li>Écarts affichés en pourcentage jusqu’au double (+100 %) ou à la moitié (−50 %), puis en « fois plus » (× 2,3) ou « fois moins » (÷ 3,4).</li></ul>'
+   +'<h3>Les noms</h3><p>{n} noms de rue présents dans au moins 20 communes (lieux-dits sans type de voie exclus). Le tirage mélange les noms les plus et les moins solarisés (parmi ceux qui comptent au moins 2 000 adresses), les 100 noms les plus courants et 200 noms tirés au hasard (graine fixe).</p>'
+   +'<h3>Les rues du Soleil</h3>{sun}'
+   +'<h3>Ce que ça ne dit pas</h3><p>Le nom ne fait pas le panneau : il date la rue. Les noms de centre ancien (Place de l’Église, Grande Rue) portent des toits anciens et mitoyens ; les noms de lotissement (Vignes, Mésanges, peintres et chanteurs) des maisons récentes. Les détections sont automatiques, sur photos aériennes : ce n’est pas un recensement officiel.</p>'
+   +'<h3>Vie privée</h3><p>Seuls des totaux par rue sont publiés, jamais d’installation individuelle, et les rues de moins de 5 adresses ne figurent pas sur la carte (elles comptent dans tous les totaux). « En bas de chez moi » utilise votre position dans votre navigateur seulement : seul le fichier de votre département est téléchargé.</p>'
+   +'<h3>Sources</h3><p>Adresses : Base Adresse Nationale (Licence Ouverte 2.0). Installations : OpenPVMapper — DeepPVMapper, Gabriel Kasmi (CC BY 4.0). Fonds : Plan IGN et photographies aériennes © IGN. Police Barlow Condensed (SIL OFL). Projet indépendant, non affilié aux producteurs de ces données.</p>',
+  sunTh:['Famille','Rues','Écart','Intervalle à 95 %']
+},en:{
+  title:'France’s most solar streets',sub:'Which streets have the most solar panels?',
+  lede:'For each street name, we compare solar panels per address with the other streets of the same commune, then add it all up across France.',
+  shuffle:'New draw',qnl:'A street name',qn:'Rue de la Gare, Impasse des Lilas…',qvl:'A town',qv:'Your town',
+  near:'Right where I live',nearWait:'Finding your position…',nearErr:'Position unavailable. Search your town instead.',nearLoad:'Loading the streets around you…',
+  noneN:'No street name matches.',noneV:'No town matches.',popular:'Most common',
+  cmpAdd:'Add “{n}” to the comparison',cmpRm:'Remove “{n}”',cmpGo:'Compare',cmpHint:'Add a second name with +',cmpFromName:'Compare',vs:'versus',
+  cmpTitle:'Head to head',cmpTabName:'Name',cmpTabK:'Streets',cmpTabA:'Addresses',cmpTabRate:'Per 100 addresses',cmpFr:'Across France',
+  cmpHeadV:'“{a}” carries <b>{g}</b> panels per address than “{b}”.',cmpHeadEq:'As many panels per address on “{a}” as on “{b}”.',
+  cmpRates:'Who wins?',cmpMean:'average of the two',cmpLoad:'Computing the head to head…',
+  cmpMethod:'Every “{a}” in France against every “{b}”: installations per address, regardless of the commune.',cmpNone:'Too few installations on these two names to compare them.',
+    cmpWins:'Commune by commune: “{a}” wins {wa} times, “{b}” {wb} times, tied {wt} times (often no installation on either side).',
+  cmpShare:'{a} versus {b}: which street has the most solar panels?',
+  back:'All streets',infob:'Method',
+  fams:{all:'All “soleil” streets',levant:'Soleil Levant (rising)',couchant:'Soleil Couchant (setting)',plein:'Plein Soleil (full sun)',beau:'Beau Soleil',autre:'Other “soleil”'},
+  sunPlate:'Rue du Soleil',
+  rues:['street','streets'],
+  nameMeta:'{k} streets in France',nameMeta2:'{a} addresses · {p} installations',
+  vsCom:'vs commune',vsFr:'vs France',
+  per100:'Installations per 100 addresses',tName:'These streets',tRef:'Their communes',tFr:'France',tTown:'The commune',
+  vplus:'The {k} “{n}” streets carry <b>{g}</b> solar panels per address than the other streets of their commune.',
+  vmoins:'The {k} “{n}” streets carry <b>{g}</b> solar panels per address than the other streets of their commune.',
+  vindet:'The {k} “{n}” streets do not clearly differ from the other streets of their commune ({g}).',
+  more:'{x}% more',less:'{x}% fewer',times:'{x} times as many',timesLess:'{x} times fewer',
+  townMeta:'{k} streets',townMeta2:'{a} addresses · {p} installations',
+  townV:'{c} has <b>{t} installations per 100 addresses</b>, against {f} on average in France.',
+  nearT:'Right where I live',nearMeta:'{k} streets within 1 km',nearV:'The streets around you, each compared with the other streets of its commune. Your position stays in your browser: it is neither sent nor written into the page address.',
+  listName:'Most solar streets with this name',listTown:'The streets of {c}',listNear:'Nearest first',filt:'Filter by town',
+  pick:'Tap a street on the map to see its plate.',
+  addr:'address',addrs:'addresses',pv:'installation',pvs:'installations',hidden:'fewer than 5 addresses: total not published',
+  sGap:'{g} panels per address than the other streets of {c}.',sPlus:'A clear gap.',sMoins:'A clear gap.',
+  sIndet:'Too few addresses for the gap to be clear.',sNa:'Too small to compare (20 addresses needed in the street and 150 in the rest of the commune).',
+  seeName:'All {n}',seeTown:'All streets of {c}',ign:'IGN aerial view',
+  lg:['Clearly more','More','Close','Fewer','Clearly fewer','Too small'],
+  plan:'Map',ortho:'Aerial',share:'Copy link',shareNative:'Share',copied:'Link copied',
+  shareText:'{n}: {g} solar panels per address than the other streets of their commune.',
+  err:'Data unavailable. Please try again later.',
+  foot:'Data: <a href="https://adresse.data.gouv.fr">Base Adresse Nationale</a> (Licence Ouverte 2.0) and <a href="https://deeppvmapper.fr">OpenPVMapper — DeepPVMapper</a>, Gabriel Kasmi (CC BY 4.0). Maps © IGN. Typeface Barlow Condensed (SIL OFL). Independent project, not affiliated with the data producers. ',
+  footMore:'Method and sources',
+  info:'<h2 id="t-infot">Method and sources</h2>'
+   +'<h3>The calculation</h3><ul>'
+   +'<li>A <b>street</b> = a name within a commune, from the <a href="https://adresse.data.gouv.fr">Base Adresse Nationale</a>: {a} addresses, {s} streets, mainland France and Corsica. The number of addresses stands in for the number of buildings.</li>'
+   +'<li>Each <b>installation</b> detected by <a href="https://deeppvmapper.fr">OpenPVMapper</a> counts for the nearest address within 50 m, hence for one street only: {p} of {pt} installations are attached.</li>'
+   +'<li>Each street is compared with the <b>other streets of its commune</b> (the street itself removed, at least 150 addresses): how many installations would it have at the rate of the rest of the commune?</li>'
+   +'<li>For a name, observed and expected installations are summed over all its streets: the gap shown is observed ÷ expected. It is an average of street-by-street gaps weighted by street size, so that small streets (0 or 1 installation) do not dominate.</li>'
+   +'<li>Arrows appear only when the gap is clear: 95% confidence interval (bootstrap, 1,000 draws over streets) entirely above or below zero. For a single street: 20 addresses needed, exact interval (Clopper-Pearson).</li>'
+   +'<li>Gaps shown as percentages up to twice (+100%) or half (−50%), then as “times as many” (× 2.3) or “times fewer” (÷ 3.4).</li></ul>'
+   +'<h3>The names</h3><p>{n} street names found in at least 20 communes (localities with no street type left out). The draw mixes the most and least solar names (among those with at least 2,000 addresses), the 100 most common names and 200 names drawn at random (fixed seed).</p>'
+   +'<h3>Sun Streets</h3>{sun}'
+   +'<h3>What it does not say</h3><p>A name does not put panels on roofs: it dates the street. Old-centre names (Place de l’Église, Grande Rue) carry old, terraced roofs; housing-estate names (vines, birds, painters and singers) newer houses. Detections are automated, on aerial imagery: not an official census.</p>'
+   +'<h3>Privacy</h3><p>Only per-street totals are published, never an individual installation, and streets with fewer than 5 addresses are left off the map (they still count in every total). “Right where I live” uses your position inside your browser only: just your département’s file is downloaded.</p>'
+   +'<h3>Sources</h3><p>Addresses: Base Adresse Nationale (Licence Ouverte 2.0). Installations: OpenPVMapper — DeepPVMapper, Gabriel Kasmi (CC BY 4.0). Maps: IGN Plan and aerial imagery © IGN. Typeface Barlow Condensed (SIL OFL). Independent project, not affiliated with the data producers.</p>',
+  sunTh:['Family','Streets','Gap','95% interval']
+}}[LANG];
+var $=function(i){return document.getElementById(i)};
+var LOC=LANG==='fr'?'fr-FR':'en-GB';
+var NF=function(v,d){return v==null||!isFinite(v)?'–':v.toLocaleString(LOC,{maximumFractionDigits:d||0,minimumFractionDigits:d||0})};
+var esc=function(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})};
+var plural=function(n,a,b){return NF(n)+' '+(n>1?b:a)};
+var fill=function(s,o){return s.replace(/\{(\w+)\}/g,function(m,k){return o[k]!=null?o[k]:m})};
+var norm=function(s){return String(s).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()};
+var PCT=LANG==='fr'?' %':'%';
+// gap of a rate ratio: +43 % / −29 % between ×0.5 and ×2, then × 2.3 / ÷ 3.4
+function gap(r){if(r==null||!isFinite(r))return'–';
+  if(r>=2)return'× '+NF(r,1);if(r<=.5)return'÷ '+NF(1/r,1);
+  var p=Math.round((r-1)*100);return(p>0?'+':p<0?'−':'±')+NF(Math.abs(p))+PCT}
+function gapWords(r){if(r>=2)return fill(T.times,{x:NF(r,1)});if(r<=.5)return fill(T.timesLess,{x:NF(1/r,1)});
+  var p=Math.round((r-1)*100);return fill(p>=0?T.more:T.less,{x:NF(Math.abs(p))})}
+var ARR={up:'<svg class="arr up" width="13" height="13" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1.2 11.2 7.6H7.6V11H4.4V7.6H.8z" fill="currentColor"/></svg>',
+  down:'<svg class="arr down" width="13" height="13" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 10.8 11.2 4.4H7.6V1H4.4v3.4H.8z" fill="currentColor"/></svg>',eq:''};
+function dir(lo,hi){return lo>1?'up':hi<1?'down':'eq'}
+function svdir(v){return v===1?'up':v===-1?'down':'eq'}
+var SCR='<span class="scr l" aria-hidden="true"></span><span class="scr r" aria-hidden="true"></span>';
+var VIS='<span class="scr vis l"></span><span class="scr vis r"></span>';
+var ICON_OUT='<svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M5 2h6v6M11 2 4.5 8.5M9 11H2V4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+var ICON_LINK='<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M6 8a2.5 2.5 0 0 0 3.5 0l2-2A2.5 2.5 0 0 0 8 2.5l-.8.8M8 6a2.5 2.5 0 0 0-3.5 0l-2 2A2.5 2.5 0 0 0 6 11.5l.8-.8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>';
+var ICON_PLUS='<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
+var ICON_CHECK='<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2.5 7.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+var ICON_X='<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+var CC=['#1f3a72','#f2c200'];  // comparison: first name enamel blue, second name sun yellow
+// street colours: clearly more / more / close / fewer / clearly fewer / too small
+var COL=['#2f7a3a','#9cc49f','#d4d6d9','#e8a090','#c8321f','#8d96a3'];
+var MIN_RANK=2000;
+
+// ---------------------------------------------------------- static text
+document.documentElement.lang=LANG;document.title=T.title;
+[['t-title','title'],['t-sub','sub'],['t-lede','lede'],['t-shuffle','shuffle'],['t-qnl','qnl'],['t-qvl','qvl'],
+ ['t-near','near'],['t-vback','back'],['t-infob','infob'],['b-plan','plan'],['b-ortho','ortho']].forEach(function(x){$(x[0]).textContent=T[x[1]]});
+$('t-foot').innerHTML=T.foot+'<button class="linkb" type="button" id="footinfo">'+T.footMore+'</button>';
+$('qn').placeholder=T.qn;$('qv').placeholder=T.qv;
+$('rmback').href='../'+(LANG==='en'?'?lang=en':'');
+document.querySelectorAll('.lang a').forEach(function(a){a.setAttribute('aria-current',a.dataset.l===LANG);a.addEventListener('click',function(e){e.preventDefault();
+  var q=new URLSearchParams(location.search);if(a.dataset.l==='en')q.set('lang','en');else q.delete('lang');location.search=q.toString()})});
+function toggleInfo(open){var o=open==null?$('info').hidden:open;$('info').hidden=!o;$('infob').setAttribute('aria-expanded',o);if(o)$('info').scrollIntoView({behavior:'smooth',block:'start'})}
+$('infob').addEventListener('click',function(){toggleInfo()});
+$('footinfo').addEventListener('click',function(){toggleInfo(true)});
+
+// ---------------------------------------------------------- data loading (lazy, cached)
+var CACHE={};
+function get(u){if(!CACHE[u])CACHE[u]=fetch('data/'+u).then(function(r){if(!r.ok)throw r.status;return r.json()});return CACHE[u]}
+var NAMES=[],BYSLUG={},META,COM=null,COMLIST=[];
+function communes(){return COM?Promise.resolve(COM):get('communes.json').then(function(j){COM={};
+  j.rows.forEach(function(r){var c={insee:r[0],name:r[1],cn:r[2],cpv:r[3],lon:r[4]/1e4,lat:r[5]/1e4,k:r[6],key:norm(r[1])};COM[r[0]]=c;COMLIST.push(c)});return COM})}
+function dpt(code){return get('d/'+code+'.json').then(function(j){
+  return j.rows.map(function(r){var c=COM[j.communes[r[1]]];return{name:j.names[r[0]],insee:c.insee,lon:c.lon+r[2]/1e4,lat:c.lat+r[3]/1e4,n:r[4],pv:r[5],v:r[6],ni:r[7]-1}})})}
+function streetsOf(slug){var fam=slug.indexOf('soleil-')===0,sh=fam?META.family_shard[slug.slice(7)]:BYSLUG[slug].shard,nm=fam?null:BYSLUG[slug].name;
+  return get('n/'+sh+'.json').then(function(j){return(j[slug]||[]).map(function(r){return{lon:r[0]/1e4,lat:r[1]/1e4,n:r[2],pv:r[3],v:r[4],insee:r[5],name:r[6]||nm,ni:fam?-1:BYSLUG[slug].i}})})}
+function ratioOf(s){var c=COM[s.insee];if(!c||s.pv<0)return null;var rn=c.cn-s.n,rp=c.cpv-s.pv;if(s.n<20||rn<150)return null;return rp>0?(s.pv/s.n)/(rp/rn):(s.pv>0?Infinity:null)}
+function clsOf(s){var r=ratioOf(s);if(s.v===9||r==null)return 5;if(s.v===1)return 0;if(s.v===-1)return 4;return r>=1.2?1:r<=.83?3:2}
+
+// ---------------------------------------------------------- comparison basket (two names at most, kept in memory only)
+var CMP=[];
+function isFam(slug){return /^soleil-(all|levant|couchant|plein|beau|autre)$/.test(slug)}
+function nameInfo(slug){if(isFam(slug)){var f=META.families[slug.slice(7)],o={};for(var k in f)o[k]=f[k];o.slug=slug;o.name=T.fams[slug.slice(7)];return o}return BYSLUG[slug]}
+function toggleCmp(slug){var i=CMP.indexOf(slug);if(i>=0)CMP.splice(i,1);else{if(CMP.length>=2)CMP.shift();CMP.push(slug)}renderCmp()}
+function renderCmp(){
+  var bar=$('cmpbar');if(!CMP.length){bar.hidden=true;bar.innerHTML='';return}
+  bar.hidden=false;
+  bar.innerHTML=CMP.map(function(sl,i){var o=nameInfo(sl);return'<span class="chip"><i class="sw" style="background:'+CC[i]+'"></i><span>'+esc(o.name)+'</span><button type="button" data-rm="'+sl+'" aria-label="'+esc(fill(T.cmpRm,{n:o.name}))+'">'+ICON_X+'</button></span>'}).join('')
+    +(CMP.length===2?'<button class="btn sm" type="button" id="cmpgo">'+T.cmpGo+'</button>':'<p class="cmphint">'+T.cmpHint+'</p>');
+}
+$('cmpbar').addEventListener('click',function(e){var r=e.target.closest('[data-rm]');if(r){toggleCmp(r.dataset.rm);return}
+  if(e.target.closest('#cmpgo'))go({cmp:CMP.join(',')})});
+
+// ---------------------------------------------------------- home
+get('names.json').then(function(j){
+  META=j.meta;var C={};j.cols.forEach(function(c,i){C[c]=i});
+  NAMES=j.rows.map(function(r,i){var o={i:i};for(var k in C)o[k]=r[C[k]];o.key=norm(o.name);return o});
+  NAMES.forEach(function(o){BYSLUG[o.slug]=o});
+  buildInfo();deal(false);route();
+}).catch(function(){$('t-lede').textContent=T.err});
+
+function buildInfo(){
+  var nat=META.national,F=META.families,ks=['all','levant','couchant','plein','beau','autre'];
+  var sun='<table><tr>'+T.sunTh.map(function(t){return'<th>'+t+'</th>'}).join('')+'</tr>'+ks.map(function(k){var e=F[k];
+    return'<tr><td>'+esc(T.fams[k])+'</td><td class="n">'+NF(e.k)+'</td><td class="n">'+gap(e.ratio)+'</td><td class="n">'+gap(e.lo)+' / '+gap(e.hi)+'</td></tr>'}).join('')+'</table>';
+  $('info').innerHTML=fill(T.info,{a:NF(nat.addr),s:NF(nat.streets),p:NF(nat.n_pv_attached),pt:NF(nat.n_pv_total),n:NF(NAMES.length),sun:sun});
+}
+
+var rnd=Math.random;
+function pick(arr,n){var a=arr.slice(),o=[];while(o.length<n&&a.length)o.push(a.splice(Math.floor(rnd()*a.length),1)[0]);return o}
+function cartHtml(r,d){return(ARR[d]||'')+'<span>'+gap(r)+'</span>'}
+function deal(anim){
+  var small=window.innerWidth<600,N=small?8:12;
+  var big=NAMES.filter(function(o){return o.addr>=MIN_RANK}),
+    hi=big.filter(function(o){return o.lo>1}).sort(function(a,b){return b.ratio-a.ratio}).slice(0,30),
+    lo=big.filter(function(o){return o.hi<1}).sort(function(a,b){return a.ratio-b.ratio}).slice(0,30),
+    pop=NAMES.filter(function(o){return o.grp==='p'}),rd=NAMES.filter(function(o){return o.grp==='r'});
+  var nh=Math.round(N*.3),nl=Math.round(N*.3),np=Math.round(N*.2);
+  var set=pick(hi,nh).concat(pick(lo,nl),pick(pop,np),pick(rd,N));
+  var seen={},list=[];set.forEach(function(o){if(!seen[o.slug]&&list.length<N-1){seen[o.slug]=1;list.push(o)}});
+  list=pick(list,list.length);
+  var f=META.families.all;list.splice(1+Math.floor(rnd()*(list.length-1)),0,{slug:'soleil-all',name:T.sunPlate,ratio:f.ratio,lo:f.lo,hi:f.hi,k:f.k});
+  var kmax=Math.log(NAMES[0].k),k0=Math.log(20);
+  $('pile').innerHTML=list.map(function(o,i){
+    var fs=Math.round((small?14:16)+(small?5:8)*Math.max(0,Math.log(o.k)-k0)/(kmax-k0));
+    var r=((rnd()*2-1)*4).toFixed(1),y=Math.round((rnd()*2-1)*3),z=1+Math.floor(rnd()*20);
+    return'<button class="vig" type="button" data-s="'+o.slug+'" style="--r:'+r+'deg;--y:'+y+'px;--fs:'+fs+'px;--i:'+i+';z-index:'+z+'"><span class="p">'+esc(o.name)+'</span><span class="c">'+cartHtml(o.ratio,dir(o.lo,o.hi))+'</span></button>'}).join('');
+  var w=$('pile');w.classList.remove('deal');if(anim){void w.offsetWidth;w.classList.add('deal')}
+}
+$('shuffle').addEventListener('click',function(){deal(true)});
+$('pile').addEventListener('click',function(e){var b=e.target.closest('.vig');if(b)go({n:b.dataset.s})});
+
+
+// ---------------------------------------------------------- dropdown searches (choices fixed: names.json, communes.json)
+function combo(inp,box,search,render,choose,none,extra,onExtra){
+  var I=-1,R=[];
+  function close(){box.hidden=true;inp.setAttribute('aria-expanded','false')}
+  function open(q){Promise.resolve(search(q)).then(function(r){R=r.items;I=-1;
+    if(!R.length&&!q){close();return}
+    box.innerHTML=(r.head?'<p class="hd">'+r.head+'</p>':'')+(R.length?R.map(function(o,i){var b='<button type="button" role="option" data-i="'+i+'">'+render(o)+'</button>';return extra?'<div class="opt">'+b+extra(o,i)+'</div>':b}).join(''):'<p>'+none+'</p>');
+    box.hidden=false;inp.setAttribute('aria-expanded','true')})}
+  inp.addEventListener('input',function(){open(norm(this.value))});
+  inp.addEventListener('focus',function(){open(norm(this.value))});
+  inp.addEventListener('keydown',function(e){var b=box.querySelectorAll('button[data-i]');if(e.key==='Escape'){close();return}if(!b.length||box.hidden)return;
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();I=(I+(e.key==='ArrowDown'?1:-1)+b.length)%b.length;b.forEach(function(x,i){x.classList.toggle('act',i===I)});b[I].scrollIntoView({block:'nearest'})}
+    else if(e.key==='Enter'){e.preventDefault();(b[I]||b[0]).click()}});
+  box.addEventListener('click',function(e){var x=e.target.closest('[data-add]');if(x&&onExtra){e.stopPropagation();onExtra(R[+x.dataset.add]);box.querySelectorAll('[data-add]').forEach(function(b){b.outerHTML=extra(R[+b.dataset.add],+b.dataset.add)});return}
+    var b=e.target.closest('button[data-i]');if(!b)return;close();inp.value='';inp.blur();choose(R[+b.dataset.i])});
+  document.addEventListener('pointerdown',function(e){if(e.target!==inp&&!box.contains(e.target))close()});
+  inp.addEventListener('focusout',function(e){if(e.relatedTarget&&!box.contains(e.relatedTarget))close()});
+}
+combo($('qn'),$('sugn'),function(q){
+    if(!q)return{head:T.popular,items:NAMES.slice(0,40)};
+    return{items:NAMES.filter(function(o){return o.key.indexOf(q)>=0}).sort(function(a,b){return (b.key.indexOf(q)===0)-(a.key.indexOf(q)===0)||b.k-a.k}).slice(0,40)}},
+  function(o){return'<b>'+esc(o.name)+'</b><small>'+cartHtml(o.ratio,dir(o.lo,o.hi))+'</small>'},function(o){go({n:o.slug})},T.noneN,
+  function(o,i){var on=CMP.indexOf(o.slug)>=0;return'<button type="button" class="add" data-add="'+i+'" aria-pressed="'+on+'" aria-label="'+esc(fill(T.cmpAdd,{n:o.name}))+'">'+(on?ICON_CHECK:ICON_PLUS)+'</button>'},
+  function(o){toggleCmp(o.slug)});
+combo($('qv'),$('sugv'),function(q){if(q.length<2)return{items:[]};return communes().then(function(){return{items:COMLIST.filter(function(c){return c.key.indexOf(q)>=0})
+  .sort(function(a,b){return (b.key.indexOf(q)===0)-(a.key.indexOf(q)===0)||b.cn-a.cn}).slice(0,30)}})},
+  function(c){return'<b>'+esc(c.name)+'</b><small>'+c.insee.slice(0,2)+'</small>'},function(c){go({ville:c.insee})},T.noneV);
+
+// ---------------------------------------------------------- routing (?n=slug | ?ville=insee); "near me" is never in the URL
+function go(p){var q=new URLSearchParams();if(LANG==='en')q.set('lang','en');for(var k in p)q.set(k,p[k]);
+  history.pushState(null,'','?'+q.toString());route();window.scrollTo({top:0})}
+function home(){var q=new URLSearchParams();if(LANG==='en')q.set('lang','en');var s=q.toString();history.pushState(null,'',s?'?'+s:location.pathname);route()}
+window.addEventListener('popstate',route);
+$('vback').addEventListener('click',function(){home();window.scrollTo({top:0})});
+function showView(on){$('home').hidden=on;$('view').hidden=!on;$('vback').hidden=!on;$('rmback').hidden=on;$('dash').hidden=true}
+function route(){
+  var q=new URLSearchParams(location.search),n=q.get('n'),v=q.get('ville');
+  var c=(q.get('cmp')||'').split(',').filter(function(x){return BYSLUG[x]||isFam(x)});
+  if(c.length===2&&c[0]!==c[1])return cmpView(c[0],c[1]);
+  if(n&&(BYSLUG[n]||isFam(n)))return nameView(n);
+  if(v&&/^[0-9AB]{5}$/.test(v))return townView(v);
+  showView(false);document.title=T.title;
+}
+
+// ---------------------------------------------------------- map (created on first view)
+var map,R,layer,selLayer,labPane,BASE,base='plan',CUR=[],SEL=null;
+function ensureMap(){
+  if(map){setTimeout(function(){map.invalidateSize()},0);return}
+  $('map').setAttribute('aria-label',T.title);
+  map=L.map('map',{zoomControl:false,preferCanvas:true,minZoom:5,maxZoom:19,scrollWheelZoom:false}).fitBounds([[42.3,-4.8],[51.1,8.2]]);
+  map.on('focus click',function(){map.scrollWheelZoom.enable()});
+  L.control.zoom({position:'bottomright'}).addTo(map);
+  BASE={plan:L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image/png',{maxZoom:19,className:'muted',attribution:'© IGN'}),
+    ortho:L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image/jpeg',{maxZoom:19,attribution:'© IGN'})};
+  BASE.plan.addTo(map);pressed();
+  R=L.canvas({padding:.3,tolerance:6});layer=L.layerGroup().addTo(map);selLayer=L.layerGroup().addTo(map);
+  labPane=map.createPane('labs');labPane.style.zIndex=650;labPane.style.pointerEvents='none';
+  map.on('moveend zoomend',labels);
+}
+function pressed(){$('basesw').querySelectorAll('button').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.b===base)})}
+$('basesw').addEventListener('click',function(e){var b=e.target.dataset.b;if(!b||b===base)return;map.removeLayer(BASE[base]);base=b;BASE[b].addTo(map);BASE[b].bringToBack();pressed()});
+
+function legendDefault(){$('legend').innerHTML=T.lg.map(function(t,i){return'<span><i style="background:'+COL[i]+'"></i>'+t+'</span>'}).join('')}
+function draw(list,fit,colorOf){
+  CUR=list;layer.clearLayers();selLayer.clearLayers();SEL=null;if(!colorOf)legendDefault();
+  var gsz={};if(colorOf)list.forEach(function(s){gsz[s.g]=(gsz[s.g]||0)+1});
+  list.slice().sort(colorOf?function(a,b){return gsz[b.g]-gsz[a.g]||b.n-a.n}:function(a,b){return (clsOf(b)!==5)-(clsOf(a)!==5)||a.n-b.n}).forEach(function(s){
+    var k=clsOf(s),r=Math.min(9,2.6+Math.sqrt(s.n)/2.2),m;
+    if(colorOf)m=L.circleMarker([s.lat,s.lon],{renderer:R,radius:Math.max(3,r*.8),color:'#2a2f3a',weight:1,fillColor:colorOf(s),fillOpacity:.95});
+    else m=L.circleMarker([s.lat,s.lon],{renderer:R,radius:k===5?2.6:r,color:k===5?'#f7f6f0':'#2a2f3a',weight:k===5?.6:1.2,opacity:k===5?.7:1,fillColor:COL[k],fillOpacity:k===5?.6:1});
+    m.on('click',function(e){L.DomEvent.stopPropagation(e);select(s,false)});
+    m.bindTooltip(esc(s.name)+' · '+esc(COM[s.insee]?COM[s.insee].name:''),{sticky:true,direction:'top',className:'tt',offset:[0,-8]});
+    m.addTo(layer)});
+  if(fit&&list.length){map.invalidateSize();var b=L.latLngBounds(list.map(function(s){return[s.lat,s.lon]}));map.fitBounds(b.pad(.08),{maxZoom:16})}
+  labels();
+}
+var labTimer,MEAS=document.createElement('canvas').getContext('2d');
+function labels(){
+  clearTimeout(labTimer);labTimer=setTimeout(function(){
+    if(!labPane)return;labPane.innerHTML='';if(map.getZoom()<14)return;
+    MEAS.font='700 12px Plaque, "Barlow Condensed", sans-serif';
+    var b=map.getBounds().pad(.05),sz=map.getSize(),boxes=[];
+    CUR.filter(function(s){return b.contains([s.lat,s.lon])}).sort(function(a,b){return (b===SEL)-(a===SEL)||(clsOf(a)===5)-(clsOf(b)===5)||b.n-a.n}).slice(0,200).forEach(function(s){
+      var p=map.latLngToContainerPoint([s.lat,s.lon]),w=MEAS.measureText(s.name.toUpperCase()).width*1.08+20,h=22,dy=-20;
+      var bx={x0:p.x-w/2-3,x1:p.x+w/2+3,y0:p.y+dy-h/2-2,y1:p.y+dy+h/2+2};
+      if(bx.x0<0||bx.y0<0||bx.x1>sz.x||bx.y1>sz.y)return;
+      for(var i=0;i<boxes.length;i++){var q=boxes[i];if(bx.x0<q.x1&&bx.x1>q.x0&&bx.y0<q.y1&&bx.y1>q.y0)return}
+      boxes.push(bx);var d=document.createElement('div');d.className='lab'+(clsOf(s)===5?' dim':'');d.textContent=s.name;
+      var lp=map.containerPointToLayerPoint([p.x,p.y+dy]);d.style.left=lp.x+'px';d.style.top=lp.y+'px';labPane.appendChild(d)});
+  },60);
+}
+
+// ---------------------------------------------------------- shared pieces
+function plate(el,html,cls){el.classList.remove('swap');void el.offsetWidth;el.className='plaque swap'+(cls?' '+cls:'');el.innerHTML=VIS+'<div class="in">'+html+'</div>'}
+function bigCart(r,d,lab){return'<span class="cart">'+SCR+cartHtml(r,d)+'<small>'+lab+'</small></span>'}
+function tiles(rows){
+  return'<div class="caprow"><p class="figcap">'+T.per100+'</p>'+shareBtn()+'</div><div class="tiles">'+rows.map(function(x){return'<div class="tile'+(x[2]?' on':'')+'"><b>'+NF(x[1]*100,1)+'</b><small>'+esc(x[0])+'</small></div>'}).join('')+'</div>'}
+function shareBtn(){return'<button class="btn sm" type="button" id="pshare">'+ICON_LINK+'<span>'+(navigator.share?T.shareNative:T.share)+'</span></button>'}
+function bindShare(text){var b=$('pshare');if(!b)return;b.onclick=function(){var u=location.href;
+  if(navigator.share){navigator.share({title:document.title,text:text,url:u}).catch(function(){});return}
+  (navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(function(){b.lastChild.textContent=T.copied}).catch(function(){prompt('',u)})}}
+function listHtml(arr,sub,lab,cls){return'<div class="list">'+arr.map(function(s,i){var r=ratioOf(s);
+  return'<button type="button" data-i="'+i+'"><span class="rk">'+(i+1)+'</span><span class="meta"><b'+(cls?' class="'+cls+'"':'')+'>'+esc(lab?lab(s):s.name)+'</b><small>'+esc(sub(s))+'</small></span><span class="v'+(s.v===1||s.v===-1?'':' dim')+'">'+(r==null?'–':cartHtml(r,svdir(s.v)))+'</span></button>'}).join('')+'</div>'}
+function streetCard(s){
+  var c=COM[s.insee]||{name:'',cn:0,cpv:0},r=ratioOf(s),vk=s.v===1?'Plus':s.v===-1?'Moins':s.v===0?'Indet':'Na';if(r==null)vk='Na';
+  var cart=r==null?'<span class="cart na">'+SCR+'<small>'+T.lg[5]+'</small></span>':bigCart(r,svdir(s.v),T.vsCom);
+  var meta=plural(s.n,T.addr,T.addrs)+' · '+(s.pv<0?T.hidden:plural(s.pv,T.pv,T.pvs));
+  var gp='https://www.geoportail.gouv.fr/carte?c='+s.lon.toFixed(5)+','+s.lat.toFixed(5)+'&z=18&l0=ORTHOIMAGERY.ORTHOPHOTOS::GEOPORTAIL:OGC:WMTS(1)&permalink=yes';
+  var acts='',q=new URLSearchParams(location.search);
+  if(s.ni>=0&&q.get('n')!==NAMES[s.ni].slug)acts+='<button class="btn ghost sm" type="button" data-go="n" data-v="'+NAMES[s.ni].slug+'">'+esc(fill(T.seeName,{n:NAMES[s.ni].name}))+'</button>';
+  if(q.get('ville')!==s.insee)acts+='<button class="btn ghost sm" type="button" data-go="ville" data-v="'+s.insee+'">'+esc(fill(T.seeTown,{c:c.name}))+'</button>';
+  acts+='<a class="btn ghost sm" href="'+gp+'" target="_blank" rel="noopener">'+T.ign+ICON_OUT+'</a>';
+  var txt=(r!=null&&isFinite(r)?fill(T.sGap,{g:gapWords(r).replace(/^./,function(x){return x.toUpperCase()}),c:esc(c.name)})+' ':'')+T['s'+vk];
+  $('card').innerHTML='<section class="plaque swap">'+VIS+'<div class="in"><h2>'+esc(s.name)+'</h2><p class="com">'+esc(c.name)+' ('+s.insee.slice(0,2)+')</p><p class="meta">'+meta+'</p>'+cart+'</div></section>'
+    +'<p class="note" style="color:var(--ink)">'+txt+'</p><div class="acts">'+acts+'</div>';
+}
+$('card').addEventListener('click',function(e){var b=e.target.closest('[data-go]');if(!b)return;var p={};p[b.dataset.go]=b.dataset.v;go(p)});
+function select(s,fly){
+  SEL=s;selLayer.clearLayers();
+  L.circleMarker([s.lat,s.lon],{renderer:R,radius:15,color:'#1f3a72',weight:3,fill:false,interactive:false}).addTo(selLayer);
+  if(fly)map.flyTo([s.lat,s.lon],Math.max(map.getZoom(),15),{duration:.7});
+  streetCard(s);labels();
+}
+function cardEmpty(){$('card').innerHTML='<p class="empty">'+T.pick+'</p>'}
+function bindList(arr){var l=$('vlist').querySelector('.list');if(l)l.onclick=function(e){var b=e.target.closest('button');if(b)select(arr[+b.dataset.i],true)}}
+
+// ---------------------------------------------------------- name view
+function nameView(slug){
+  showView(true);ensureMap();
+  var fam=slug.indexOf('soleil-')===0,o=fam?META.families[slug.slice(7)]:BYSLUG[slug],title=fam?T.fams[slug.slice(7)]:o.name;
+  document.title=title+' · '+T.title;
+  var d=dir(o.lo,o.hi);
+  plate($('vplaque'),'<h2>'+esc(title)+'</h2><p class="com">'+fill(T.nameMeta,{k:NF(o.k)})+'</p><p class="meta">'+fill(T.nameMeta2,{a:NF(o.addr),p:NF(o.obs)})+'</p>'+bigCart(o.ratio,d,T.vsCom));
+  $('vfigs').innerHTML=tiles([[T.tName,o.taux,true],[T.tRef,o.ref,false],[T.tFr,META.national.taux,false]]);
+  bindShare(fill(T.shareText,{n:title,g:gapWords(o.ratio)}));
+  $('vverdict').innerHTML=fill(T[d==='up'?'vplus':d==='down'?'vmoins':'vindet'],{n:esc(title),k:NF(o.k),g:d==='eq'?gap(o.ratio):gapWords(o.ratio)})
+    +'<span class="acts" style="display:flex"><button class="btn ghost sm" type="button" id="vcmp">'+ICON_PLUS+'<span>'+T.cmpFromName+'</span></button></span>';
+  $('vcmp').onclick=function(){var other=CMP.filter(function(x){return x!==slug});
+    if(other.length){CMP=[other[other.length-1],slug];renderCmp();go({cmp:CMP.join(',')});return}
+    CMP=[slug];renderCmp();home();setTimeout(function(){$('qn').scrollIntoView({block:'center'});$('qn').focus()},50)};
+  cardEmpty();$('vlist').innerHTML='';
+  Promise.all([communes(),streetsOf(slug)]).then(function(x){
+    var all=x[1],f='';draw(all,true);
+    function renderList(q){var arr=all.filter(function(s){return !q||norm(COM[s.insee]?COM[s.insee].name:'').indexOf(q)>=0});
+      var top=arr.filter(function(s){return ratioOf(s)!=null}).sort(function(a,b){return (b.v===1)-(a.v===1)||ratioOf(b)-ratioOf(a)}).slice(0,40);
+      if(q&&!top.length)top=arr.slice(0,40);
+      $('vlist').querySelector('.lw').innerHTML=listHtml(top,function(s){return s.insee.slice(0,2)+' · '+plural(s.n,T.addr,T.addrs)+(s.pv>=0?' · '+plural(s.pv,T.pv,T.pvs):'')},fam?null:function(s){var cm=COM[s.insee];return cm?cm.name:''},fam?null:'ville');
+      var l=$('vlist').querySelector('.list');l.onclick=function(e){var b=e.target.closest('button');if(b)select(top[+b.dataset.i],true)};
+      if(q){draw(arr,true)}else if(f){draw(all,true)}f=q}
+    $('vlist').innerHTML='<p class="figcap">'+T.listName+'</p><div class="filt"><input type="search" id="vfilt" placeholder="'+T.filt+'" autocomplete="off"></div><div class="lw"></div>';
+    renderList('');
+    var t;$('vfilt').addEventListener('input',function(){var v=norm(this.value);clearTimeout(t);t=setTimeout(function(){renderList(v.length>=2?v:'')},180)});
+  }).catch(function(){$('vverdict').textContent=T.err});
+}
+
+// ---------------------------------------------------------- compare view (?cmp=a,b)
+// diverging bars around the geometric mean of the two names (log scale): left = pulls down, right = pulls up
+// "who has the majority" bar: the two rates share the bar, A from the left, B from the right; 50/50 when equal
+function divBars(A,B,ra,rb){
+  var pa=ra/(ra+rb)*100,pb=100-pa;
+  var lab=function(o,i){return'<span><i class="sw" style="background:'+CC[i]+'"></i>'+esc(o.name)+'</span>'};
+  return'<div class="dvb" aria-hidden="true">'
+    +'<i class="l" style="left:0;width:'+pa+'%;background:'+CC[0]+'"></i><i class="r" style="left:'+pa+'%;width:'+pb+'%;background:'+CC[1]+'"></i>'
+    +'<div class="mid"></div></div>'
+    +'<div class="dvl">'+lab(A,0)+'<span class="c">50 / 50</span>'+lab(B,1)+'</div>';
+}
+function cmpView(a,b){
+  showView(true);ensureMap();CMP=[a,b];renderCmp();
+  var A=nameInfo(a),B=nameInfo(b),N=[A,B];
+  document.title=A.name+' / '+B.name+' · '+T.title;
+  plate($('vplaque'),'<h2><i class="sw" style="background:'+CC[0]+'"></i>'+esc(A.name)+'</h2><p class="vs">'+T.vs+'</p><h2><i class="sw" style="background:'+CC[1]+'"></i>'+esc(B.name)+'</h2>','cmp');
+  $('vfigs').innerHTML=tiles([[A.name,A.taux,true],[B.name,B.taux,true],[T.tFr,META.national.taux,false]]);
+  bindShare(fill(T.cmpShare,{a:A.name,b:B.name}));
+  $('vverdict').textContent=T.cmpLoad;
+  $('legend').innerHTML=N.map(function(o,i){return'<span><i style="background:'+CC[i]+'"></i>'+esc(o.name)+'</span>'}).join('');
+  cardEmpty();$('vlist').innerHTML='';
+  var tab='<h3>'+T.cmpFr+'</h3><div class="ctabw"><table class="ctab"><tr><th>'+T.cmpTabName+'</th><th>'+T.cmpTabK+'</th><th>'+T.cmpTabA+'</th><th>'+T.cmpTabRate+'</th></tr>'
+   +N.map(function(o,i){return'<tr><td><b class="pl"><i class="sw" style="background:'+CC[i]+'"></i>'+esc(o.name)+'</b></td><td>'+NF(o.k)+'</td><td>'+NF(o.addr)+'</td><td>'+NF(o.taux*100,1)+'</td></tr>'}).join('')+'</table></div>';
+  $('dash').innerHTML='<h2 id="t-dash">'+T.cmpTitle+'</h2><div id="same"><p class="note">'+T.cmpLoad+'</p></div>'+tab;$('dash').hidden=false;
+  Promise.all([communes(),streetsOf(a),streetsOf(b)]).then(function(x){
+    var sa=x[1].map(function(s){s.g=0;return s}),sb=x[2].map(function(s){s.g=1;return s});
+    draw(sa.concat(sb),true,function(s){return CC[s.g]});
+    // head to head: every street of A against every street of B, installations per address (exact totals of each name)
+    var ra=A.taux,rb=B.taux,r=rb?ra/rb:Infinity,out='';
+    if(!ra&&!rb||!isFinite(r)||!r){out='<p>'+T.cmpNone+'</p>';$('vverdict').textContent=T.cmpNone}
+    else{
+      var d=r>=1.005?'up':r<=.995?'down':'eq';
+      var line=d==='eq'?fill(T.cmpHeadEq,{a:esc(A.name),b:esc(B.name)}):fill(T.cmpHeadV,{a:esc(A.name),b:esc(B.name),g:gapWords(r)});
+      out='<div class="hh"><span class="big">'+cartHtml(r,d)+'</span><p>'+line+'</p></div>'
+        +'<h3>'+T.cmpRates+'</h3>'+divBars(A,B,ra,rb)
+        +'<p class="note">'+fill(T.cmpMethod,{a:esc(A.name),b:esc(B.name)})+'</p>';
+      $('vverdict').innerHTML=line;
+    }
+    $('same').innerHTML=out;
+  }).catch(function(){$('vverdict').textContent=T.err});
+}
+
+// ---------------------------------------------------------- town view
+function townView(insee){
+  showView(true);ensureMap();cardEmpty();$('vlist').innerHTML='';$('vverdict').textContent='';
+  communes().then(function(){var c=COM[insee];if(!c){home();return}
+    document.title=c.name+' · '+T.title;
+    var t=c.cpv/c.cn,nat=META.national.taux,r=t/nat;
+    plate($('vplaque'),'<h2>'+esc(c.name)+'</h2><p class="com">'+fill(T.townMeta,{k:NF(c.k)})+'</p><p class="meta">'+fill(T.townMeta2,{a:NF(c.cn),p:NF(c.cpv)})+'</p>'+bigCart(r,r>=1.2?'up':r<=.83?'down':'eq',T.vsFr),'ville');
+    $('vfigs').innerHTML=tiles([[T.tTown,t,true],[T.tFr,nat,false]]);bindShare(c.name);
+    $('vverdict').innerHTML=fill(T.townV,{c:esc(c.name),t:NF(t*100,1),f:NF(nat*100,1)});
+    return dpt(insee.slice(0,2)).then(function(rows){
+      var arr=rows.filter(function(s){return s.insee===insee});draw(arr,true);
+      var ls=arr.slice().sort(function(a,b){var ra=ratioOf(a),rb=ratioOf(b);return (b.v===1)-(a.v===1)||(a.v===-1)-(b.v===-1)||(rb!=null)-(ra!=null)||(rb||0)-(ra||0)||b.n-a.n});
+      $('vlist').innerHTML='<p class="figcap">'+esc(fill(T.listTown,{c:c.name}))+'</p>'+listHtml(ls,function(s){return plural(s.n,T.addr,T.addrs)+(s.pv>=0?' · '+plural(s.pv,T.pv,T.pvs):'')});
+      bindList(ls);
+    });
+  }).catch(function(){$('vverdict').textContent=T.err});
+}
+
+// ---------------------------------------------------------- near me (position used locally, never stored, sent or put in the URL)
+$('near').addEventListener('click',function(){
+  var btn=this;if(!navigator.geolocation){$('msg').textContent=T.nearErr;return}
+  btn.disabled=true;$('msg').textContent=T.nearWait;
+  navigator.geolocation.getCurrentPosition(function(pos){
+    var here=L.latLng(pos.coords.latitude,pos.coords.longitude);$('msg').textContent=T.nearLoad;
+    communes().then(function(){
+      var dpts={};COMLIST.forEach(function(c){if(Math.abs(c.lat-here.lat)<.09&&Math.abs(c.lon-here.lng)<.13&&here.distanceTo([c.lat,c.lon])<8000)dpts[c.insee.slice(0,2)]=1});
+      var codes=Object.keys(dpts);if(!codes.length)throw 0;
+      return Promise.all(codes.map(dpt));
+    }).then(function(parts){
+      btn.disabled=false;$('msg').textContent='';
+      var arr=[].concat.apply([],parts).map(function(s){s.d=here.distanceTo([s.lat,s.lon]);return s}).filter(function(s){return s.d<1000}).sort(function(a,b){return a.d-b.d});
+      if(!arr.length)throw 0;
+      showView(true);ensureMap();window.scrollTo({top:0});
+      var q=new URLSearchParams();if(LANG==='en')q.set('lang','en');history.pushState(null,'',q.toString()?'?'+q:location.pathname);
+      document.title=T.nearT+' · '+T.title;
+      plate($('vplaque'),'<h2>'+T.nearT+'</h2><p class="com">'+fill(T.nearMeta,{k:NF(arr.length)})+'</p>');
+      $('vfigs').innerHTML='';$('vverdict').innerHTML=T.nearV;
+      draw(arr,true);
+      L.circleMarker(here,{renderer:R,radius:6,color:'#f7f6f0',weight:3,fillColor:'#1f3a72',fillOpacity:1,interactive:false}).addTo(layer);
+      $('vlist').innerHTML='<p class="figcap">'+T.listNear+'</p>'+listHtml(arr.slice(0,60),function(s){return NF(Math.round(s.d/10)*10)+' m · '+(COM[s.insee]?COM[s.insee].name:'')});
+      bindList(arr.slice(0,60));select(arr[0],false);
+    }).catch(function(){btn.disabled=false;$('msg').textContent=T.nearErr});
+  },function(){btn.disabled=false;$('msg').textContent=T.nearErr},{enableHighAccuracy:false,timeout:10000,maximumAge:300000});
+});
+})();
+</script>
+</body>
+</html>
