@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Où sont les panneaux : density hotspots in the map's inferno ramp, on its near-black ground. -->
+  <defs><radialGradient id="h"><stop offset="0" stop-color="#fcffa4"/><stop offset=".25" stop-color="#fb9b06"/><stop offset=".5" stop-color="#cf4446"/><stop offset=".75" stop-color="#781c6d"/><stop offset="1" stop-color="#1b0c41" stop-opacity="0"/></radialGradient></defs>
+  <rect width="100" height="100" rx="12" fill="#15171c"/>
+  <circle cx="58" cy="44" r="34" fill="url(#h)"/>
+  <circle cx="28" cy="72" r="20" fill="url(#h)" opacity=".85"/>
+  <circle cx="76" cy="80" r="14" fill="url(#h)" opacity=".7"/>
+</svg>

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Le match des surfaces : communes as cells coloured by their winning surface (pitches, panels, pools, courts). -->
+  <rect width="100" height="100" rx="12" fill="#1f221f"/>
+  <g stroke="#1f221f" stroke-width="4" stroke-linejoin="round">
+    <path d="M0 0H56L46 44L0 52Z" fill="#3f8a3a"/>
+    <path d="M56 0H100V40L62 54L46 44Z" fill="#22407a"/>
+    <path d="M0 52L46 44L62 54L52 100H0Z" fill="#e3c341"/>
+    <path d="M62 54L100 40V100H52Z" fill="#2fb3d6"/>
+  </g>
+  <path d="M68 12h20M68 22h20M68 32h14M74 6v32M82 6v32" stroke="#7f9fd6" stroke-width="2" opacity=".8"/>
+  <rect width="100" height="100" rx="12" fill="none" stroke="#1f221f" stroke-width="2"/>
+</svg>

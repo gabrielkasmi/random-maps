@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Plein soleil sur mon chemin : a trail in the route blue, the sun in the orange accent, on the light map ground. -->
+  <rect width="100" height="100" rx="12" fill="#eef1f4"/>
+  <path d="M14 86C30 80 26 62 42 58S66 60 70 44" fill="none" stroke="#2a5d8f" stroke-width="12" stroke-linecap="round" stroke-dasharray="1 17"/>
+  <circle cx="72" cy="30" r="15" fill="#e8590c"/>
+</svg>

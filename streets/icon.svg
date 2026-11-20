@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Rue du Soleil : a tiny enamel street plate (green border, enamel blue field, off-white fillet and lettering). -->
+  <rect x="2" y="16" width="96" height="68" rx="8" fill="#2f6b3a"/>
+  <rect x="9" y="23" width="82" height="54" rx="4" fill="#1f3a72"/>
+  <rect x="14" y="28" width="72" height="44" rx="3" fill="none" stroke="#f7f6f0" stroke-width="3"/>
+  <rect x="24" y="40" width="52" height="9" rx="1" fill="#f7f6f0"/>
+  <rect x="32" y="54" width="36" height="6" rx="1" fill="#f7f6f0" opacity=".8"/>
+  <circle cx="5.5" cy="50" r="2.6" fill="#e6e4dc"/><circle cx="94.5" cy="50" r="2.6" fill="#e6e4dc"/>
+</svg>
