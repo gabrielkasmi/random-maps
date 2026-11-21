@@ -41,9 +41,16 @@ a{color:inherit;text-underline-offset:3px}
 [hidden]{display:none!important}
 #map{position:fixed;inset:0;background:var(--night)}
 #fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
-.maplibregl-ctrl-attrib{font-size:10px;background:rgba(14,22,49,.7)!important;color:var(--day-soft)}
-.maplibregl-ctrl-attrib a{color:var(--day)}
-.maplibregl-ctrl-attrib-button{filter:invert(1)}
+/* credits: a folded 'i' bottom left; unfolded, a readable glass label */
+.credits{position:fixed;z-index:31;left:12px;bottom:calc(12px + var(--sb));display:flex;align-items:center;gap:6px;max-width:calc(100vw - 24px)}
+.credits>button{width:28px;height:28px;padding:0;border-radius:50%;font:800 14px/1 Georgia,serif;font-style:italic;color:var(--day-soft)}
+.credits>button[aria-expanded="true"]{color:var(--night);background:var(--amber-2);border-color:var(--amber-2)}
+.credits p{margin:0;padding:6px 10px;border-radius:var(--r);font-size:12px;line-height:1.35;color:var(--day)}
+.credits a{color:var(--amber-2)}
+/* scale bar, bottom right, in the same glass */
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl-scale{margin:0 12px calc(14px + var(--sb)) 0;background:rgba(14,22,49,.92);border:3px solid var(--amber-2);border-top:0;
+  color:var(--day);font:800 13px/1 var(--sans);padding:5px 6px 3px;text-align:center;box-sizing:border-box;font-variant-numeric:tabular-nums;
+  box-shadow:0 2px 10px rgba(0,0,0,.6)}
 
 .glass{background:var(--glass);border:1px solid var(--edge);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
 .cta{display:inline-flex;align-items:center;justify-content:center;gap:.5em;min-height:48px;padding:12px 22px;border:0;border-radius:var(--r);
@@ -109,6 +116,8 @@ body.playing .bar{display:none}
 .mult{flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font:900 17px var(--display);color:var(--night);background:radial-gradient(circle at 40% 35%,#ffe7a3,var(--amber))}
 .mult.x1{background:var(--night-2);color:var(--day-soft);border:1px solid var(--edge)}
 .mult.pop{animation:pop .5s var(--ease)}
+.meta .combo{display:inline-block;margin-left:4px;padding:0 7px;border-radius:999px;background:rgba(255,178,46,.22);border:1px solid var(--amber);color:var(--sun);font:800 11.5px var(--sans);text-shadow:none}
+.meta .combo.max{background:var(--amber);color:var(--night)}
 @keyframes pop{40%{transform:scale(1.25)}}
 .info{flex:1;min-width:0;padding:10px 12px;border-radius:var(--r);font-size:13px;line-height:1.35}
 .info b{display:block;font-size:14px}
@@ -129,14 +138,48 @@ body.playing .bar{display:none}
 .rays b{width:5px;height:5px;border-radius:50%;background:rgba(255,207,107,.2)}
 .rays.r1 b:first-child,.rays.r2 b:nth-child(-n+2),.rays.r3 b{background:var(--amber-2)}
 .pad .n{grid-area:1/2}.pad .w{grid-area:2/1}.pad .e{grid-area:2/3}.pad .s{grid-area:3/2}
-.pad .mid{grid-area:2/2;border-radius:50%;background:var(--glass);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
-.pad .mid b{font:900 20px var(--display);transition:color .4s}
-.pad .mid small{font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--amber-2);margin-top:3px}
+.pad .mid{grid-area:2/2;place-self:center;width:10px;height:10px;border-radius:50%;background:var(--amber-2);box-shadow:0 0 0 4px rgba(255,178,46,.18),0 0 12px rgba(255,178,46,.6)}
 .gain{position:fixed;z-index:11;left:50%;top:calc(124px + var(--st));transform:translate(-50%,0);padding:4px 12px;border-radius:var(--r);
   font:900 19px var(--display);color:var(--amber-2);background:var(--glass);opacity:0;transition:opacity .2s,transform .7s var(--ease);pointer-events:none;white-space:nowrap}
 .gain.on{opacity:1;transform:translate(-50%,-12px)}
 .gain.bonus{color:var(--night);background:var(--sun)}
 .side-btns{position:fixed;z-index:10;right:12px;top:calc(84px + var(--st));display:grid;gap:8px}
+
+/* quests: chips under the score while playing, a list on the intro card */
+.quests{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:4px;text-shadow:none}
+.quests .q{display:flex;align-items:center;gap:5px;padding:2px 8px 2px 3px;border-radius:999px;background:rgba(14,22,49,.8);border:1px solid var(--edge);font:700 11.5px var(--sans);color:var(--day);white-space:nowrap}
+.quests .q i{width:15px;height:15px;flex:none;border-radius:50%;border:1px solid var(--edge);display:grid;place-items:center;font:900 9px var(--display);font-style:normal;color:var(--night)}
+.quests .q small{color:var(--day-soft);font-weight:600;font-variant-numeric:tabular-nums}
+.quests .q.done{border-color:var(--amber);background:rgba(255,178,46,.24)}
+.quests .q.done i{background:var(--amber);border-color:var(--amber)}
+.quests.intro{flex-direction:column;align-items:stretch;margin:0 0 16px}
+.quests.intro .q{white-space:normal;font-size:13.5px;padding:7px 10px;border-radius:var(--r);background:var(--night-2);text-align:left}
+.qt{font:800 12px var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--amber-2);margin:0 0 6px;text-align:left}
+/* fact card: drops in at the top of the screen (over the score for a few seconds), closes by itself */
+.fact{position:fixed;z-index:40;left:12px;right:12px;margin:0 auto;max-width:26rem;top:calc(10px + var(--st));padding:11px 36px 10px 14px;border-radius:var(--r);
+  box-shadow:0 10px 30px rgba(5,9,22,.55);opacity:0;transform:translateY(-12px);transition:opacity .3s,transform .45s var(--ease)}
+.fact.on{opacity:1;transform:none}
+.fact .cat,.alist .cat{font:800 10px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--amber-2)}
+.fact[data-cat="dpt"] .cat{color:#7ee0a1}
+.fact h3{margin:3px 0 4px;font:900 15px/1.2 var(--display);color:var(--day)}
+.fact p{margin:0;font-size:13.5px;line-height:1.42}
+.fact .foot{margin-top:6px;font-size:11.5px;color:var(--day-soft)}
+.fact .x{position:absolute;top:4px;right:4px;width:32px;height:32px;border:0;background:none;color:var(--day-soft);font-size:14px}
+/* album */
+#albumDlg{overflow:auto}
+.amap{margin:8px 0 4px}
+.amap svg{display:block;width:100%;height:auto;max-height:44dvh}
+.amap path{fill:var(--night-2);stroke:rgba(255,178,46,.3);stroke-width:1.5;stroke-linejoin:round}
+.amap path.on{fill:rgba(255,178,46,.42);stroke:var(--amber)}
+.amap circle.todo{fill:rgba(255,244,220,.22)}
+.amap circle.got{fill:var(--sun);stroke:var(--night);stroke-width:2.5;cursor:pointer}
+.alist{list-style:none;padding:0;margin:8px 0 0;display:grid;gap:6px}
+.alist li{padding:9px 11px;border-radius:var(--r);background:var(--night-2)}
+.alist li.flash{outline:2px solid var(--amber)}
+.alist b{display:block;margin-top:2px;font:800 14px/1.25 var(--display)}
+.alist p{margin:4px 0;font-size:13px}
+.alist a{font-size:12px;color:var(--amber-2)}
+.alist .empty{color:var(--day-soft)}
 
 /* sheets */
 .sheet{position:fixed;z-index:40;left:0;right:0;bottom:0;margin:0 auto;width:min(30rem,100%);padding:20px 18px calc(18px + var(--sb));border-radius:var(--r) var(--r) 0 0;
@@ -145,9 +188,9 @@ body.playing .bar{display:none}
 .sheet h2{margin:0;font:900 22px/1.15 var(--display);letter-spacing:-.02em}
 .sheet .big{font:900 clamp(36px,11vw,48px)/1 var(--display);color:var(--amber-2);margin:12px 0 2px;font-variant-numeric:tabular-nums}
 .sheet .sub{color:var(--day-soft);margin:0 0 14px;font-size:14px}
-.sheet .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 16px}
+.sheet .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:0 0 16px}
 .sheet .stats div{padding:8px;border-radius:var(--r);background:var(--night-2);text-align:center;font-size:12px;color:var(--day-soft)}
-.sheet .stats b{display:block;font:800 16px var(--display);color:var(--day)}
+.sheet .stats b{display:block;font:800 15px var(--display);color:var(--day);white-space:nowrap}
 .sheet .btns{display:flex;justify-content:center;gap:8px}
 .sq{width:48px;min-height:48px;padding:0;flex:none}
 .record{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:var(--r);background:var(--sun);color:var(--night);font:800 11px var(--sans);vertical-align:middle}
@@ -172,7 +215,8 @@ dialog .fine{font-size:12.5px;color:var(--day-soft)}
 .about-foot .close{margin-left:auto}
 .board{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:4px;max-height:50dvh;overflow:auto}
 .board li{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r);background:var(--night-2)}
-.board li.me{outline:1.5px solid var(--amber)}
+.board li.me{cursor:pointer;background:rgba(255,178,46,.2);outline:2px solid var(--amber);outline-offset:-2px}
+.board li.me .who,.board li.me .pts{color:var(--amber-2)}
 .board .rk{width:1.8em;font:800 14px var(--display);color:var(--amber-2)}
 .board .who{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
 .board .who em{font-style:normal;color:var(--day-soft);font-weight:500}
@@ -192,7 +236,7 @@ dialog .fine{font-size:12.5px;color:var(--day-soft)}
 
 @media (min-width:720px){.hud.bot{width:min(36rem,100%)}}
 /* touch screens: swipes, the N / S / E / W markers on the map, and a smaller controller at the bottom */
-@media (pointer:coarse){.pad{grid-template-columns:repeat(3,48px);grid-template-rows:repeat(3,48px);gap:3px}.pad button{font-size:14px;gap:3px}.pad .mid b{font-size:17px}}
+@media (pointer:coarse){.pad{grid-template-columns:repeat(3,48px);grid-template-rows:repeat(3,48px);gap:3px}.pad button{font-size:14px;gap:3px}}
 /* ---------- tutorial (first game, then from the menu) ---------- */
 #tuto{position:fixed;z-index:45;inset:0;display:grid;place-items:center;padding:calc(16px + var(--st)) 16px calc(16px + var(--sb));background:rgba(5,9,22,.72)}
 .tuto-card{width:min(24rem,100%);padding:16px 16px 14px;border-radius:var(--r);text-align:center;touch-action:pan-y}
@@ -231,6 +275,8 @@ dialog .fine{font-size:12.5px;color:var(--day-soft)}
       <li><span class="n">2</span><span data-t-html="r2"></span></li>
       <li><span class="n">3</span><span data-t-html="r3"></span></li>
     </ol>
+    <h2 class="qt" data-t="questsT"></h2>
+    <ul class="quests intro" id="introQuests"></ul>
     <form id="pseudoForm" autocomplete="off">
       <label class="sr" for="pseudoIn" data-t="pseudoLabel"></label>
       <div class="pseudo"><input id="pseudoIn" maxlength="24" minlength="2" required data-t-ph="pseudoPh"><button class="dice" type="button" id="dice" data-t-aria="suggest">🎲</button></div>
@@ -246,6 +292,7 @@ dialog .fine{font-size:12.5px;color:var(--day-soft)}
   <div class="float">
     <div class="kw"><span class="score" id="score">0</span><span class="unit" id="unit">kWc</span></div>
     <div class="meta" id="meta"></div>
+    <ul class="quests" id="quests" aria-label="Quêtes"></ul>
   </div>
   <span class="mult x1" id="mult">×1</span>
   <span class="steps" id="steps"><b id="stepsN">30</b><small data-t="steps"></small></span>
@@ -255,11 +302,12 @@ dialog .fine{font-size:12.5px;color:var(--day-soft)}
   <button class="round glass" id="menuBtn" type="button" data-t-aria="menu">⋯</button>
 </div>
 <div class="gain" id="gain" aria-hidden="true"></div>
+<aside class="fact glass" id="fact" hidden role="status"><span class="cat"></span><h3></h3><p></p><div class="foot"></div><button class="x" id="factClose" type="button" data-t-aria="close">✕</button></aside>
 <div class="hud bot" id="playBot" hidden>
   <div class="sr" id="info" aria-live="polite"></div>
   <div class="pad" role="group" data-t-aria="dirs">
     <button class="n glass" data-d="0"></button><button class="w glass" data-d="3"></button>
-    <div class="mid"><b id="left">30</b><small data-t="steps"></small></div>
+    <i class="mid" aria-hidden="true"></i>
     <button class="e glass" data-d="2"></button><button class="s glass" data-d="1"></button>
   </div>
 </div>
@@ -288,6 +336,8 @@ dialog .fine{font-size:12.5px;color:var(--day-soft)}
   <h2 data-t="menuT"></h2>
   <div style="display:grid;gap:8px;margin-top:12px">
     <button class="ghost" id="mRestart" type="button"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 3v4h4"/></svg><span data-t="restart"></span></button>
+    <button class="ghost" id="mBoard" type="button" data-t="view"></button>
+    <button class="ghost" id="mAlbum" type="button" data-t="album"></button>
     <button class="ghost" id="mHelp" type="button" data-t="help"></button>
     <button class="ghost" id="mAbout" type="button" data-t="about"></button>
     <button class="ghost" id="mPseudo" type="button" data-t="changePseudo"></button>
@@ -298,6 +348,14 @@ dialog .fine{font-size:12.5px;color:var(--day-soft)}
   <h2 id="boardT"></h2>
   <ol class="board" id="boardList"></ol>
   <p class="fine" id="boardNote"></p>
+  <form method="dialog" style="text-align:right;margin-top:12px"><button class="cta" data-t="close"></button></form>
+</dialog>
+<dialog id="albumDlg" aria-labelledby="albumT">
+  <h2 id="albumT" data-t="albumT"></h2>
+  <p class="fine" id="albumSub"></p>
+  <div class="amap" id="albumMap"></div>
+  <p class="fine" id="albumNote"></p>
+  <ol class="alist" id="albumList"></ol>
   <form method="dialog" style="text-align:right;margin-top:12px"><button class="cta" data-t="close"></button></form>
 </dialog>
 <dialog id="about">
@@ -314,10 +372,11 @@ dialog .fine{font-size:12.5px;color:var(--day-soft)}
     <div class="tuto-btns"><button class="link" id="tutoSkip" type="button" data-t="tutSkip"></button><button class="cta" id="tutoNext" type="button" data-t="tutNext"></button></div>
   </div>
 </section>
+<div class="credits" id="credits"><button class="glass" id="creditsBtn" type="button" aria-expanded="false" aria-controls="creditsTxt" data-t-aria="credits">i</button><p class="glass" id="creditsTxt" hidden>Plan IGN © <a href="https://www.ign.fr/" target="_blank" rel="noopener">IGN</a> · <a id="creditsOpm" href="https://deeppvmapper.fr/" target="_blank" rel="noopener">OpenPVMapper</a> (CC BY 4.0) · <a href="https://maplibre.org/" target="_blank" rel="noopener">MapLibre</a></p></div>
 <div class="toast glass" id="toast" role="status"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
-<script type="module" src="js/app.js?v=20261120g"></script>
+<script type="module" src="js/app.js?v=20261121e"></script>
 </body>
 </html>

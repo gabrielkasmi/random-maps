@@ -7,4 +7,5 @@ F=supabase/functions/pvx-submit
 cp js/game.js "$F/game.js"
 cp data/nodes.json "$F/nodes.json"
 cp data/config.json "$F/config.json"
-echo "synced game.js, nodes.json, config.json (data $(grep -o '"data":"[^"]*"' data/config.json))"
+cp data/facts.json "$F/facts.json"
+echo "synced game.js, nodes.json, config.json, facts.json (data $(grep -o '"data":"[^"]*"' data/config.json))"

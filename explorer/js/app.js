@@ -1,27 +1,34 @@
 // PV Explorer — page logic (direction B, "Lever de soleil"). Rules live in game.js.
 // Bump ?v= (imports below and the script tag in index.html) at each release: phones keep old scripts otherwise.
-import { prepareNodes, dailyBonuses, Game, parisDay, sunView, distanceFactor, traceKm, startNode } from './game.js?v=20261120g';
-import * as BE from './backend.js?v=20261120g';
+import { prepareNodes, dailyBonuses, dailyBatteries, dailyQuests, questState, finalScore, factsFound, Game, parisDay, sunView, distanceFactor, traceKm, startNode } from './game.js?v=20261121e';
+import * as BE from './backend.js?v=20261121e';
 
 /* ================================================================ i18n */
 const T = {
   fr: {
     loading: 'Chargement…', back: '← Random Maps', about: 'À propos', lede: 'Quelle puissance installée arriverez-vous à récolter avant le lever du jour ?',
-    r1: '<b>Départ tiré au sort</b> quelque part en France, un nouveau à chaque partie : en ville, beaucoup de puissance mais de petits pas ; à la campagne, moins de panneaux mais de grands pas, et des soleils cachés.',
-    r2: '<b>30 pas</b> N, S, E ou O, d’installation en installation : chacune rapporte sa puissance. Un soleil ×2 ou ×3 multiplie tout ce qui suit.',
-    r3: '<b>Score</b> = puissance récoltée × bonus de distance (jusqu’à ×1,5 à 150 km) : récoltez beaucoup, allez loin, ou les deux.',
+    r1: '<b>Départ tiré au sort</b> quelque part en France, un nouveau à chaque partie, jamais trop pauvre ni trop riche. En ville, beaucoup de panneaux à petits pas ; à la campagne, de grands pas, des soleils et des batteries.',
+    r2: '<b>30 pas</b> N, S, E ou O : chaque pas mène vers l’installation la plus puissante toute proche dans cette direction et rapporte sa puissance. Enchaîner les installations de 100 kWc et plus fait monter un <b>combo</b> (jusqu’à ×2) ; un soleil ×2 ou ×3 multiplie tout ce qui suit ; une batterie donne 3 pas de plus.',
+    r3: '<b>Un seul but</b> : récolter le plus de puissance. Score final = puissance récoltée × bonus (+0,1 par quête du jour accomplie, jusqu’à ×1,3).',
+    comboTxt: p => `combo +${p} %`, comboMax: 'Combo au maximum : ×2 tant que vous restez sur les panneaux !',
+    questsT: 'Quêtes du jour', qLong: { km: n => `Parcourir ${n} km`, dept: n => `Traverser ${n} départements`, streak: n => `Faire ${n} pas d’affilée dans une même ville`, big: n => `Récolter ${n} installations de 1 MWc`, kwc: n => `Récolter ${n.toLocaleString('fr-FR')} kWc`, towns: n => `Passer par ${n} villes`, spref: n => n > 1 ? `Passer par ${n} sous-préfectures` : 'Passer par une sous-préfecture' },
+    qShort: { km: n => `${n} km`, dept: n => `${n} dépts`, streak: n => `${n} pas en ville`, big: n => `${n} × 1 MWc`, kwc: n => `${n / 1000} MWc`, towns: n => `${n} villes`, spref: () => 'sous-préf.' },
+    qDone: q => `Quête accomplie : ${q} ! +0,1 au score final`, sQuests: n => `quête${n > 1 ? 's' : ''}`,
+    battSpotted: s => `Batterie repérée : +${s} pas !`, battTxt: s => `Batterie : +${s} pas !`,
+    factNew: 'Nouveau fait', factAlbum: (n, t) => `Ajouté à votre album · ${n}/${t}`, newDept: d => `Nouveau département exploré : ${d}`,
+    album: 'Mon album', albumT: 'Mon album', albumFacts: (n, t) => `${n} faits sur ${t}`, albumDepts: (n, t) => `${n} départements explorés sur ${t}`, albumHint: 'Les points pâles sont des faits encore à découvrir : passez à proximité pendant une partie (pour une naissance dans un village, il suffit de traverser son département).', albumEmpty: 'Aucun fait pour l’instant : partez explorer !', albumLocal: 'Hors ligne : seul l’album de ce navigateur est affiché.', cat: { pv: 'Photovoltaïque', sci: 'Sciences du Soleil', art: 'Arts et culture', nat: 'Nature', dpt: 'Département' }, srcT: 'Source',
     pseudoLabel: 'Votre pseudo', pseudoPh: 'Votre pseudo', suggest: 'Suggérer un pseudo', play: 'Jouer',
     pseudoBad: 'Entre 2 et 24 caractères.', local: 'Votre pseudo apparaîtra dans le classement du jour.', pseudoTaken: 'Ce pseudo est déjà pris.', pseudoRefused: 'Ce pseudo n’est pas accepté. Essayez-en un autre.', offline: 'Hors ligne : votre partie sera envoyée plus tard.',
     startAt: d => `Départ tiré au sort : ${d}`,
     node: k => `${k} kWc`,
-    choose: 'Plus une direction est orangée, plus il reste de puissance de ce côté (sur 8 km).',
+    choose: 'Plus une direction est orangée, plus on peut récolter de puissance en 3 pas de ce côté.',
     practice: 'Partie d’entraînement sur un jour passé : non classée.', newDay: 'Le jour a changé : nouveaux soleils !',
-    spotted: m => `Soleil ×${m} repéré !`, lucky: m => `Départ sur un soleil ×${m} : quelle chance !`, gis: 'gisement',
+    spotted: m => `Soleil ×${m} repéré !`, lucky: m => `Départ sur un soleil ×${m} : quelle chance !`, 
     gainTxt: g => `+${g} kWc`, already: 'Déjà visité : rien de plus.', bonusTxt: (m, t) => `Soleil ×${m} ! Tout compte ×${t} désormais.`,
     steps: 'pas', stepsLeft: n => `${n} pas restant${n > 1 ? 's' : ''}`,
     dirs: ['N', 'S', 'E', 'O'], dirNames: ['nord', 'sud', 'est', 'ouest'], dirsGroup: 'Directions', rays: n => ['', ', un peu de puissance par là', ', de la puissance par là', ', beaucoup de puissance par là'][n],
     noDir: 'Aucun panneau dans cette direction.',
-    endT: 'Le jour s’est levé', endRecord: 'Record', pts: 'points', endSub: (k, f) => `${k} kWc récoltés ${f} de bonus distance`,
+    endT: 'Le jour s’est levé', endRecord: 'Record', pts: 'points', endSub: (k, f, q) => q ? `${k} kWc récoltés × ${f} de bonus (${q} quête${q > 1 ? 's' : ''})` : `${k} kWc récoltés, sans bonus de quête`,
     sCollected: 'récoltés', sWalked: 'parcourus', sSuns: n => n ? `${n} soleil${n > 1 ? 's' : ''}` : 'aucun soleil', sExplore: 'distance',
     sPanels: 'panneaux', sInst: 'installations', sBestDay: 'record du jour',
     share: 'Partager', again: 'Rejouer', view: 'Classement', boardT: d => `Classement du ${d}`, you: 'vous',
@@ -30,42 +37,51 @@ const T = {
     shareGo: 'Partager l’image', download: 'Télécharger', copy: 'Copier le texte',
     copied: 'Texte et lien copiés.', shareText: (k, km, r) => `${r ? `Mon itinéraire PV Explorer : ${r}. ` : ''}J’ai récolté ${k} kWc et parcouru ${km} km ☀️ Les installations solaires de France, détectées par IA :`, around: a => `autour de ${a}`,
     cardSub: 'points en 30 pas', cardLine: (k, km) => `J’ai récolté ${k} kWc et parcouru ${km} km`, cardRoute: 'Mon itinéraire', cardAsk: 'Et vous, jusqu’où irez-vous ?', cardSrc: 'OpenPVMapper · détections par IA',
-    menuT: 'Menu', help: 'Comment jouer', restart: 'Nouvelle partie', changePseudo: 'Changer de pseudo', close: 'Fermer', recenter: 'Recentrer', menu: 'Menu',
+    menuT: 'Menu', credits: 'Sources et crédits de la carte', help: 'Comment jouer', restart: 'Nouvelle partie', changePseudo: 'Changer de pseudo', close: 'Fermer', recenter: 'Recentrer', menu: 'Menu',
     aboutT: 'À propos', shareGame: 'Partager le jeu', linkCopied: 'Lien copié', gameText: 'PV Explorer : 30 pas de nuit, d’installation solaire en installation solaire ☀️',
-    aboutHtml: `<p>Votre départ est tiré au sort à chaque partie. En 30 pas, récoltez le plus de puissance solaire et parcourez le plus de distance. Chaque pas mène à l’installation la plus proche dans la direction choisie ; chacune compte une fois. Les soleils du jour sont les mêmes pour tout le monde et changent à minuit (heure de Paris).</p>
-      <p>Les lumières de la nuit montrent où la puissance installée est concentrée (floutée à une dizaine de kilomètres). Les ⚡ au bord de l’écran pointent vers les deux plus gros gisements proches, et la couleur des directions indique la puissance qui reste à récolter dans chaque direction, sur 8 km.</p>
+    aboutHtml: `<p>Votre départ est tiré au sort à chaque partie, parmi des départs ni trop pauvres ni trop riches : c’est votre façon de jouer qui fait la différence. En 30 pas, récoltez le plus de puissance solaire. Chaque pas mène, dans la direction choisie, vers l’installation la plus puissante parmi les plus proches ; chacune compte une fois. Enchaîner les installations de 100 kWc et plus fait monter un combo (+10 % par pas, jusqu’à ×2) ; un pas sur une petite installation ou une installation déjà visitée le remet à zéro. Les soleils du jour sont les mêmes pour tout le monde et changent à minuit (heure de Paris).</p>
+      <p>Les lumières de la nuit montrent où la puissance installée est concentrée (floutée à une dizaine de kilomètres). Les ⚡ montrent les trois installations les plus puissantes à moins de 30 km que vous n’avez pas encore récoltées (au bord de l’écran quand elles sont hors champ), avec leur puissance et leur distance. La couleur des directions indique ce que vous pouvez récolter au mieux en 3 pas de ce côté.</p>
+      <p>Chaque jour, trois quêtes communes à tous (aller loin, creuser sur place, passer par des lieux) ajoutent chacune +0,1 au bonus final. Des batteries, cachées surtout entre ville et campagne, donnent 3 pas de plus. En passant près de certains lieux (ou dans le département natal d’un savant), vous découvrez des faits sur le soleil et le solaire : ils remplissent votre album, avec la carte des départements explorés (menu ⋯, ou votre ligne du classement).</p>
       <p>Des soleils (×2, ×3) se cachent dans les zones où il y a le moins de panneaux, pour donner une raison d’y aller. Ils apparaissent quand votre trace passe à moins de 10 km. Les multiplicateurs s’additionnent (×2 puis ×3 donnent ×4).</p>
-      <p>Score = puissance récoltée (kWc) × bonus de distance (1 + km parcourus / 300, jusqu’à ×1,5 à 150 km). Ce n’est plus des kWc mais des points : en ville, on récolte beaucoup à petits pas ; à la campagne, chaque pas va plus loin.</p>
+      <p>Score final = puissance récoltée × bonus des quêtes (+0,1 par quête accomplie, jusqu’à ×1,3). La puissance récoltée compte les soleils et le combo : ce sont des points plus que des kWc. En ville, on récolte beaucoup à petits pas ; à la campagne, chaque pas va plus loin et les soleils sont plus nombreux.</p>
       <p>Les installations sont des détections par IA (OpenPVMapper / DeepPVMapper), pas un recensement officiel. Chaque panneau du jeu regroupe les installations voisines ; sa puissance est plafonnée à 1 MWc pour que les grandes centrales ne décident pas de tout.</p>
       <p class="fine">Le classement garde votre pseudo et vos traces (identifiants des panneaux visités), sans compte ni adresse e-mail. Rejouez autant que vous voulez : votre meilleure partie du jour est classée.</p>
-      <p class="fine">Données : OpenPVMapper — DeepPVMapper, Gabriel Kasmi (CC BY 4.0). Fond : Plan IGN © IGN. Polices : Unbounded, Manrope (SIL OFL).</p>`,
-    tut: ['Sautez d’installation en installation : chaque pas récolte la puissance installée du panneau atteint. Récoltez le plus possible, et allez le plus loin possible.',
-      'Votre départ est tiré au sort à chaque partie : rejouez pour tenter votre chance ailleurs. En ville, beaucoup de puissance à petits pas ; à la campagne, de grands pas, des soleils cachés et plus de distance.',
+      <p class="fine">Données : OpenPVMapper — DeepPVMapper, Gabriel Kasmi (CC BY 4.0). Fond : Plan IGN © IGN. Communes et départements : INSEE, geo.api.gouv.fr, france-geojson (Licence ouverte). Polices : Unbounded, Manrope (SIL OFL).</p>`,
+    tut: ['Sautez d’installation en installation : chaque pas récolte la puissance installée du panneau atteint. Un seul but : récolter le plus possible.',
+      'Votre départ est tiré au sort à chaque partie, ni trop pauvre ni trop riche. En ville, beaucoup de puissance à petits pas ; à la campagne, de grands pas, des soleils et des batteries : la stratégie change selon où vous atterrissez.',
       'Glissez le doigt vers le haut, le bas, la gauche ou la droite pour avancer, ou touchez la manette en bas.',
-      'Un soleil ×2 ou ×3 multiplie tout ce qui suit. À la fin : score = kWc récoltés × bonus de distance (jusqu’à ×1,5).'],
+      'Restez sur les panneaux : enchaîner les installations de 100 kWc et plus fait monter un combo jusqu’à ×2. Un soleil ×2 ou ×3 multiplie tout ce qui suit.',
+      'Trois quêtes par jour : chacune ajoute +0,1 au bonus final (score = puissance × bonus). Des batteries pour 3 pas de plus, et des faits à découvrir en chemin pour remplir votre album.'],
     tutKeys: 'Flèches du clavier (ou la manette en bas) pour avancer d’un pas vers le N, le S, l’E ou l’O.',
-    tutT: ['Le but', 'Votre départ', 'Avancer', 'Soleils et score'], tutSkip: 'Passer', tutNext: 'Suivant', tutGo: 'C’est parti', tutCity: 'ville', tutCountry: 'campagne', tutKm: 'km',
+    tutT: ['Le but', 'Votre départ', 'Avancer', 'Combo et soleils', 'Quêtes, batteries, album'], tutSkip: 'Passer', tutNext: 'Suivant', tutGo: 'C’est parti', tutCity: 'ville', tutCountry: 'campagne', tutKm: 'km',
     adj: ['Téméraire', 'Radieux', 'Curieux', 'Vagabond', 'Lumineux', 'Intrépide', 'Matinal', 'Rayonnant', 'Nomade', 'Vif'],
     noun: ['Onduleur', 'Photon', 'Panneau', 'Rayon', 'Silicium', 'Watt', 'Zénith', 'Albédo', 'Hangar', 'Toit'],
     pseudoOrder: (n, a) => `${n} ${a}`, date: d => new Date(d + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
   },
   en: {
     loading: 'Loading…', back: '← Random Maps', about: 'About', lede: 'How much installed power can you collect before daybreak?',
-    r1: '<b>Your start is drawn at random</b> somewhere in France, a new one for each game: in a city, lots of power but small steps; in the countryside, fewer panels but long steps, and hidden suns.',
-    r2: '<b>30 steps</b> N, S, E or W, from installation to installation: each adds its power. A ×2 or ×3 sun multiplies everything that follows.',
-    r3: '<b>Score</b> = power collected × distance bonus (up to ×1.5 at 150 km): collect a lot, go far, or both.',
+    r1: '<b>Your start is drawn at random</b> somewhere in France, a new one for each game, never too poor nor too rich. In a city, lots of panels in small steps; in the countryside, long steps, suns and batteries.',
+    r2: '<b>30 steps</b> N, S, E or W: each step goes to the most powerful installation close by in that direction and adds its power. Chaining installations of 100 kWp or more builds a <b>combo</b> (up to ×2); a ×2 or ×3 sun multiplies everything that follows; a battery gives 3 more steps.',
+    r3: '<b>One goal</b>: collect as much power as you can. Final score = power collected × bonus (+0.1 per daily quest done, up to ×1.3).',
+    comboTxt: p => `combo +${p}%`, comboMax: 'Combo maxed: ×2 as long as you stay on the panels!',
+    questsT: 'Today’s quests', qLong: { km: n => `Walk ${n} km`, dept: n => `Cross ${n} départements`, streak: n => `Make ${n} steps in a row in the same town`, big: n => `Collect ${n} installations of 1 MWp`, kwc: n => `Collect ${n.toLocaleString('en-GB')} kWp`, towns: n => `Pass through ${n} towns`, spref: n => n > 1 ? `Pass through ${n} sous-préfectures` : 'Pass through a sous-préfecture' },
+    qShort: { km: n => `${n} km`, dept: n => `${n} depts`, streak: n => `${n} in town`, big: n => `${n} × 1 MWp`, kwc: n => `${n / 1000} MWp`, towns: n => `${n} towns`, spref: () => 'sous-préf.' },
+    qDone: q => `Quest done: ${q}! +0.1 on the final score`, sQuests: n => `quest${n > 1 ? 's' : ''}`,
+    battSpotted: s => `Battery spotted: +${s} steps!`, battTxt: s => `Battery: +${s} steps!`,
+    factNew: 'New fact', factAlbum: (n, t) => `Added to your album · ${n}/${t}`, newDept: d => `New département explored: ${d}`,
+    album: 'My album', albumT: 'My album', albumFacts: (n, t) => `${n} facts of ${t}`, albumDepts: (n, t) => `${n} of ${t} départements explored`, albumHint: 'Pale dots are facts still to discover: come close to them during a game (for a birth in a village, crossing its département is enough).', albumEmpty: 'No fact yet: go and explore!', albumLocal: 'Offline: only this browser’s album is shown.', cat: { pv: 'Photovoltaics', sci: 'Science of the Sun', art: 'Arts and culture', nat: 'Nature', dpt: 'Département' }, srcT: 'Source',
     pseudoLabel: 'Your nickname', pseudoPh: 'Your nickname', suggest: 'Suggest a nickname', play: 'Play',
     pseudoBad: '2 to 24 characters.', local: 'Your nickname will appear in today’s leaderboard.', pseudoTaken: 'This nickname is taken.', pseudoRefused: 'This nickname is not accepted. Try another one.', offline: 'Offline: your game will be sent later.',
     startAt: d => `Start drawn at random: ${d}`,
     node: k => `${k} kWp`,
-    choose: 'The more orange a direction, the more power is left that way (over 8 km).',
+    choose: 'The more orange a direction, the more power you can collect in 3 steps that way.',
     practice: 'Practice game on a past day: not ranked.', newDay: 'A new day: new suns!',
-    spotted: m => `Sun ×${m} spotted!`, lucky: m => `You start on a ×${m} sun: lucky you!`, gis: 'hotspot',
+    spotted: m => `Sun ×${m} spotted!`, lucky: m => `You start on a ×${m} sun: lucky you!`, 
     gainTxt: g => `+${g} kWp`, already: 'Already visited: nothing more.', bonusTxt: (m, t) => `Sun ×${m}! Everything counts ×${t} from now on.`,
     steps: 'steps', stepsLeft: n => `${n} step${n > 1 ? 's' : ''} left`,
     dirs: ['N', 'S', 'E', 'W'], dirNames: ['north', 'south', 'east', 'west'], dirsGroup: 'Directions', rays: n => ['', ', some power that way', ', power that way', ', lots of power that way'][n],
     noDir: 'No panel in that direction.',
-    endT: 'The day has risen', endRecord: 'Record', pts: 'points', endSub: (k, f) => `${k} kWp collected ${f} distance bonus`,
+    endT: 'The day has risen', endRecord: 'Record', pts: 'points', endSub: (k, f, q) => q ? `${k} kWp collected × ${f} bonus (${q} quest${q > 1 ? 's' : ''})` : `${k} kWp collected, no quest bonus`,
     sCollected: 'collected', sWalked: 'walked', sSuns: n => n ? `${n} sun${n > 1 ? 's' : ''}` : 'no sun', sExplore: 'distance',
     sPanels: 'panels', sInst: 'installations', sBestDay: 'best today',
     share: 'Share', again: 'Play again', view: 'Leaderboard', boardT: d => `Leaderboard, ${d}`, you: 'you',
@@ -74,21 +90,23 @@ const T = {
     shareGo: 'Share the image', download: 'Download', copy: 'Copy the text',
     copied: 'Text and link copied.', shareText: (k, km, r) => `${r ? `My PV Explorer route: ${r}. ` : ''}I collected ${k} kWp and walked ${km} km ☀️ France’s solar installations, detected by AI:`, around: a => `around ${a}`,
     cardSub: 'points in 30 steps', cardLine: (k, km) => `I collected ${k} kWp and walked ${km} km`, cardRoute: 'My route', cardAsk: 'How far will you go?', cardSrc: 'OpenPVMapper · AI detections',
-    menuT: 'Menu', help: 'How to play', restart: 'New game', changePseudo: 'Change nickname', close: 'Close', recenter: 'Recentre', menu: 'Menu',
+    menuT: 'Menu', credits: 'Map sources and credits', help: 'How to play', restart: 'New game', changePseudo: 'Change nickname', close: 'Close', recenter: 'Recentre', menu: 'Menu',
     aboutT: 'About', shareGame: 'Share the game', linkCopied: 'Link copied', gameText: 'PV Explorer: 30 steps at night, from solar installation to solar installation ☀️',
-    aboutHtml: `<p>Your start is drawn at random for each game. In 30 steps, collect as much solar power and walk as far as you can. Each step goes to the nearest installation in the chosen direction; each counts once. Today’s suns are the same for everyone and change at midnight (Paris time).</p>
-      <p>The night lights show where installed power is concentrated (blurred over about ten kilometres). The ⚡ on the screen edge point to the two biggest hotspots nearby, and the colour of the directions shows the power left to collect in each direction, over 8 km.</p>
+    aboutHtml: `<p>Your start is drawn at random for each game, among starts neither too poor nor too rich: the way you play makes the difference. In 30 steps, collect as much solar power as you can. Each step goes, in the chosen direction, to the most powerful of the nearest installations; each counts once. Chaining installations of 100 kWp or more builds a combo (+10% per step, up to ×2); a step onto a small or already visited installation resets it. Today’s suns are the same for everyone and change at midnight (Paris time).</p>
+      <p>The night lights show where installed power is concentrated (blurred over about ten kilometres). The ⚡ show the three most powerful installations within 30 km that you have not collected yet (on the screen edge when off screen), with their power and distance. The colour of the directions shows the most you can collect in 3 steps that way.</p>
+      <p>Every day, three quests shared by everyone (go far, dig in, pass through places) each add +0.1 to the final bonus. Batteries, hidden mostly between town and countryside, give 3 more steps. Passing close to some places (or through a scientist’s home département), you discover facts about the Sun and solar power: they fill your album, with the map of the départements explored (⋯ menu, or your row of the leaderboard).</p>
       <p>Suns (×2, ×3) hide where panels are scarcest, to give a reason to go there. They appear when your trace comes within 10 km. Multipliers add up (×2 then ×3 make ×4).</p>
-      <p>Score = power collected (kWp) × distance bonus (1 + km walked / 300, up to ×1.5 at 150 km). It is points, not kWp: in a city you collect a lot in small steps; in the countryside every step goes farther.</p>
+      <p>Final score = power collected × quest bonus (+0.1 per quest done, up to ×1.3). The power collected includes suns and combo: it is points more than kWp. In a city you collect a lot in small steps; in the countryside every step goes farther and suns are more common.</p>
       <p>The installations are AI detections (OpenPVMapper / DeepPVMapper), not an official census. Each panel of the game groups nearby installations; its power is capped at 1 MWp so that large solar farms do not decide everything.</p>
       <p class="fine">The leaderboard keeps your nickname and your traces (ids of the panels visited), with no account or email address. Play as often as you like: your best game of the day is ranked.</p>
-      <p class="fine">Data: OpenPVMapper — DeepPVMapper, Gabriel Kasmi (CC BY 4.0). Basemap: Plan IGN © IGN. Fonts: Unbounded, Manrope (SIL OFL).</p>`,
-    tut: ['Hop from installation to installation: each step collects the installed power of the panel you reach. Collect as much as you can, and go as far as you can.',
-      'Your start is drawn at random for each game: play again to try your luck elsewhere. In a city, lots of power in small steps; in the countryside, long steps, hidden suns and more distance.',
+      <p class="fine">Data: OpenPVMapper — DeepPVMapper, Gabriel Kasmi (CC BY 4.0). Basemap: Plan IGN © IGN. Towns and départements: INSEE, geo.api.gouv.fr, france-geojson (Licence Ouverte). Fonts: Unbounded, Manrope (SIL OFL).</p>`,
+    tut: ['Hop from installation to installation: each step collects the installed power of the panel you reach. One goal: collect as much as you can.',
+      'Your start is drawn at random for each game, never too poor nor too rich. In a city, lots of power in small steps; in the countryside, long steps, suns and batteries: the strategy depends on where you land.',
       'Swipe up, down, left or right to move, or tap the controller at the bottom.',
-      'A ×2 or ×3 sun multiplies everything that follows. At the end: score = kWp collected × distance bonus (up to ×1.5).'],
+      'Stay on the panels: chaining installations of 100 kWp or more builds a combo, up to ×2. A ×2 or ×3 sun multiplies everything that follows.',
+      'Three quests a day: each adds +0.1 to the final bonus (score = power × bonus). Batteries for 3 more steps, and facts to discover on the way to fill your album.'],
     tutKeys: 'Arrow keys (or the controller at the bottom) move one step N, S, E or W.',
-    tutT: ['The goal', 'Your start', 'Moving', 'Suns and score'], tutSkip: 'Skip', tutNext: 'Next', tutGo: 'Let’s go', tutCity: 'city', tutCountry: 'countryside', tutKm: 'km',
+    tutT: ['The goal', 'Your start', 'Moving', 'Combo and suns', 'Quests, batteries, album'], tutSkip: 'Skip', tutNext: 'Next', tutGo: 'Let’s go', tutCity: 'city', tutCountry: 'countryside', tutKm: 'km',
     adj: ['Bold', 'Radiant', 'Curious', 'Roaming', 'Bright', 'Fearless', 'Early', 'Beaming', 'Nomad', 'Swift'],
     noun: ['Inverter', 'Photon', 'Panel', 'Ray', 'Silicon', 'Watt', 'Zenith', 'Albedo', 'Barn', 'Rooftop'],
     pseudoOrder: (n, a) => `${a} ${n}`, date: d => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
@@ -126,13 +144,15 @@ const TODAY = parisDay();
 const DAY = /^\d{4}-\d{2}-\d{2}$/.test(qs.get('day') || '') && qs.get('day') < TODAY ? qs.get('day') : TODAY;
 const PRACTICE = DAY !== TODAY;
 const REVEAL_M = 2500;
+const VER = '20261121e';   // data cache-buster, bumped with the scripts
 const TOP = 100;   // height of the floating counter: markers and pins stay below it
-let CFG, N, LL, BON, BK, LIGHTS, GIS, VIEW = [], TGT = [], RAYS = [0, 0, 0, 0];
+let CFG, N, LL, BON, BAT, QU, BK, LIGHTS, TOWNS, FACTS, VIEW = [], BVIEW = [], TGT = [], RAYS = [0, 0, 0, 0], TOPS = [];
 const bkey = (i, j) => i * 100000 + j;
 
 async function load() {
-  const [cfg, nodes, gis] = await Promise.all(['config', 'nodes', 'gisements'].map(f => fetch(`data/${f}.json`).then(r => r.json())));
-  GIS = gis;
+  const [cfg, nodes, towns, facts] = await Promise.all(['config', 'nodes', 'towns', 'facts'].map(f => fetch(`data/${f}.json?v=${VER}`).then(r => r.json())));
+  TOWNS = towns.t.map(([name, x, y, pop, kind]) => { const [lo, la] = PJ.inverse([x, y]); return { name, pop, kind, ll: [lo, la] }; });
+  FACTS = { rows: facts.f, f: facts.f.map(([id, x, y, r, cat, fr, en, src, dp]) => ({ id, x, y, r, cat, dp, txt: LANG === 'fr' ? fr : en, src, ll: PJ.inverse([x, y]) })) };
   CFG = cfg; N = prepareNodes(nodes);
   LL = new Float64Array(N.count * 2);
   BK = new Map();
@@ -141,6 +161,8 @@ async function load() {
     const k = bkey(Math.floor(N.x[a] / 5000), Math.floor(N.y[a] / 5000)); let b = BK.get(k); if (!b) BK.set(k, b = []); b.push(a);
   }
   BON = dailyBonuses(N, CFG.game.bonus, DAY);
+  BAT = dailyBatteries(N, CFG.game.battery, DAY, BON);
+  QU = dailyQuests(CFG.game.quests, DAY);
   LIGHTS = new Image(); LIGHTS.src = 'data/lights.png';
   await LIGHTS.decode().catch(() => {});
 }
@@ -160,7 +182,7 @@ function initMap() {
   map = new maplibregl.Map({ container: 'map', style: 'data/style.json', bounds: [[-5.2, 41.3], [9.6, 51.1]], fitBoundsOptions: { padding: 20 },
     attributionControl: false, dragRotate: false, pitchWithRotate: false, maxZoom: 14, minZoom: 4.5, maxBounds: [[-12, 38], [17, 54]] });
   map.touchZoomRotate.disableRotation();
-  map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: 'Plan IGN © IGN · OpenPVMapper (CC BY 4.0)' }), 'bottom-left');
+  map.addControl(new maplibregl.ScaleControl({ maxWidth: 110, unit: 'metric' }), 'bottom-right');   // credits: the 'i' in index.html
   cv = $('fx'); ctx = cv.getContext('2d');
   map.on('render', draw);
   map.on('click', e => {
@@ -199,20 +221,86 @@ function sun(x, y, m, alpha = 1, r = 14) {
 // the explorer: a little walker carrying a solar panel; hops on each step, looks where it goes
 const FACE = [[0, -1], [0, 1], [1, 0], [-1, 0]];
 let facing = 2;
+const AV = 1.7;   // walker scale: big enough to read its mood
 function avatar(x, y, hop) {
-  const [fx, fy] = FACE[facing];
+  ctx.save(); ctx.translate(x, y); ctx.scale(AV, AV);
+  walker(0, 0, hop / AV * 1.3);
+  ctx.restore();
+}
+function walker(x, y, hop) {
+  const [fx, fy] = FACE[facing], md = curMood(), age = (performance.now() - mood.t) / 1000;
+  if (md === 'joy' && !anim && !REDUCED && age < 1.4) hop += Math.abs(Math.sin(age * Math.PI * 2.2)) * 9 * (1 - age / 1.4);   // jumps for joy
   ctx.save();
+  if ((md === 'joy' || md === 'happy') && age < 3.2) {   // warm aura that fades
+    const ga = (1 - age / 3.2) * (md === 'joy' ? .55 : .35), gr = ctx.createRadialGradient(x, y - 14 - hop, 4, x, y - 14 - hop, 30);
+    gr.addColorStop(0, `rgba(255,207,63,${ga})`); gr.addColorStop(1, 'rgba(255,207,63,0)'); ctx.fillStyle = gr; ctx.fillRect(x - 30, y - 44 - hop, 60, 60);
+  }
   ctx.beginPath(); ctx.ellipse(x, y + 1, 9 - hop * .25, 3.2 - hop * .08, 0, 0, 7); ctx.fillStyle = 'rgba(14,22,49,.45)'; ctx.fill();
   ctx.translate(x, y - 12 - hop);
   ctx.save(); ctx.rotate(-.28 + fx * .12);                                           // panel on the head
-  ctx.fillStyle = '#18234a'; ctx.strokeStyle = '#ffb22e'; ctx.lineWidth = 1.6;
+  ctx.fillStyle = md === 'joy' && age < 2.5 ? '#ffb22e' : '#18234a'; ctx.strokeStyle = '#ffb22e'; ctx.lineWidth = 1.6;   // a sun lights the panel up
   ctx.beginPath(); ctx.roundRect(-11, -18, 22, 8, 1.5); ctx.fill(); ctx.stroke();
   ctx.strokeStyle = 'rgba(255,178,46,.7)'; ctx.lineWidth = 1; ctx.beginPath();
   for (const u of [-5.5, 0, 5.5]) { ctx.moveTo(u, -18); ctx.lineTo(u, -10); } ctx.stroke();
   ctx.restore();
   ctx.beginPath(); ctx.arc(0, 0, 9.5, 0, 7); ctx.fillStyle = '#fff4dc'; ctx.fill(); ctx.lineWidth = 2.2; ctx.strokeStyle = '#0e1631'; ctx.stroke();
-  ctx.fillStyle = '#0e1631';
-  for (const sx of [-1, 1]) { ctx.beginPath(); ctx.arc(fx * 3 + sx * (fy ? 3.2 : 2.4) + (fx ? sx * .4 : 0), fy * 2.5 - 1 + (fx ? 0 : 0), 1.7, 0, 7); ctx.fill(); }
+  face(fx, fy, md);
+  ctx.restore();
+  if (!anim) moodSigns(x, y - 12 - hop, md);
+}
+/* mood of the walker, set by the last step (see moodOf): a face, plus a short-lived sign around the head */
+let mood = { k: 'idle', t: 0 };
+const BIG_K = 500, SMALL_K = 30, LONG_M = 6000;
+function moodOf(res, m) {
+  if (res.bonus || res.extra) return 'joy';          // a sun, a battery
+  if (!res.gain) return 'bored';                     // nothing new here
+  if (m >= LONG_M) return 'puff';                    // a long walk
+  if (N.k[res.node] >= BIG_K) return 'happy';        // a big installation at once
+  if (N.k[res.node] < SMALL_K) return 'meh';
+  return 'idle';
+}
+function curMood() { return g && g.left > 0 && g.left <= 3 && (mood.k === 'idle' || mood.k === 'meh') ? 'panic' : mood.k; }
+function face(fx, fy, md) {
+  const ex = sx => fx * 3 + sx * (fy ? 3.2 : 2.4) + (fx ? sx * .4 : 0), ey = fy * 2.5 - 1, mx = fx * 3, my = ey + 4.2;
+  ctx.fillStyle = ctx.strokeStyle = '#0e1631'; ctx.lineWidth = 1.5; ctx.lineCap = 'round';
+  for (const sx of [-1, 1]) {
+    ctx.beginPath();
+    if (md === 'happy' || md === 'joy') { ctx.arc(ex(sx), ey + 1, 1.9, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke(); }   // ^ ^
+    else if (md === 'bored') { ctx.moveTo(ex(sx) - 1.8, ey + .4); ctx.lineTo(ex(sx) + 1.8, ey + .4); ctx.stroke(); }
+    else { ctx.arc(ex(sx), ey, md === 'panic' ? 2.3 : 1.7, 0, 7); ctx.fill(); }
+  }
+  if (fy < 0) return;   // walking north: seen from behind, no mouth
+  ctx.beginPath();
+  if (md === 'joy') { ctx.arc(mx, my - .6, 2.8, 0, Math.PI); ctx.closePath(); ctx.fill(); }
+  else if (md === 'happy') { ctx.arc(mx, my - 1.6, 2.8, Math.PI * .15, Math.PI * .85); ctx.stroke(); }
+  else if (md === 'bored') { ctx.arc(mx, my + 1.6, 2.2, Math.PI * 1.2, Math.PI * 1.8); ctx.stroke(); }
+  else if (md === 'meh') { ctx.moveTo(mx - 2, my); ctx.lineTo(mx + 2, my); ctx.stroke(); }
+  else if (md === 'panic' || md === 'puff') { ctx.arc(mx, my, 1.4, 0, 7); md === 'puff' ? ctx.fill() : ctx.stroke(); }
+  else { ctx.arc(mx, my - 1.2, 2, Math.PI * .2, Math.PI * .8); ctx.stroke(); }
+}
+function sparkle(x, y, r) { ctx.beginPath(); ctx.moveTo(x, y - r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.quadraticCurveTo(x, y, x, y + r); ctx.quadraticCurveTo(x, y, x - r, y); ctx.quadraticCurveTo(x, y, x, y - r); ctx.fill(); }
+// signs around the head (head centre at x, y): sparkles, sweat, "…", "!"; they fade after ~2.5 s, except panic
+function moodSigns(x, y, md) {
+  const now = performance.now(), age = (now - mood.t) / 1000, a = md === 'panic' ? 1 : Math.max(0, 1 - Math.max(0, age - 3) / .8);
+  if (!a) return;
+  const tw = REDUCED ? 1 : .75 + .25 * Math.sin(now / 140);
+  ctx.save(); ctx.globalAlpha = a;
+  if (md === 'happy' || md === 'joy') {
+    ctx.fillStyle = md === 'joy' ? '#ffcf3f' : '#ffcf6b';
+    const S = md === 'joy' ? [[-17, -8, 5], [16, -13, 6], [-12, -25, 4], [19, 4, 4], [2, -30, 3.5]] : [[-16, -10, 4.5], [15, -15, 5], [17, 2, 3]];
+    for (const [u, v, r] of S) sparkle(x + u, y + v, r * tw);
+  } else if (md === 'puff') {
+    const dy = REDUCED ? 0 : (age * 6) % 6;
+    ctx.fillStyle = '#9fd3ff'; ctx.strokeStyle = 'rgba(14,22,49,.8)'; ctx.lineWidth = .8;
+    for (const [u, v, k] of [[13, -6, 1.3], [-14, -2, 1]]) { const X = x + u, Y = y + v + dy * k; ctx.beginPath(); ctx.moveTo(X, Y - 4 * k); ctx.quadraticCurveTo(X + 3.5 * k, Y + 2 * k, X, Y + 3 * k); ctx.quadraticCurveTo(X - 3.5 * k, Y + 2 * k, X, Y - 4 * k); ctx.fill(); ctx.stroke(); }
+  } else if (md === 'bored' || md === 'panic') {
+    const s = md === 'bored' ? '…' : '!', col = md === 'panic' ? '#ff6b3d' : '#c9c3b4';
+    const px = x + 16, py = y - 17 + (md === 'panic' && !REDUCED ? Math.sin(now / 90) : 0);
+    ctx.beginPath(); ctx.arc(px, py, 8, 0, 7); ctx.moveTo(px - 6, py + 4); ctx.lineTo(px - 11, py + 10); ctx.lineTo(px - 2, py + 7);   // speech bubble
+    ctx.fillStyle = 'rgba(14,22,49,.92)'; ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = col; ctx.stroke();
+    ctx.font = `900 ${md === 'panic' ? 11 : 10}px Unbounded, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = col; ctx.fillText(s, px, py + (md === 'bored' ? -2 : .5));
+  }
   ctx.restore();
 }
 function edgePoint(dx, dy, top, bot) {   // where a direction from the screen centre meets the play area's edge
@@ -227,23 +315,59 @@ function bolt(x, y, a = 1) {
   ctx.restore();
 }
 function label(x, y, s) { ctx.font = '700 10px Manrope, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(14,22,49,.85)'; ctx.strokeText(s, x, y); ctx.fillStyle = '#fff4dc'; ctx.fillText(s, x, y); }
-// the two richest hotspots around, discounted by what the trace already collected there
-function gisements() {
-  const a = g.node, R = GIS.r, out = [];
-  for (const [x, y, v] of GIS.g) {
-    const d = Math.hypot(x - N.x[a], y - N.y[a]); if (d > 80000) continue;
-    let left = v; for (const b of g.seen) if ((N.x[b] - x) ** 2 + (N.y[b] - y) ** 2 <= R * R) left -= N.k[b];
-    out.push({ x, y, d, sc: left * Math.exp(-d / 25000) });
-  }
-  return out.sort((p, q) => q.sc - p.sc).slice(0, 2);
+// the three most powerful installations within 30 km not collected yet (ties: the nearest); computed after each step
+const TOP_R = 30000;
+function bigTargets() {
+  const a = g.node, out = [];
+  within(N.x[a], N.y[a], TOP_R, b => { if (!g.seen.has(b)) out.push({ b, k: N.k[b], d: Math.hypot(N.x[b] - N.x[a], N.y[b] - N.y[a]) }); });
+  return out.filter(o => o.d <= TOP_R).sort((p, q) => q.k - p.k || p.d - q.d).slice(0, 3);
+}
+const kmTxt = m => m < 950 ? (m / 1000).toLocaleString(LANG === 'fr' ? 'fr-FR' : 'en-GB', { maximumFractionDigits: 1 }) + ' km' : NF.format(Math.round(m / 1000)) + ' km';
+function pointer(x, y, ang) {   // small triangle outside the ⚡ disc, pointing at the off-screen target
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+  ctx.beginPath(); ctx.moveTo(19, 0); ctx.lineTo(13, -5); ctx.lineTo(13, 5); ctx.closePath(); ctx.fillStyle = '#ffcf6b'; ctx.fill();
+  ctx.restore();
 }
 
+// a battery (+n steps): green, so that it reads apart from the suns
+function battery(x, y, n, a = 1) {
+  ctx.save(); ctx.translate(x, y); ctx.globalAlpha = a;
+  const gl = ctx.createRadialGradient(0, 0, 6, 0, 0, 24); gl.addColorStop(0, 'rgba(126,224,161,.45)'); gl.addColorStop(1, 'rgba(126,224,161,0)'); ctx.fillStyle = gl; ctx.fillRect(-24, -24, 48, 48);
+  ctx.fillStyle = '#0e1631'; ctx.strokeStyle = '#7ee0a1'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(-14, -8, 26, 16, 3); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#7ee0a1'; ctx.fillRect(12, -3.5, 3.5, 7);
+  ctx.font = '900 9px Unbounded, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('+' + n, -1, 1);
+  ctx.restore();
+}
+function book(x, y) {   // a fact of the album
+  ctx.save(); ctx.translate(x, y); ctx.globalAlpha = .9;
+  ctx.fillStyle = 'rgba(14,22,49,.85)'; ctx.beginPath(); ctx.arc(0, 0, 9, 0, 7); ctx.fill();
+  ctx.strokeStyle = '#ffcf6b'; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(0, -4); ctx.lineTo(0, 4.5); ctx.moveTo(0, -4); ctx.quadraticCurveTo(-3, -5.5, -5.5, -4); ctx.lineTo(-5.5, 4); ctx.quadraticCurveTo(-3, 3, 0, 4.5); ctx.quadraticCurveTo(3, 3, 5.5, 4); ctx.lineTo(5.5, -4); ctx.quadraticCurveTo(3, -5.5, 0, -4); ctx.stroke();
+  ctx.restore();
+}
+// town names above the night: préfectures first, then the bigger towns as one zooms in
+function townLabels() {
+  const z = map.getZoom(); if (z < 6.5 || !TOWNS) return;
+  const min = z < 7.5 ? Infinity : z < 8.5 ? 100000 : z < 9.5 ? 30000 : z < 10.5 ? 12000 : 0;
+  ctx.font = '700 12px Manrope, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 3.5; ctx.lineJoin = 'round';
+  const placed = [];
+  for (const tw of TOWNS) {
+    if (tw.pop < min && !(tw.kind === 2 && z >= 6.5) && !(tw.kind === 1 && z >= 8.5)) continue;
+    const p = map.project(tw.ll); if (p.x < -40 || p.y < -20 || p.x > W + 40 || p.y > H + 20) continue;
+    const w = ctx.measureText(tw.name).width / 2 + 6;
+    if (placed.some(q => Math.abs(q.x - p.x) < w + q.w && Math.abs(q.y - p.y) < 16)) continue;
+    placed.push({ x: p.x, y: p.y, w });
+    ctx.globalAlpha = tw.kind === 2 ? .95 : .8;
+    ctx.strokeStyle = 'rgba(14,22,49,.9)'; ctx.strokeText(tw.name, p.x, p.y); ctx.fillStyle = tw.kind === 2 ? '#fff4dc' : '#c9c3b4'; ctx.fillText(tw.name, p.x, p.y);
+  }
+  ctx.globalAlpha = 1;
+}
 function draw() {
   if (!map || !W || !BON) return;
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H);
   const r = REVEAL_M / mpx();
   // night
-  ctx.fillStyle = 'rgba(14,22,49,.86)'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = 'rgba(14,22,49,.72)'; ctx.fillRect(0, 0, W, H);   // the IGN map shows through: roads, forests, rivers
   // night lights (power density), fading out when zoomed in
   if (LIGHTS && LIGHTS.complete) {
     const b = CFG.lights.bounds, nw = map.project([b[0], b[3]]), se = map.project([b[2], b[1]]), z = map.getZoom();
@@ -264,6 +388,9 @@ function draw() {
     ctx.beginPath(); ctx.arc(p.x, p.y, rr, 0, 7);
     if (g.seen.has(a)) { ctx.fillStyle = '#ffcf6b'; ctx.fill(); } else { ctx.strokeStyle = '#ff9f1c'; ctx.lineWidth = 1.2; ctx.stroke(); }
   }
+  townLabels();
+  // facts already in the album: a small book where they are
+  if (g && mode === 'play') for (const f of FACTS.f) if (store.album[f.id]) { const p = map.project(f.ll); if (p.x > -20 && p.y > -20 && p.x < W + 20 && p.y < H + 20) book(p.x, p.y); }
   // trace
   if (g) {
     const path = g.path.map(P); if (anim) path[path.length - 1] = anim.pos;
@@ -275,10 +402,10 @@ function draw() {
     if (mode === 'play' && !anim && g.left > 0) for (let d = 0; d < 4; d++) {
       const b = g.target(d); if (b < 0) continue; let p = P(b);
       const R = COARSE ? 17 : 10, m = R + 8;            // on touch screens these markers are the buttons: keep them on screen
-      if (COARSE) {   // keep the four touch targets apart: at least 58 px from the walker, in their true direction
+      if (COARSE) {   // keep the four touch targets apart: at least 72 px from the walker, in their true direction
         let vx = p.x - head.x, vy = p.y - head.y, L = Math.hypot(vx, vy);
         if (L < 1) { [vx, vy] = FACE[d]; L = 1; }
-        if (L < 58) p = { x: head.x + vx / L * 58, y: head.y + vy / L * 58 };
+        if (L < 72) p = { x: head.x + vx / L * 72, y: head.y + vy / L * 72 };
       }
       p = { x: Math.min(W - m, Math.max(m, p.x)), y: Math.min(H - m - (COARSE ? 170 : 20), Math.max(TOP + m, p.y)) };
       ctx.setLineDash([3, 4]); ctx.strokeStyle = 'rgba(255,207,107,.8)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(head.x, head.y); ctx.lineTo(p.x, p.y); ctx.stroke(); ctx.setLineDash([]);
@@ -295,17 +422,29 @@ function draw() {
   }
   if (!g) return;
   const top = TOP, bot = mode === 'play' ? 200 : 300, inside = p => p.x > 16 && p.y > top && p.x < W - 16 && p.y < H - bot;
-  // hotspots (⚡): a soft circle on screen, a pin on the edge otherwise
-  if (mode === 'play') for (const h of gisements()) {
-    const [lo, la] = PJ.inverse([h.x, h.y]), p = map.project([lo, la]);
-    if (inside(p)) {
-      ctx.setLineDash([2, 6]); ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,207,107,.55)';
-      ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(24, GIS.r / mpx()), 0, 7); ctx.stroke(); ctx.setLineDash([]);
-      bolt(p.x, p.y, .9); label(p.x, p.y + 26, t.gis);
-    } else {
-      const [x, y] = edgePoint(p.x - W / 2, p.y - (top + H - bot) / 2, top, bot);
-      bolt(x, y); label(x, y + 26, Math.round(h.d / 1000) + ' km');
+  // the 3 biggest installations (⚡): marked on screen, pinned to the edge with an arrow otherwise
+  if (mode === 'play') {
+    const pins = [];
+    for (const o of TOPS) {
+      const p = P(o.b), kw = t.node(NF.format(o.k)), km = kmTxt(o.d);
+      if (inside(p)) {
+        ctx.beginPath(); ctx.arc(p.x, p.y, 17, 0, 7); ctx.setLineDash([2, 4]); ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,207,107,.7)'; ctx.stroke(); ctx.setLineDash([]);
+        bolt(p.x, p.y, .95); label(p.x, p.y + 27, kw); continue;
+      }
+      let [x, y] = edgePoint(p.x - W / 2, p.y - (top + H - bot) / 2, top, bot);
+      for (const q of pins) if (Math.hypot(q[0] - x, q[1] - y) < 40) y = y + 40 > H - bot ? y - 40 : y + 40;   // keep pins apart
+      pins.push([x, y]);
+      pointer(x, y, Math.atan2(p.y - y, p.x - x)); bolt(x, y); label(x, y + 25, kw); label(x, y + 37, km);
     }
+  }
+  // batteries: like the suns, once seen
+  for (const v of BVIEW) {
+    if (v.state !== 'seen') continue;
+    const p = P(v.node);
+    if (inside(p)) { battery(p.x, p.y, v.steps, v.taken ? .35 : 1); continue; }
+    if (v.taken || mode !== 'play') continue;
+    const [x, y] = edgePoint(p.x - W / 2, p.y - (top + H - bot) / 2, top, bot);
+    battery(x, y, v.steps, .95); label(x, y + 24, Math.round(Math.hypot(N.x[v.node] - N.x[g.node], N.y[v.node] - N.y[g.node]) / 1000) + ' km');
   }
   // suns: only once seen (within 10 km of the trace), pinned to the edge when off screen
   for (const v of VIEW) {
@@ -335,6 +474,7 @@ function suggestPseudo() {
 }
 function showIntro() {
   $('pseudoIn').value = store.pseudo || suggestPseudo();
+  if (QU) questChips($('introQuests'), false);
   setMode('intro');
 }
 $('dice').onclick = () => { $('pseudoIn').value = suggestPseudo(); $('pseudoErr').textContent = ''; };
@@ -359,7 +499,7 @@ $('pseudoForm').onsubmit = async e => {
 const settle = (pr, ms) => Promise.race([pr, new Promise(res => setTimeout(() => res(null), ms))]);
 let ticket = null;
 async function drawStart() {
-  const local = () => { ticket = null; return startNode(N, 'local:' + Math.random()); };
+  const local = () => { ticket = null; return startNode(N, 'local:' + Math.random(), BON, CFG.game.startMin, CFG.game.startBand); };
   if (PRACTICE) return local();
   let r = await settle(BE.newStart(DAY), 6000);
   if (r && !r.ok && r.reason === 'pseudo' && store.pseudo) {   // pseudo chosen offline: register it, then ask again
@@ -378,10 +518,14 @@ async function newGame() {
 }
 
 function begin(a, replay = [], fresh = false) {
-  g = new Game(N, CFG.game.steps, BON);
+  g = new Game(N, CFG.game.steps, BON, BAT, CFG.game.combo);
   g.start(a);
+  qDone = new Set(); factQ.length = 0;
   for (let i = 1; i < replay.length; i++) { const d = [0, 1, 2, 3].find(e => N.nb[replay[i - 1] * 4 + e] === replay[i]); if (d === undefined || !g.move(d)) break; }
-  open.clear(); g.path.forEach(uncover); VIEW = [];
+  open.clear(); g.path.forEach(uncover); VIEW = []; BVIEW = [];
+  QU.forEach((q, i) => { if (questState(N, g, q).done) qDone.add(i); });
+  for (const f of factsOf(g.path)) seenFacts.add(f);   // a resumed game does not pop up its facts again
+  mood = { k: g.taken.size ? 'joy' : 'idle', t: performance.now() };
   if (g.path.length > 1) { const p = g.path, i = p.length - 1, f = [0, 1, 2, 3].find(e => N.nb[p[i - 1] * 4 + e] === p[i]); if (f !== undefined) facing = f; }
   if (!PRACTICE) store.game = { day: DAY, path: g.path, ticket }; save();
   shown = g.score; $('score').textContent = NF.format(shown);
@@ -389,32 +533,47 @@ function begin(a, replay = [], fresh = false) {
   const dep = CFG.depts[N.dp[a]];
   if (fresh) toast(t.startAt(dep ? dep[1] : ''));
   if (replay.length <= 1 && g.taken.size) setTimeout(() => toast(t.lucky(g.mult)), fresh ? 2800 : 0);
+  if (fresh) setTimeout(() => g && discover(g.path[0]), 2400);   // facts around the start
   map.flyTo({ center: ll(g.node), zoom: Math.max(map.getZoom(), 10.5), duration: REDUCED ? 0 : fresh ? 2200 : 1000 });
   if (g.left <= 0) finish(true);
 }
 function uncover(a) { within(N.x[a], N.y[a], REVEAL_M + 400, b => open.add(b)); }
 
-/* ---------------- hints: power left to collect within 8 km, per sector ---------------- */
+/* ---------------- hints: the most power one can collect in 3 steps starting that way (raw kWc: no hidden sun leaks) ---------------- */
+function reach(d, depth = 3) {
+  const b = g.target(d); if (b < 0) return 0;
+  const used = new Set(), val = c => g.seen.has(c) || used.has(c) ? 0 : N.k[c];
+  const go = (n, left) => {
+    let best = 0; if (!left) return 0;
+    for (let e = 0; e < 4; e++) { const c = N.nb[n * 4 + e]; if (c < 0) continue; const v = val(c); if (v) used.add(c); best = Math.max(best, v + go(c, left - 1)); if (v) used.delete(c); }
+    return best;
+  };
+  const v0 = val(b); if (v0) used.add(b);
+  return v0 + go(b, depth - 1);
+}
 function rays(d) {
-  const a = g.node, R = CFG.game.hint.radius; let sum = 0;
-  within(N.x[a], N.y[a], R, b => {
-    if (b === a || g.seen.has(b)) return;
-    const dx = N.x[b] - N.x[a], dy = N.y[b] - N.y[a];
-    const s = (dy >= Math.abs(dx) && dy > 0) ? 0 : (-dy >= Math.abs(dx) && dy < 0) ? 1 : dx > 0 ? 2 : 3;
-    if (s === d) sum += N.k[b];
-  });
-  const q = CFG.game.hint.rays; return sum >= q[2] ? 3 : sum >= q[1] ? 2 : sum >= q[0] ? 1 : 0;
+  const sum = reach(d, CFG.game.hint.depth || 3), q = CFG.game.hint.rays;
+  return sum >= q[2] ? 3 : sum >= q[1] ? 2 : sum >= q[0] ? 1 : 0;
 }
 function hud(last) {
   const before = new Set(VIEW.filter(v => v.state === 'seen').map(v => v.node));
   VIEW = sunView(N, g.path, g.taken, BON, CFG.game.bonus);
+  TOPS = bigTargets();
+  const bBefore = new Set(BVIEW.filter(v => v.state === 'seen').map(v => v.node));
+  BVIEW = sunView(N, g.path, g.charged, BAT, CFG.game.battery);
   if (last) for (const v of VIEW) if (v.state === 'seen' && !v.taken && !before.has(v.node)) toast(t.spotted(v.mult));
+  if (last) for (const v of BVIEW) if (v.state === 'seen' && !v.taken && !bBefore.has(v.node)) toast(t.battSpotted(v.steps));
   if (last && last.bonus) toast(t.bonusTxt(last.bonus, g.mult));
+  if (last && last.extra) toast(t.battTxt(last.extra));
+  quests(!!last);
   const L = g.left, col = stepColor(L), st = $('steps');
-  $('stepsN').textContent = $('left').textContent = L;
-  st.style.setProperty('--sc', col); $('left').style.color = col;
+  $('stepsN').textContent = L;
+  st.style.setProperty('--sc', col);
   st.classList.toggle('urgent', L > 0 && L <= 3); st.setAttribute('aria-label', t.stepsLeft(L));
-  $('meta').innerHTML = `<b>${NF.format(Math.round(traceKm(N, g.path)))} km</b>`;
+  $('meta').innerHTML = `<b>${NF.format(Math.round(traceKm(N, g.path)))} km</b> · ${esc(placeOf(g.node))}` +
+    (g.combo ? ` <span class="combo${g.combo >= (CFG.game.combo?.max || 10) ? ' max' : ''}">${t.comboTxt(g.combo * 10)}</span>` : '');
+  if (last && CFG.game.combo && g.combo === CFG.game.combo.max && last.combo !== undefined && !hud.maxed) { hud.maxed = true; toast(t.comboMax); }
+  if (!g.combo) hud.maxed = false;
   const m = $('mult'); m.textContent = '×' + g.mult; m.classList.toggle('x1', g.mult === 1);
   if (last && last.bonus) { m.classList.remove('pop'); void m.offsetWidth; m.classList.add('pop'); }
   const a = g.node;
@@ -451,8 +610,9 @@ function step(d) {
     anim.pos = { x: pa.x + (pb.x - pa.x) * e, y: pa.y + (pb.y - pa.y) * e }; anim.f = f;
     if (f < 1) { draw(); return requestAnimationFrame(run); }
     anim = null; uncover(b);
+    mood = { k: moodOf(res, Math.hypot(N.x[b] - N.x[a], N.y[b] - N.y[a])), t: performance.now() };
     if (!PRACTICE) store.game = { day: DAY, path: g.path, ticket }; save();
-    hud(res); flash(res);
+    hud(res); flash(res); discover(b);
     const p = P(b);
     if (p.x < 60 || p.x > W - 60 || p.y < TOP + 50 || p.y > H - 240) map.easeTo({ center: ll(b), duration: REDUCED ? 0 : 450 });
     draw();
@@ -462,8 +622,8 @@ function step(d) {
 }
 function flash(res) {
   const el = $('gain');
-  el.textContent = res.bonus ? `☀ ×${res.bonus}` : res.gain ? `+${NF.format(res.gain)}` : '+0';
-  el.classList.toggle('bonus', !!res.bonus);
+  el.textContent = res.bonus ? `☀ ×${res.bonus}` : res.extra ? `🔋 +${res.extra} ${t.steps}` : res.gain ? `+${NF.format(res.gain)}` : '+0';
+  el.classList.toggle('bonus', !!(res.bonus || res.extra));
   el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
   clearTimeout(flash.t); flash.t = setTimeout(() => el.classList.remove('on'), 900);
 }
@@ -492,10 +652,88 @@ function swipeSetup() {
 function touchMode(play) { if (!COARSE || !map) return; play ? map.dragPan.disable() : map.dragPan.enable(); }
 $('recenter').onclick = () => g && map.easeTo({ center: ll(g.node), zoom: Math.max(map.getZoom(), 10.5), duration: REDUCED ? 0 : 500 });
 
+/* ---------------- place, quests, facts, album ---------------- */
+// where the walker is: the town of the node (data v3), else its département
+const placeOf = a => N.t[a] >= 0 ? TOWNS[N.t[a]].name : CFG.depts[N.dp[a]]?.[1] || '';
+// quests of the day: chips under the score; a new one done pops a toast and makes the walker jump
+let qDone = new Set();
+function questChips(el, live) {
+  el.innerHTML = QU.map(q => {
+    const st = g ? questState(N, g, q) : { v: 0, n: q.n, done: false };
+    const prog = q.type === 'km' || q.type === 'kwc' ? `${NF.format(Math.min(st.v, q.n))}/${NF.format(q.n)}` : `${Math.min(st.v, q.n)}/${q.n}`;
+    return `<li class="q${st.done ? ' done' : ''}" title="${esc(t.qLong[q.type](q.n))}"><i aria-hidden="true">${st.done ? '✓' : ''}</i><span>${esc(live ? t.qShort[q.type](q.n) : t.qLong[q.type](q.n))}</span>${live && !st.done ? `<small>${prog}</small>` : ''}</li>`;
+  }).join('');
+}
+function quests(after) {
+  questChips($('quests'), true);
+  if (!after) return;
+  QU.forEach((q, i) => {
+    if (qDone.has(i) || !questState(N, g, q).done) return;
+    qDone.add(i); toast(t.qDone(t.qLong[q.type](q.n))); mood = { k: 'joy', t: performance.now() };
+  });
+}
+// facts (game.js factsFound, same rule as the server): within their radius, or anywhere in their département
+// (a birth in a small town); plus 'd' + index for each département entered, which lights up the album map
+const factsOf = path => factsFound(N, FACTS.rows, path);
+const seenFacts = new Set();   // shown during this visit (not to pop up twice)
+store.album = store.album || {};
+function albumAdd(id, day) { if (!store.album[id]) store.album[id] = day; }
+const isDept = id => /^d\d+$/.test(id);
+const factById = id => FACTS.f.find(f => f.id === id);
+const factQ = [];
+function discover(a) {
+  for (const id of factsOf([a])) {
+    if (seenFacts.has(id)) continue;
+    seenFacts.add(id);
+    if (store.album[id]) continue;   // already in the album: no pop-up
+    albumAdd(id, DAY); save();
+    if (isDept(id)) { if (Object.keys(store.album).length > 1) toast(t.newDept(CFG.depts[+id.slice(1)][1])); continue; }
+    factQ.push(id); if (factQ.length === 1) showFact();
+    mood = { k: 'happy', t: performance.now() };
+  }
+}
+function showFact() {
+  const id = factQ[0]; if (!id) return;
+  const f = factById(id), el = $('fact'), total = FACTS.f.length;
+  el.querySelector('.cat').textContent = t.cat[f.cat] || '';
+  el.querySelector('h3').textContent = f.txt[0];
+  el.querySelector('p').textContent = f.txt[1];
+  el.querySelector('.foot').textContent = t.factAlbum(FACTS.f.filter(x => store.album[x.id]).length, total);
+  el.dataset.cat = f.cat; el.hidden = false; el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
+  clearTimeout(showFact.t); showFact.t = setTimeout(nextFact, 11000);
+}
+function nextFact() { factQ.shift(); $('fact').hidden = true; if (factQ.length) setTimeout(showFact, 250); }
+$('factClose').onclick = () => { clearTimeout(showFact.t); nextFact(); };
+// album: a map of France (départements found are lit, curated facts are dots) and the list of facts found
+let DEPTS = null;
+async function showAlbum() {
+  $('albumDlg').showModal();
+  $('albumMap').innerHTML = ''; $('albumList').innerHTML = `<li class="empty">${t.boardLoading}</li>`;
+  const [online, shapes] = await Promise.all([BE.album(), DEPTS || fetch(`data/depts.json?v=${VER}`).then(r => r.json()).catch(() => null)]);
+  DEPTS = shapes;
+  if (online) for (const r of online) albumAdd(r.fact, r.day);
+  save();
+  const got = store.album, ids = Object.keys(got), nf = FACTS.f.filter(f => got[f.id]).length, nd = CFG.depts.filter((v, i) => got['d' + i]).length;
+  $('albumSub').textContent = `${t.albumFacts(nf, FACTS.f.length)} · ${t.albumDepts(nd, CFG.depts.length)}`;
+  $('albumNote').textContent = online ? t.albumHint : t.albumLocal + ' ' + t.albumHint;
+  if (DEPTS) {
+    const P = f => [((f.x - DEPTS.x0) * DEPTS.s).toFixed(0), ((DEPTS.y1 - f.y) * DEPTS.s).toFixed(0)];
+    $('albumMap').innerHTML = `<svg viewBox="0 0 ${DEPTS.vb.join(' ')}" role="img" aria-label="${esc(t.albumT)}">` +
+      DEPTS.p.map((d, i) => d ? `<path d="${d}" class="${got['d' + i] ? 'on' : ''}"><title>${esc(CFG.depts[i][1])}</title></path>` : '').join('') +
+      FACTS.f.map(f => { const [x, y] = P(f); return `<circle cx="${x}" cy="${y}" r="${got[f.id] ? 9 : 6}" class="${got[f.id] ? 'got' : 'todo'}" data-id="${f.id}"><title>${got[f.id] ? esc(f.txt[0]) : '?'}</title></circle>`; }).join('') + '</svg>';
+    for (const c of $('albumMap').querySelectorAll('circle.got')) c.onclick = () => { const li = $('albumList').querySelector(`[data-id="${c.dataset.id}"]`); if (li) { li.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); li.classList.remove('flash'); void li.offsetWidth; li.classList.add('flash'); } };
+  }
+  const list = ids.filter(id => !isDept(id)).map(factById).filter(Boolean).sort((p, q) => (got[q.id] > got[p.id]) - (got[q.id] < got[p.id]));
+  $('albumList').innerHTML = list.length ? list.map(f => `<li data-id="${f.id}" data-cat="${f.cat}"><span class="cat">${esc(t.cat[f.cat])} · ${esc(t.date(got[f.id]))}</span><b>${esc(f.txt[0])}</b><p>${esc(f.txt[1])}</p>${f.src ? `<a href="${esc(f.src)}" target="_blank" rel="noopener">${t.srcT}</a>` : ''}</li>`).join('')
+    : `<li class="empty">${t.albumEmpty}</li>`;
+}
+$('mAlbum').onclick = () => { $('menu').close(); showAlbum(); };
+
 /* ---------------- end ---------------- */
 function finish(silent) {
   const km = Math.round(traceKm(N, g.path));
-  const ex = distanceFactor(N, g.path, CFG.game.distance), final = Math.round(g.score * ex);
+  const ex = distanceFactor(N, g.path, CFG.game.distance), qn = QU.filter(q => questState(N, g, q).done).length;
+  const qf = 1 + qn * (CFG.game.quests?.bonus ?? 1) / 10, final = finalScore(g.score, ex, qn, CFG.game.quests?.bonus ?? 1);
   const prev = store.best[DAY]?.score || 0, rec = final > prev;
   if (rec) store.best[DAY] = { score: final, path: g.path };
   if (!store.bestAll || final > store.bestAll.score) store.bestAll = { score: final, day: DAY };
@@ -505,8 +743,8 @@ function finish(silent) {
   g.final = final; g.explore = ex; g.km = km;
   $('endT').innerHTML = t.endT + (rec && prev ? ` <span class="record">${t.endRecord}</span>` : '');
   $('endScore').innerHTML = `${NF.format(final)}<small>${t.pts}</small>`;
-  $('endSub').textContent = t.endSub(NF.format(g.score), XF(ex));
-  $('endStats').innerHTML = `<div><b>${NF.format(km)} km</b>${t.sWalked}</div><div><b>☀ ×${g.mult}</b>${t.sSuns(g.taken.size)}</div><div><b>${NF.format(Math.max(prev, final))}</b>${t.sBestDay}</div>`;
+  $('endSub').textContent = t.endSub(NF.format(g.score), XF(Math.round(ex * qf * 100) / 100), qn);   // one bonus: power × bonus = score
+  $('endStats').innerHTML = `<div><b>${NF.format(km)} km</b>${t.sWalked}</div><div><b>☀ ×${g.mult}</b>${t.sSuns(g.taken.size)}</div><div><b>✓ ${qn}/${QU.length}</b>${t.sQuests(qn)}</div><div><b>${NF.format(Math.max(prev, final))}</b>${t.sBestDay}</div>`;
   $('endRank').textContent = '';
   setMode('end');
   if (!PRACTICE) { queue(DAY, g.path, ticket); sendPending(g.path); } else $('endRank').textContent = t.practice;
@@ -523,17 +761,21 @@ function checkDay() { if (dayChanged() && mode === 'intro') reloadDay(); }
 setInterval(checkDay, 60000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) checkDay(); });
 // leaderboard of the day: Supabase (pvx_leaderboard), this browser's games when offline
-$('viewBtn').onclick = async () => {
+$('viewBtn').onclick = showBoard;
+$('mBoard').onclick = () => { $('menu').close(); showBoard(); };
+async function showBoard() {
   $('boardT').textContent = t.boardT(t.date(DAY));
   $('boardList').innerHTML = `<li class="empty">${t.boardLoading}</li>`; $('boardNote').textContent = t.boardNote;
   $('board').showModal();
   try {
-    const rows = await BE.leaderboard(DAY);
+    const rows = await BE.leaderboard(DAY);   // every player of the day (server cap: 500)
     $('boardList').innerHTML = rows.length ? rows.map((r, i) => `${i && r.rank > rows[i - 1].rank + 1 ? '<li class="gap">…</li>' : ''}<li${r.me ? ' class="me"' : ''}><span class="rk">${r.rank}</span><span class="who">${esc(r.pseudo)}${r.me ? ` <em>(${t.you})</em>` : ''}${r.score != null ? `<small>${t.boardSub(NF.format(r.score), NF.format(Math.round(r.km)))}</small>` : ''}</span><span class="pts">${NF.format(r.final)}<small>${t.pts}</small></span></li>`).join('') : `<li class="empty">${t.boardEmpty}</li>`;
   } catch (err) { console.warn('leaderboard offline', err); localBoard(); }
-};
+  const me = $('boardList').querySelector('.me');
+  if (me) { me.scrollIntoView({ block: 'nearest' }); me.tabIndex = 0; me.title = t.album; me.onclick = me.onkeydown = e => { if (e.type === 'keydown' && e.key !== 'Enter') return; $('board').close(); showAlbum(); }; }
+}
 function localBoard() {
-  const rows = [...((store.scores || {})[DAY] || [])].sort((p, q) => q.score - p.score).slice(0, 50), mine = g && g.path.join(',');
+  const rows = [...((store.scores || {})[DAY] || [])].sort((p, q) => q.score - p.score), mine = g && g.path.join(',');
   $('boardT').textContent = t.boardT(t.date(DAY));
   $('boardList').innerHTML = rows.length ? rows.map((r, i) => `<li${r.path === mine ? ' class="me"' : ''}><span class="rk">${i + 1}</span><span class="who">${esc(r.pseudo)}${r.path === mine ? ` <em>(${t.you})</em>` : ''}${r.k != null ? `<small>${t.boardSub(NF.format(r.k), NF.format(r.km))}</small>` : ''}</span><span class="pts">${NF.format(r.score)}<small>${t.pts}</small></span></li>`).join('') : `<li class="empty">${t.boardEmpty}</li>`;
   $('boardNote').textContent = t.boardLocal;
@@ -562,6 +804,7 @@ async function sendPending(cur) {
       const retry = !r.ok && ['network', 'taken', 'race', 'db'].includes(r.reason);
       if (!retry) { store.pending = store.pending.filter(q => q !== p); save(); }
       if (!r.ok) console.warn('score not saved', r);
+      if (r.ok && Array.isArray(r.facts)) { for (const f of r.facts) albumAdd(f, p.day); save(); }
       const rk = r.ok && r.rank ? t.rankTxt(r.rank, r.players) : '';
       if (isCur) $('endRank').textContent = r.ok ? (r.best ? (r.attempt > 1 ? t.newBest + ' ' : '') + rk : `${t.bestKept(NF.format(r.bestFinal))} ${rk}`).trim()
         : r.reason === 'network' ? t.offline : r.reason === 'taken' ? t.pseudoTaken : r.reason === 'start' ? t.startOff : t.sendFail(r.reason);
@@ -677,7 +920,7 @@ function tDots(n, x0, y0, w, h, seed, rmax = 2.6) {
   return o;
 }
 const SCENES = [
-  // 1. the goal: hop from installation to installation, collect power, go far
+  // 1. the goal: hop from installation to installation, collect the most power
   () => SV(tDots(46, 10, 14, 280, 124, 7) + tTrace([[34, 118], [72, 118], [72, 84], [122, 84], [122, 48], [178, 48], [178, 100], [236, 100], [236, 40], [272, 40]], 5,
     { gains: [0, '+85', '+40', '+120', '+60', '+210', '+95', '+150', '+70', '+35'] })),
   // 2. the drawn start: city (many panels, small steps) or countryside (long steps, suns)
@@ -703,11 +946,23 @@ const SCENES = [
       `<g transform="translate(${C[0]} ${C[1] + 8})">${WALKER}</g>` + finger + pad +
       `<text x="164" y="80" text-anchor="middle" style="font:700 11px Manrope,sans-serif" fill="#c9c3b4">${LANG === 'fr' ? 'ou' : 'or'}</text>`);
   },
-  // 4. suns and score
+  // 4. combo, suns and score (power × quest bonus)
   () => SV(tDots(16, 10, 16, 130, 120, 9) + tTrace([[20, 120], [60, 120], [60, 74], [104, 74], [104, 34]], 4, { gains: [0, '+60', '+45', '×2', '+180'] }) + tSun(104, 74, 2, 11) +
     `<g text-anchor="end" style="font-variant-numeric:tabular-nums"><text x="284" y="44" style="font:800 15px Unbounded,sans-serif" fill="#fff4dc">${NF.format(1240)} <tspan style="font-size:10px" fill="#ffcf6b">${LANG === 'fr' ? 'kWc' : 'kWp'}</tspan></text>` +
-    `<text x="284" y="70" style="font:800 15px Unbounded,sans-serif" fill="#fff4dc">${XF(1.32)} <tspan style="font-size:10px" fill="#ffcf6b">96 ${t.tutKm}</tspan></text>` +
-    `<line x1="170" y1="84" x2="284" y2="84" stroke="rgba(255,178,46,.5)"/><text x="284" y="114" style="font:900 24px Unbounded,sans-serif" fill="#ffcf6b">${NF.format(1637)} <tspan style="font-size:11px">${t.pts}</tspan></text></g>`),
+    `<text x="284" y="70" style="font:800 15px Unbounded,sans-serif" fill="#fff4dc">${XF(1.2)} <tspan style="font-size:10px" fill="#ffcf6b">✓✓ ${LANG === 'fr' ? 'quêtes' : 'quests'}</tspan></text>` +
+    `<line x1="170" y1="84" x2="284" y2="84" stroke="rgba(255,178,46,.5)"/><text x="284" y="114" style="font:900 24px Unbounded,sans-serif" fill="#ffcf6b">${NF.format(1488)} <tspan style="font-size:11px">${t.pts}</tspan></text></g>` +
+    `<g transform="translate(150 22)"><rect x="-4" y="-12" width="${LANG === 'fr' ? 92 : 86}" height="18" rx="9" fill="rgba(255,178,46,.22)" stroke="#ffb22e"/><text x="${LANG === 'fr' ? 42 : 39}" y="1" text-anchor="middle" style="font:800 10.5px Manrope,sans-serif" fill="#ffcf6b">${t.comboTxt(30)}</text></g>`),
+,
+  // 5. quests, batteries, album
+  () => {
+    const chip = (y, txt, done) => `<g transform="translate(16 ${y})"><rect width="128" height="24" rx="12" fill="${done ? 'rgba(255,178,46,.22)' : '#18234a'}" stroke="${done ? '#ffb22e' : 'rgba(255,178,46,.38)'}"/>` +
+      `<text x="14" y="16" style="font:900 11px Unbounded,sans-serif" fill="#ffcf6b">${done ? '✓' : '·'}</text><text x="28" y="16" style="font:700 11px Manrope,sans-serif" fill="#fff4dc">${txt}</text></g>`;
+    const q = QU.length ? QU : [{ type: 'km', n: 150 }, { type: 'streak', n: 3 }, { type: 'towns', n: 2 }];
+    const bat = `<g transform="translate(205 40)"><rect x="-16" y="-9" width="30" height="18" rx="3" fill="#0e1631" stroke="#7ee0a1" stroke-width="2"/><rect x="14" y="-4" width="4" height="8" fill="#7ee0a1"/><text x="-1" y="4" text-anchor="middle" style="font:900 10px Unbounded,sans-serif" fill="#7ee0a1">+3</text></g>`;
+    const book = `<g transform="translate(205 102)"><circle r="16" fill="#18234a" stroke="#ffcf6b"/><path d="M0 -7V8M0 -7Q-5 -9.5 -9.5 -7V7Q-5 5 0 8Q5 5 9.5 7V-7Q5 -9.5 0 -7" fill="none" stroke="#ffcf6b" stroke-width="1.8"/></g>`;
+    return SV(chip(22, t.qShort[q[0].type](q[0].n), true) + chip(58, t.qShort[q[1].type](q[1].n), false) + chip(94, t.qShort[q[2].type](q[2].n), true) + bat + book +
+      `<g style="font:700 11px Manrope,sans-serif" fill="#c9c3b4"><text x="232" y="44">${t.steps}</text><text x="232" y="106">${LANG === 'fr' ? 'album' : 'album'}</text></g>`);
+  }
 ];
 let tutI = 0, tutThen = null;
 function tutorial(then) {
@@ -743,6 +998,8 @@ addEventListener('keydown', e => {
 /* ---------------- menu, about, toast ---------------- */
 $('menuBtn').onclick = () => $('menu').showModal();
 $('mRestart').onclick = () => { $('menu').close(); if (dayChanged()) reloadDay(); else newGame(); };
+$('creditsOpm').href = OPM;
+$('creditsBtn').onclick = () => { const b = $('creditsBtn'), on = b.getAttribute('aria-expanded') !== 'true'; b.setAttribute('aria-expanded', on); $('creditsTxt').hidden = !on; };
 $('mHelp').onclick = () => { $('menu').close(); tutorial(); };
 $('mAbout').onclick = () => { $('menu').close(); $('about').showModal(); };
 $('mPseudo').onclick = () => { $('menu').close(); showIntro(); };

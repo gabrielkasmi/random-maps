@@ -5,6 +5,7 @@
 --   pvx_players  the player's pseudo, keyed on auth.uid() (anonymous sign-in). Written by the page itself (RLS: own row).
 --   pvx_games    one row per finished game. Written ONLY by the Edge Function pvx-submit (service role), which replays
 --                the trace with js/game.js and recomputes the score: the page cannot insert a score of its own.
+--   pvx_facts             the album: facts found by each player (written by pvx-submit, read by the player)
 --   pvx_leaderboard(day)  public read of the day's ranking (best game of each player).
 --   pvx_rank(day, user)   rank of a player's best game, for pvx-submit only (service role).
 --
@@ -79,6 +80,24 @@ alter table public.pvx_games enable row level security;
 -- no insert / update / delete policy: only the service role (Edge Function) writes.
 drop policy if exists "pvx: read own games" on public.pvx_games;
 create policy "pvx: read own games" on public.pvx_games
+    for select to authenticated using (auth.uid() = user_id);
+
+-- v3 rules (data v3): batteries collected and daily quests done (each quest adds +0.1 to the final multiplier)
+alter table public.pvx_games add column if not exists batteries smallint not null default 0;
+alter table public.pvx_games add column if not exists quests smallint not null default 0;
+
+-- ─── album: facts discovered (data/facts.json ids; 'd<i>' = département i of config.depts) ──────────────
+-- written by pvx-submit when it accepts a game (facts near the trace, départements crossed); read by the player.
+create table if not exists public.pvx_facts (
+    user_id     uuid not null references auth.users(id) on delete cascade,
+    fact        text not null,
+    day         date not null,                       -- first found that day
+    created_at  timestamptz not null default now(),
+    primary key (user_id, fact)
+);
+alter table public.pvx_facts enable row level security;
+drop policy if exists "pvx: read own facts" on public.pvx_facts;
+create policy "pvx: read own facts" on public.pvx_facts
     for select to authenticated using (auth.uid() = user_id);
 
 -- ─── leaderboard ───────────────────────────────────────────────────────────

@@ -2,7 +2,8 @@
 //
 // POST { action: 'start', day }                                → 200 { ok, node, ticket }   (draws a new start)
 // POST { day: 'YYYY-MM-DD', path: number[], data: string, ticket }   Authorization: Bearer <user access token>
-// → 200 { ok, attempt, best, bestFinal, score, mult, suns, km, factor, final, rank, players }
+// → 200 { ok, attempt, best, bestFinal, score, mult, suns, batteries, quests, km, factor, final, rank, players, facts }
+//   facts: album ids found by this trace (also saved in pvx_facts)
 //   best: this game is the player's best of the day (the ranked one); rank / players: rank of that best game
 // → 4xx { ok: false, reason }   reasons: auth, pseudo, body, data, day, start, length, node, edge, attempts
 //
@@ -12,22 +13,31 @@
 // good) is allowed by design, like playing again. Games are unlimited (MAX_ATTEMPTS is only a safety cap); the best
 // one of the day is ranked.
 //
-// game.js, nodes.json and config.json are COPIES of ../../../js/game.js and ../../../data/*.json, made by
+// game.js, nodes.json, config.json and facts.json are COPIES of ../../../js/game.js and ../../../data/*.json, made by
 // ../../sync.sh before each deploy (gitignored). The page sends config.json's "data" id; a mismatch means the
 // function and the site were deployed with different nodes: redeploy after running sync.sh.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { prepareNodes, dailyBonuses, scoreTrace, traceKm, distanceFactor, parisDay, startNode } from './game.js';
+import { prepareNodes, dailyBonuses, dailyBatteries, dailyQuests, scoreTrace, traceKm, distanceFactor, finalScore, parisDay, startNode, factsFound } from './game.js';
 import nodesJson from './nodes.json' with { type: 'json' };
 import cfg from './config.json' with { type: 'json' };
+import factsJson from './facts.json' with { type: 'json' };
 
 const N = prepareNodes(nodesJson);
+// facts found by a trace (game.js factsFound): curated ones (radius or département) and the départements crossed
+const factsOf = (path: number[]) => factsFound(N, factsJson.f, path);
 const G = cfg.game;
 const MAX_ATTEMPTS = 500;            // per player and day: a safety cap, not a game rule
 const GRACE_MS = 2 * 3600 * 1000;    // a game started before midnight (Paris) can still be sent for 2 h
-const bonusCache = new Map<string, ReturnType<typeof dailyBonuses>>();
-const bonusesOf = (day: string) => {
-  if (!bonusCache.has(day)) { if (bonusCache.size > 4) bonusCache.clear(); bonusCache.set(day, dailyBonuses(N, G.bonus, day)); }
-  return bonusCache.get(day)!;
+// the day's suns, batteries and quests (same draw as the page)
+type Day = { bonuses: ReturnType<typeof dailyBonuses>; batteries: ReturnType<typeof dailyBatteries>; quests: ReturnType<typeof dailyQuests> };
+const dayCache = new Map<string, Day>();
+const dayOf = (day: string): Day => {
+  if (!dayCache.has(day)) {
+    if (dayCache.size > 4) dayCache.clear();
+    const bonuses = dailyBonuses(N, G.bonus, day);
+    dayCache.set(day, { bonuses, batteries: dailyBatteries(N, G.battery, day, bonuses), quests: dailyQuests(G.quests, day) });
+  }
+  return dayCache.get(day)!;
 };
 
 const CORS = {
@@ -69,7 +79,7 @@ Deno.serve(async req => {
   if (body.action === 'start') {        // a new game: draw its start for today
     const today = parisDay(new Date(now));
     if (day !== today) return fail(422, 'day');
-    const node = startNode(N, crypto.randomUUID());
+    const node = startNode(N, crypto.randomUUID(), dayOf(today).bonuses, G.startMin, G.startBand);
     return reply(200, { ok: true, node, ticket: await sign(`${uid}:${today}:${node}`) });
   }
   if (typeof day !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(day) || !Array.isArray(path)) return fail(400, 'body');
@@ -84,20 +94,29 @@ Deno.serve(async req => {
   if (!same && (typeof ticket !== 'string' || ticket !== await sign(`${uid}:${day}:${path[0]}`))) return fail(422, 'start');
 
   // replay: same rules as the page
-  const res = scoreTrace(N, G.steps, bonusesOf(day), path as number[], G.startMin);
+  const D = dayOf(day);
+  const res = scoreTrace(N, G.steps, D.bonuses, path as number[], G.startMin, D.batteries, D.quests, G.combo);
   if (!res.ok) return fail(422, res.reason, res.at !== undefined ? { at: res.at } : {});
   const km = Math.round(traceKm(N, path as number[]) * 10) / 10;
   const factor = distanceFactor(N, path as number[], G.distance);
-  const final = Math.round(res.score * factor);
+  const final = finalScore(res.score, factor, res.quests, G.quests?.bonus ?? 1);
 
   let attempt = same?.attempt;
   if (!attempt) {
     if (prev!.length >= MAX_ATTEMPTS) return fail(429, 'attempts');
     attempt = Math.max(0, ...prev!.map(r => r.attempt)) + 1;
     const { error: ie } = await admin.from('pvx_games').insert({
-      user_id: uid, day, attempt, data: cfg.data, path, score: res.score, mult: res.mult, suns: res.bonuses, km, factor, final,
+      user_id: uid, day, attempt, data: cfg.data, path, score: res.score, mult: res.mult, suns: res.bonuses,
+      batteries: res.batteries, quests: res.quests, km, factor, final,
     });
     if (ie) return fail(ie.code === '23505' ? 409 : 500, ie.code === '23505' ? 'race' : 'db');  // 23505: two sends at once
+  }
+
+  // album (best effort: a failure here does not lose the game)
+  const facts = factsOf(path as number[]);
+  if (facts.length) {
+    const { error: fe } = await admin.from('pvx_facts').upsert(facts.map(fact => ({ user_id: uid, fact, day })), { onConflict: 'user_id,fact', ignoreDuplicates: true });
+    if (fe) console.error('pvx_facts', fe);
   }
 
   // rank of the player's best game of the day
@@ -106,6 +125,7 @@ Deno.serve(async req => {
   const r = rk?.[0];
   return reply(200, {
     ok: true, attempt, best: r ? r.best === final : true, bestFinal: r?.best ?? final,
-    score: res.score, mult: res.mult, suns: res.bonuses, km, factor, final, rank: r?.rank ?? null, players: r?.players ?? null,
+    score: res.score, mult: res.mult, suns: res.bonuses, batteries: res.batteries, quests: res.quests, km, factor, final,
+    rank: r?.rank ?? null, players: r?.players ?? null, facts,
   });
 });

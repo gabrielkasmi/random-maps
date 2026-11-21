@@ -72,10 +72,22 @@ export async function submit(day, path, data, ticket) {
   } catch (error) { return { ok: false, reason: 'network', error }; }
 }
 
-/** Ranking of the day: [{rank, pseudo, final, mult, factor, km, me, players}], top 100 + own row. */
+/** Ranking of the day: [{rank, pseudo, final, mult, factor, km, me, players}], every player (server cap 500). */
 export async function leaderboard(day) {
   await init();
-  const { data, error } = await sb.rpc('pvx_leaderboard', { p_day: day, p_limit: 100 });
+  const { data, error } = await sb.rpc('pvx_leaderboard', { p_day: day, p_limit: 500 });
   if (error) throw error;
   return data;
+}
+
+/** The player's album: [{fact, day}] (facts found in accepted games), or null when offline / no session. */
+export async function album() {
+  try {
+    await init();
+    const { data: { session: s } } = await sb.auth.getSession();
+    if (!s) return null;
+    const { data, error } = await sb.from('pvx_facts').select('fact, day').eq('user_id', s.user.id);
+    if (error) throw error;
+    return data;
+  } catch (e) { console.warn('album offline', e); return null; }
 }
