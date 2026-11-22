@@ -156,6 +156,13 @@ export class Game {
     if (!this.seen.has(a)) { this.seen.add(a); gain = first ? 0 : Math.floor(this.N.k[a] * this.mult * (10 + this.combo) / 10); this.score += gain; }
     return { node: a, gain, bonus, extra, mult: this.mult, score: this.score, left: this.left, combo: this.combo };
   }
+  /** Independent copy of the game in progress (used to explore other routes after a game). */
+  clone() {
+    const h = new Game(this.N, this.steps, [], [], this.cb);   // the constructor gives the private methods
+    Object.assign(h, this);
+    h.path = this.path.slice(); h.seen = new Set(this.seen); h.taken = new Set(this.taken); h.charged = new Set(this.charged);
+    return h;
+  }
   /** Neighbour of the current node in direction d (0 N, 1 S, 2 E, 3 W), or -1. */
   target(d) { return this.N.nb[this.node * 4 + d]; }
   get node() { return this.path[this.path.length - 1]; }
