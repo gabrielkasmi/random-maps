@@ -1,7 +1,7 @@
 // PV Explorer — page logic (direction B, "Lever de soleil"). Rules live in game.js.
 // Bump ?v= (imports below and the script tag in index.html) at each release: phones keep old scripts otherwise.
-import { prepareNodes, dailyBonuses, dailyBatteries, dailyQuests, questState, finalScore, factsFound, Game, parisDay, sunView, distanceFactor, traceKm, startNode } from './game.js?v=20261122d';
-import * as BE from './backend.js?v=20261122d';
+import { prepareNodes, dailyBonuses, dailyBatteries, dailyQuests, questState, finalScore, factsFound, Game, parisDay, sunView, distanceFactor, traceKm, startNode } from './game.js?v=20261122e';
+import * as BE from './backend.js?v=20261122e';
 
 /* ================================================================ i18n */
 const T = {
@@ -144,7 +144,7 @@ const TODAY = parisDay();
 const DAY = /^\d{4}-\d{2}-\d{2}$/.test(qs.get('day') || '') && qs.get('day') < TODAY ? qs.get('day') : TODAY;
 const PRACTICE = DAY !== TODAY;
 const REVEAL_M = 2500;
-const VER = '20261122d';   // data cache-buster, bumped with the scripts
+const VER = '20261122e';   // data cache-buster, bumped with the scripts
 const TOP = 100;   // height of the floating counter: markers and pins stay below it
 let CFG, N, LL, BON, BAT, QU, BK, LIGHTS, TOWNS, FACTS, VIEW = [], BVIEW = [], TGT = [], RAYS = [0, 0, 0, 0], TOPS = [];
 const bkey = (i, j) => i * 100000 + j;
@@ -1035,3 +1035,6 @@ try {
 }
 // console / test hook
 window.__pvx = { get g() { return g; }, get mode() { return mode; }, get N() { return N; }, get BON() { return BON; }, step, begin, newGame, tutorial, map: () => map, tgt: () => TGT };
+
+// installable app (PWA): service worker next to the page (sw.js)
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(err => console.warn('service worker', err));
