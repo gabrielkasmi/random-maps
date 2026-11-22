@@ -5,11 +5,12 @@
 // - A trace starts on a node and makes up to `steps` moves; a move goes to the nearest node N / S / E / W (±45°).
 // - Each node counts once per trace: its power (kWc, capped offline) times the current multiplier.
 // - Daily bonuses (drawn from the Paris date, same for everyone): reaching a bonus node adds (m − 1) to the
-//   multiplier (×5 then ×3 gives ×7), and the bonus node itself already counts with the new multiplier.
+//   multiplier (×5 then ×3 gives ×7), and the bonus node itself already counts with the new multiplier. The landing node counts nothing (score starts at 0).
 // - Daily batteries (same draw, other salt, mostly in between town and countryside): reaching one adds steps.
 // - Daily quests (3, same for everyone): each one done adds +bonus (0.1) to the final multiplier.
-// - Combo: each fresh node of at least combo.min kWc in a row adds combo.step tenths to the next gains (up to
-//   combo.max tenths, i.e. ×2); an already seen or a small node resets it. Following the panels pays.
+// - Combo: each step onto a fresh node of at least combo.min kWc adds combo.step tenths, applied at once to that
+//   step (first one: +10 %), up to combo.max tenths (×2); a step onto an already seen or a small node resets it
+//   and gets no combo. The start node counts nothing and starts no combo. Following the panels pays.
 // - Start: random, but within a band of "potential" (what a plain greedy walk would collect from there), so that the
 //   start decides less of the score and the way one plays decides more.
 // - Final score = round(score × distance factor × (1 + quests done × bonus)).
@@ -121,8 +122,8 @@ export function questState(N, g, q) {
   else if (q.type === 'dept') v = new Set(p.map(a => N.dp[a])).size;
   else if (q.type === 'towns') v = new Set(p.filter(a => N.t[a] >= 0).map(a => N.t[a])).size;
   else if (q.type === 'spref') v = new Set(p.filter(a => N.tk[a] === 1).map(a => N.t[a])).size;   // sous-préfectures
-  else if (q.type === 'big') v = [...g.seen].filter(a => N.k[a] >= 1000).length;                   // 1 MWc installations
-  else if (q.type === 'kwc') v = [...g.seen].reduce((s, a) => s + N.k[a], 0);
+  else if (q.type === 'big') v = [...g.seen].filter(a => a !== g.path[0] && N.k[a] >= 1000).length;                   // 1 MWc installations
+  else if (q.type === 'kwc') v = [...g.seen].reduce((s, a) => a === g.path[0] ? s : s + N.k[a], 0);
   else if (q.type === 'streak') {   // most nodes in a row inside the same town
     let run = 0;
     for (let i = 0; i < p.length; i++) { const t = N.t[p[i]]; run = t >= 0 && i && N.t[p[i - 1]] === t ? run + 1 : t >= 0 ? 1 : 0; v = Math.max(v, run); }
@@ -142,16 +143,17 @@ export class Game {
   start(a) {
     this.path = [a]; this.seen = new Set(); this.taken = new Set(); this.charged = new Set();
     this.mult = 1; this.score = 0; this.left = this.steps; this.combo = 0;
-    return this.#enter(a);
+    return this.#enter(a, true);
   }
-  #enter(a) {
+  /** Combo level reached by stepping onto b (0 = reset). */
+  #comboAt(b) { const cb = this.cb; return cb && !this.seen.has(b) && this.N.k[b] >= cb.min ? Math.min(this.combo + cb.step, cb.max) : 0; }
+  #enter(a, first = false) {
     let bonus = 0, gain = 0, extra = 0;
     if (this.bonus.has(a) && !this.taken.has(a)) { bonus = this.bonus.get(a); this.taken.add(a); this.mult += bonus - 1; }
     if (this.batt.has(a) && !this.charged.has(a)) { extra = this.batt.get(a); this.charged.add(a); this.left += extra; }
-    const fresh = !this.seen.has(a), cb = this.cb;
-    if (fresh) { this.seen.add(a); gain = cb ? Math.floor(this.N.k[a] * this.mult * (10 + this.combo) / 10) : this.N.k[a] * this.mult; this.score += gain; }
-    // combo: each fresh node of at least cb.min kWc in a row adds cb.step tenths to the next gains (up to cb.max)
-    if (cb) this.combo = fresh && this.N.k[a] >= cb.min ? Math.min(this.combo + cb.step, cb.max) : 0;
+    if (this.cb) this.combo = first ? 0 : this.#comboAt(a);
+    // the landing node is marked as seen but does not count: the score starts at 0
+    if (!this.seen.has(a)) { this.seen.add(a); gain = first ? 0 : Math.floor(this.N.k[a] * this.mult * (10 + this.combo) / 10); this.score += gain; }
     return { node: a, gain, bonus, extra, mult: this.mult, score: this.score, left: this.left, combo: this.combo };
   }
   /** Neighbour of the current node in direction d (0 N, 1 S, 2 E, 3 W), or -1. */
@@ -171,7 +173,7 @@ export class Game {
     if (b < 0 || this.left <= 0) return null;
     const m = this.mult + ((this.bonus.has(b) && !this.taken.has(b)) ? this.bonus.get(b) - 1 : 0);
     const k = this.seen.has(b) ? 0 : this.N.k[b] * m;
-    return { node: b, gain: this.cb ? Math.floor(k * (10 + this.combo) / 10) : k, mult: m };
+    return { node: b, gain: Math.floor(k * (10 + this.#comboAt(b)) / 10), mult: m };
   }
 }
 

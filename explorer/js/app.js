@@ -1,15 +1,15 @@
 // PV Explorer — page logic (direction B, "Lever de soleil"). Rules live in game.js.
 // Bump ?v= (imports below and the script tag in index.html) at each release: phones keep old scripts otherwise.
-import { prepareNodes, dailyBonuses, dailyBatteries, dailyQuests, questState, finalScore, factsFound, Game, parisDay, sunView, distanceFactor, traceKm, startNode } from './game.js?v=20261121e';
-import * as BE from './backend.js?v=20261121e';
+import { prepareNodes, dailyBonuses, dailyBatteries, dailyQuests, questState, finalScore, factsFound, Game, parisDay, sunView, distanceFactor, traceKm, startNode } from './game.js?v=20261122d';
+import * as BE from './backend.js?v=20261122d';
 
 /* ================================================================ i18n */
 const T = {
   fr: {
-    loading: 'Chargement…', back: '← Random Maps', about: 'À propos', lede: 'Quelle puissance installée arriverez-vous à récolter avant le lever du jour ?',
+    loading: 'Chargement…', back: '← Random Maps', about: 'À propos', lede: 'Une nuit, 30 pas, d’installation solaire en installation solaire : suivez les panneaux, enchaînez les combos, attrapez les soleils. Quelle puissance récolterez-vous avant le lever du jour ?',
     r1: '<b>Départ tiré au sort</b> quelque part en France, un nouveau à chaque partie, jamais trop pauvre ni trop riche. En ville, beaucoup de panneaux à petits pas ; à la campagne, de grands pas, des soleils et des batteries.',
     r2: '<b>30 pas</b> N, S, E ou O : chaque pas mène vers l’installation la plus puissante toute proche dans cette direction et rapporte sa puissance. Enchaîner les installations de 100 kWc et plus fait monter un <b>combo</b> (jusqu’à ×2) ; un soleil ×2 ou ×3 multiplie tout ce qui suit ; une batterie donne 3 pas de plus.',
-    r3: '<b>Un seul but</b> : récolter le plus de puissance. Score final = puissance récoltée × bonus (+0,1 par quête du jour accomplie, jusqu’à ×1,3).',
+    r3: '<b>Un seul but</b> : récolter le plus de puissance. Score = kWc récoltés × bonus (soleils, combo, quêtes du jour).',
     comboTxt: p => `combo +${p} %`, comboMax: 'Combo au maximum : ×2 tant que vous restez sur les panneaux !',
     questsT: 'Quêtes du jour', qLong: { km: n => `Parcourir ${n} km`, dept: n => `Traverser ${n} départements`, streak: n => `Faire ${n} pas d’affilée dans une même ville`, big: n => `Récolter ${n} installations de 1 MWc`, kwc: n => `Récolter ${n.toLocaleString('fr-FR')} kWc`, towns: n => `Passer par ${n} villes`, spref: n => n > 1 ? `Passer par ${n} sous-préfectures` : 'Passer par une sous-préfecture' },
     qShort: { km: n => `${n} km`, dept: n => `${n} dépts`, streak: n => `${n} pas en ville`, big: n => `${n} × 1 MWc`, kwc: n => `${n / 1000} MWc`, towns: n => `${n} villes`, spref: () => 'sous-préf.' },
@@ -19,31 +19,31 @@ const T = {
     album: 'Mon album', albumT: 'Mon album', albumFacts: (n, t) => `${n} faits sur ${t}`, albumDepts: (n, t) => `${n} départements explorés sur ${t}`, albumHint: 'Les points pâles sont des faits encore à découvrir : passez à proximité pendant une partie (pour une naissance dans un village, il suffit de traverser son département).', albumEmpty: 'Aucun fait pour l’instant : partez explorer !', albumLocal: 'Hors ligne : seul l’album de ce navigateur est affiché.', cat: { pv: 'Photovoltaïque', sci: 'Sciences du Soleil', art: 'Arts et culture', nat: 'Nature', dpt: 'Département' }, srcT: 'Source',
     pseudoLabel: 'Votre pseudo', pseudoPh: 'Votre pseudo', suggest: 'Suggérer un pseudo', play: 'Jouer',
     pseudoBad: 'Entre 2 et 24 caractères.', local: 'Votre pseudo apparaîtra dans le classement du jour.', pseudoTaken: 'Ce pseudo est déjà pris.', pseudoRefused: 'Ce pseudo n’est pas accepté. Essayez-en un autre.', offline: 'Hors ligne : votre partie sera envoyée plus tard.',
-    startAt: d => `Départ tiré au sort : ${d}`,
+    startAt: d => `Départ tiré au sort : ${d}`, startGain: k => `Point de départ : +${k} points.`,
     node: k => `${k} kWc`,
     choose: 'Plus une direction est orangée, plus on peut récolter de puissance en 3 pas de ce côté.',
     practice: 'Partie d’entraînement sur un jour passé : non classée.', newDay: 'Le jour a changé : nouveaux soleils !',
     spotted: m => `Soleil ×${m} repéré !`, lucky: m => `Départ sur un soleil ×${m} : quelle chance !`, 
-    gainTxt: g => `+${g} kWc`, already: 'Déjà visité : rien de plus.', bonusTxt: (m, t) => `Soleil ×${m} ! Tout compte ×${t} désormais.`,
+    gainTxt: (g, k, x) => x ? `${k} kWc → +${g} points` : `+${g} points`, already: 'Déjà visité : rien de plus.', bonusTxt: (m, t) => `Soleil ×${m} ! Tout compte ×${t} désormais.`,
     steps: 'pas', stepsLeft: n => `${n} pas restant${n > 1 ? 's' : ''}`,
     dirs: ['N', 'S', 'E', 'O'], dirNames: ['nord', 'sud', 'est', 'ouest'], dirsGroup: 'Directions', rays: n => ['', ', un peu de puissance par là', ', de la puissance par là', ', beaucoup de puissance par là'][n],
     noDir: 'Aucun panneau dans cette direction.',
-    endT: 'Le jour s’est levé', endRecord: 'Record', pts: 'points', endSub: (k, f, q) => q ? `${k} kWc récoltés × ${f} de bonus (${q} quête${q > 1 ? 's' : ''})` : `${k} kWc récoltés, sans bonus de quête`,
+    endT: 'Le jour s’est levé', endRecord: 'Record', pts: 'points', endSub: (k, f, p) => `${k} kWc récoltés ${f} de bonus (soleils, combo, quêtes) = ${p} points`,
     sCollected: 'récoltés', sWalked: 'parcourus', sSuns: n => n ? `${n} soleil${n > 1 ? 's' : ''}` : 'aucun soleil', sExplore: 'distance',
     sPanels: 'panneaux', sInst: 'installations', sBestDay: 'record du jour',
     share: 'Partager', again: 'Rejouer', view: 'Classement', boardT: d => `Classement du ${d}`, you: 'vous',
     boardNote: 'Résultats réinitialisés tous les jours à minuit (heure de Paris).', boardLocal: 'Hors ligne : seules les parties de ce navigateur apparaissent.', boardLoading: 'Chargement…',
-    rankTxt: (r, n) => `${r}${r === 1 ? 'er' : 'e'} sur ${n} aujourd’hui.`, newBest: 'Nouveau record personnel !', bestKept: b => `Votre meilleure partie du jour reste à ${b} points.`, sending: 'Envoi du score…', sendFail: r => `Score non enregistré (${r}).`, boardEmpty: 'Aucune partie terminée aujourd’hui.', boardSub: (k, km) => `${k} kWc · ${km} km`, startOff: 'Partie lancée hors ligne depuis un autre départ : non classée.', result: 'Résultat',
+    rankTxt: (r, n) => `${r}${r === 1 ? 'er' : 'e'} sur ${n} aujourd’hui.`, newBest: 'Nouveau record personnel !', bestKept: b => `Votre meilleure partie du jour reste à ${b} points.`, sending: 'Envoi du score…', sendFail: r => `Score non enregistré (${r}).`, boardEmpty: 'Aucune partie terminée aujourd’hui.', boardSub: (k, km) => `${km} km`, startOff: 'Partie lancée hors ligne depuis un autre départ : non classée.', result: 'Résultat',
     shareGo: 'Partager l’image', download: 'Télécharger', copy: 'Copier le texte',
     copied: 'Texte et lien copiés.', shareText: (k, km, r) => `${r ? `Mon itinéraire PV Explorer : ${r}. ` : ''}J’ai récolté ${k} kWc et parcouru ${km} km ☀️ Les installations solaires de France, détectées par IA :`, around: a => `autour de ${a}`,
     cardSub: 'points en 30 pas', cardLine: (k, km) => `J’ai récolté ${k} kWc et parcouru ${km} km`, cardRoute: 'Mon itinéraire', cardAsk: 'Et vous, jusqu’où irez-vous ?', cardSrc: 'OpenPVMapper · détections par IA',
     menuT: 'Menu', credits: 'Sources et crédits de la carte', help: 'Comment jouer', restart: 'Nouvelle partie', changePseudo: 'Changer de pseudo', close: 'Fermer', recenter: 'Recentrer', menu: 'Menu',
     aboutT: 'À propos', shareGame: 'Partager le jeu', linkCopied: 'Lien copié', gameText: 'PV Explorer : 30 pas de nuit, d’installation solaire en installation solaire ☀️',
-    aboutHtml: `<p>Votre départ est tiré au sort à chaque partie, parmi des départs ni trop pauvres ni trop riches : c’est votre façon de jouer qui fait la différence. En 30 pas, récoltez le plus de puissance solaire. Chaque pas mène, dans la direction choisie, vers l’installation la plus puissante parmi les plus proches ; chacune compte une fois. Enchaîner les installations de 100 kWc et plus fait monter un combo (+10 % par pas, jusqu’à ×2) ; un pas sur une petite installation ou une installation déjà visitée le remet à zéro. Les soleils du jour sont les mêmes pour tout le monde et changent à minuit (heure de Paris).</p>
+    aboutHtml: `<p>Votre départ est tiré au sort à chaque partie, parmi des départs ni trop pauvres ni trop riches : c’est votre façon de jouer qui fait la différence. En 30 pas, récoltez le plus de puissance solaire. Chaque pas mène, dans la direction choisie, vers l’installation la plus puissante parmi les plus proches ; chacune compte une fois. Enchaîner les installations de 100 kWc et plus fait monter un combo (+10 % dès le premier pas, puis +10 % par pas, jusqu’à ×2) ; un pas sur une petite installation ou une installation déjà visitée le remet à zéro. Les soleils du jour sont les mêmes pour tout le monde et changent à minuit (heure de Paris).</p>
       <p>Les lumières de la nuit montrent où la puissance installée est concentrée (floutée à une dizaine de kilomètres). Les ⚡ montrent les trois installations les plus puissantes à moins de 30 km que vous n’avez pas encore récoltées (au bord de l’écran quand elles sont hors champ), avec leur puissance et leur distance. La couleur des directions indique ce que vous pouvez récolter au mieux en 3 pas de ce côté.</p>
       <p>Chaque jour, trois quêtes communes à tous (aller loin, creuser sur place, passer par des lieux) ajoutent chacune +0,1 au bonus final. Des batteries, cachées surtout entre ville et campagne, donnent 3 pas de plus. En passant près de certains lieux (ou dans le département natal d’un savant), vous découvrez des faits sur le soleil et le solaire : ils remplissent votre album, avec la carte des départements explorés (menu ⋯, ou votre ligne du classement).</p>
       <p>Des soleils (×2, ×3) se cachent dans les zones où il y a le moins de panneaux, pour donner une raison d’y aller. Ils apparaissent quand votre trace passe à moins de 10 km. Les multiplicateurs s’additionnent (×2 puis ×3 donnent ×4).</p>
-      <p>Score final = puissance récoltée × bonus des quêtes (+0,1 par quête accomplie, jusqu’à ×1,3). La puissance récoltée compte les soleils et le combo : ce sont des points plus que des kWc. En ville, on récolte beaucoup à petits pas ; à la campagne, chaque pas va plus loin et les soleils sont plus nombreux.</p>
+      <p>Score = kWc récoltés × bonus. Les kWc récoltés sont la vraie puissance installée des panneaux visités (chacun compte une fois). Le bonus réunit tout le reste : les soleils et le combo, qui multiplient les pas suivants, puis les quêtes (+0,1 chacune à la fin). En cours de partie, le grand compteur affiche les points, la ligne en dessous les kWc. En ville, on récolte beaucoup à petits pas ; à la campagne, chaque pas va plus loin et les soleils sont plus nombreux.</p>
       <p>Les installations sont des détections par IA (OpenPVMapper / DeepPVMapper), pas un recensement officiel. Chaque panneau du jeu regroupe les installations voisines ; sa puissance est plafonnée à 1 MWc pour que les grandes centrales ne décident pas de tout.</p>
       <p class="fine">Le classement garde votre pseudo et vos traces (identifiants des panneaux visités), sans compte ni adresse e-mail. Rejouez autant que vous voulez : votre meilleure partie du jour est classée.</p>
       <p class="fine">Données : OpenPVMapper — DeepPVMapper, Gabriel Kasmi (CC BY 4.0). Fond : Plan IGN © IGN. Communes et départements : INSEE, geo.api.gouv.fr, france-geojson (Licence ouverte). Polices : Unbounded, Manrope (SIL OFL).</p>`,
@@ -51,7 +51,7 @@ const T = {
       'Votre départ est tiré au sort à chaque partie, ni trop pauvre ni trop riche. En ville, beaucoup de puissance à petits pas ; à la campagne, de grands pas, des soleils et des batteries : la stratégie change selon où vous atterrissez.',
       'Glissez le doigt vers le haut, le bas, la gauche ou la droite pour avancer, ou touchez la manette en bas.',
       'Restez sur les panneaux : enchaîner les installations de 100 kWc et plus fait monter un combo jusqu’à ×2. Un soleil ×2 ou ×3 multiplie tout ce qui suit.',
-      'Trois quêtes par jour : chacune ajoute +0,1 au bonus final (score = puissance × bonus). Des batteries pour 3 pas de plus, et des faits à découvrir en chemin pour remplir votre album.'],
+      'Trois quêtes par jour : chacune ajoute +0,1 au bonus. Score = kWc récoltés × bonus (soleils, combo, quêtes). Des batteries pour 3 pas de plus, et des faits à découvrir en chemin pour remplir votre album.'],
     tutKeys: 'Flèches du clavier (ou la manette en bas) pour avancer d’un pas vers le N, le S, l’E ou l’O.',
     tutT: ['Le but', 'Votre départ', 'Avancer', 'Combo et soleils', 'Quêtes, batteries, album'], tutSkip: 'Passer', tutNext: 'Suivant', tutGo: 'C’est parti', tutCity: 'ville', tutCountry: 'campagne', tutKm: 'km',
     adj: ['Téméraire', 'Radieux', 'Curieux', 'Vagabond', 'Lumineux', 'Intrépide', 'Matinal', 'Rayonnant', 'Nomade', 'Vif'],
@@ -59,10 +59,10 @@ const T = {
     pseudoOrder: (n, a) => `${n} ${a}`, date: d => new Date(d + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
   },
   en: {
-    loading: 'Loading…', back: '← Random Maps', about: 'About', lede: 'How much installed power can you collect before daybreak?',
+    loading: 'Loading…', back: '← Random Maps', about: 'About', lede: 'One night, 30 steps, from solar installation to solar installation: follow the panels, chain combos, catch the suns. How much power will you collect before daybreak?',
     r1: '<b>Your start is drawn at random</b> somewhere in France, a new one for each game, never too poor nor too rich. In a city, lots of panels in small steps; in the countryside, long steps, suns and batteries.',
     r2: '<b>30 steps</b> N, S, E or W: each step goes to the most powerful installation close by in that direction and adds its power. Chaining installations of 100 kWp or more builds a <b>combo</b> (up to ×2); a ×2 or ×3 sun multiplies everything that follows; a battery gives 3 more steps.',
-    r3: '<b>One goal</b>: collect as much power as you can. Final score = power collected × bonus (+0.1 per daily quest done, up to ×1.3).',
+    r3: '<b>One goal</b>: collect as much power as you can. Score = kWp collected × bonus (suns, combo, daily quests).',
     comboTxt: p => `combo +${p}%`, comboMax: 'Combo maxed: ×2 as long as you stay on the panels!',
     questsT: 'Today’s quests', qLong: { km: n => `Walk ${n} km`, dept: n => `Cross ${n} départements`, streak: n => `Make ${n} steps in a row in the same town`, big: n => `Collect ${n} installations of 1 MWp`, kwc: n => `Collect ${n.toLocaleString('en-GB')} kWp`, towns: n => `Pass through ${n} towns`, spref: n => n > 1 ? `Pass through ${n} sous-préfectures` : 'Pass through a sous-préfecture' },
     qShort: { km: n => `${n} km`, dept: n => `${n} depts`, streak: n => `${n} in town`, big: n => `${n} × 1 MWp`, kwc: n => `${n / 1000} MWp`, towns: n => `${n} towns`, spref: () => 'sous-préf.' },
@@ -72,31 +72,31 @@ const T = {
     album: 'My album', albumT: 'My album', albumFacts: (n, t) => `${n} facts of ${t}`, albumDepts: (n, t) => `${n} of ${t} départements explored`, albumHint: 'Pale dots are facts still to discover: come close to them during a game (for a birth in a village, crossing its département is enough).', albumEmpty: 'No fact yet: go and explore!', albumLocal: 'Offline: only this browser’s album is shown.', cat: { pv: 'Photovoltaics', sci: 'Science of the Sun', art: 'Arts and culture', nat: 'Nature', dpt: 'Département' }, srcT: 'Source',
     pseudoLabel: 'Your nickname', pseudoPh: 'Your nickname', suggest: 'Suggest a nickname', play: 'Play',
     pseudoBad: '2 to 24 characters.', local: 'Your nickname will appear in today’s leaderboard.', pseudoTaken: 'This nickname is taken.', pseudoRefused: 'This nickname is not accepted. Try another one.', offline: 'Offline: your game will be sent later.',
-    startAt: d => `Start drawn at random: ${d}`,
+    startAt: d => `Start drawn at random: ${d}`, startGain: k => `Starting point: +${k} points.`,
     node: k => `${k} kWp`,
     choose: 'The more orange a direction, the more power you can collect in 3 steps that way.',
     practice: 'Practice game on a past day: not ranked.', newDay: 'A new day: new suns!',
     spotted: m => `Sun ×${m} spotted!`, lucky: m => `You start on a ×${m} sun: lucky you!`, 
-    gainTxt: g => `+${g} kWp`, already: 'Already visited: nothing more.', bonusTxt: (m, t) => `Sun ×${m}! Everything counts ×${t} from now on.`,
+    gainTxt: (g, k, x) => x ? `${k} kWp → +${g} points` : `+${g} points`, already: 'Already visited: nothing more.', bonusTxt: (m, t) => `Sun ×${m}! Everything counts ×${t} from now on.`,
     steps: 'steps', stepsLeft: n => `${n} step${n > 1 ? 's' : ''} left`,
     dirs: ['N', 'S', 'E', 'W'], dirNames: ['north', 'south', 'east', 'west'], dirsGroup: 'Directions', rays: n => ['', ', some power that way', ', power that way', ', lots of power that way'][n],
     noDir: 'No panel in that direction.',
-    endT: 'The day has risen', endRecord: 'Record', pts: 'points', endSub: (k, f, q) => q ? `${k} kWp collected × ${f} bonus (${q} quest${q > 1 ? 's' : ''})` : `${k} kWp collected, no quest bonus`,
+    endT: 'The day has risen', endRecord: 'Record', pts: 'points', endSub: (k, f, p) => `${k} kWp collected ${f} bonus (suns, combo, quests) = ${p} points`,
     sCollected: 'collected', sWalked: 'walked', sSuns: n => n ? `${n} sun${n > 1 ? 's' : ''}` : 'no sun', sExplore: 'distance',
     sPanels: 'panels', sInst: 'installations', sBestDay: 'best today',
     share: 'Share', again: 'Play again', view: 'Leaderboard', boardT: d => `Leaderboard, ${d}`, you: 'you',
     boardNote: 'Results reset every day at midnight (Paris time).', boardLocal: 'Offline: only this browser’s games are listed.', boardLoading: 'Loading…',
-    rankTxt: (r, n) => `${r}${[, 'st', 'nd', 'rd'][r % 100 > 10 && r % 100 < 14 ? 0 : r % 10] || 'th'} of ${n} today.`, newBest: 'New personal best!', bestKept: b => `Your best game today stays at ${b} points.`, sending: 'Sending your score…', sendFail: r => `Score not saved (${r}).`, boardEmpty: 'No game finished today.', boardSub: (k, km) => `${k} kWp · ${km} km`, startOff: 'Game started offline from another start: not ranked.', result: 'Result',
+    rankTxt: (r, n) => `${r}${[, 'st', 'nd', 'rd'][r % 100 > 10 && r % 100 < 14 ? 0 : r % 10] || 'th'} of ${n} today.`, newBest: 'New personal best!', bestKept: b => `Your best game today stays at ${b} points.`, sending: 'Sending your score…', sendFail: r => `Score not saved (${r}).`, boardEmpty: 'No game finished today.', boardSub: (k, km) => `${km} km`, startOff: 'Game started offline from another start: not ranked.', result: 'Result',
     shareGo: 'Share the image', download: 'Download', copy: 'Copy the text',
     copied: 'Text and link copied.', shareText: (k, km, r) => `${r ? `My PV Explorer route: ${r}. ` : ''}I collected ${k} kWp and walked ${km} km ☀️ France’s solar installations, detected by AI:`, around: a => `around ${a}`,
     cardSub: 'points in 30 steps', cardLine: (k, km) => `I collected ${k} kWp and walked ${km} km`, cardRoute: 'My route', cardAsk: 'How far will you go?', cardSrc: 'OpenPVMapper · AI detections',
     menuT: 'Menu', credits: 'Map sources and credits', help: 'How to play', restart: 'New game', changePseudo: 'Change nickname', close: 'Close', recenter: 'Recentre', menu: 'Menu',
     aboutT: 'About', shareGame: 'Share the game', linkCopied: 'Link copied', gameText: 'PV Explorer: 30 steps at night, from solar installation to solar installation ☀️',
-    aboutHtml: `<p>Your start is drawn at random for each game, among starts neither too poor nor too rich: the way you play makes the difference. In 30 steps, collect as much solar power as you can. Each step goes, in the chosen direction, to the most powerful of the nearest installations; each counts once. Chaining installations of 100 kWp or more builds a combo (+10% per step, up to ×2); a step onto a small or already visited installation resets it. Today’s suns are the same for everyone and change at midnight (Paris time).</p>
+    aboutHtml: `<p>Your start is drawn at random for each game, among starts neither too poor nor too rich: the way you play makes the difference. In 30 steps, collect as much solar power as you can. Each step goes, in the chosen direction, to the most powerful of the nearest installations; each counts once. Chaining installations of 100 kWp or more builds a combo (+10% from the first step, then +10% per step, up to ×2); a step onto a small or already visited installation resets it. Today’s suns are the same for everyone and change at midnight (Paris time).</p>
       <p>The night lights show where installed power is concentrated (blurred over about ten kilometres). The ⚡ show the three most powerful installations within 30 km that you have not collected yet (on the screen edge when off screen), with their power and distance. The colour of the directions shows the most you can collect in 3 steps that way.</p>
       <p>Every day, three quests shared by everyone (go far, dig in, pass through places) each add +0.1 to the final bonus. Batteries, hidden mostly between town and countryside, give 3 more steps. Passing close to some places (or through a scientist’s home département), you discover facts about the Sun and solar power: they fill your album, with the map of the départements explored (⋯ menu, or your row of the leaderboard).</p>
       <p>Suns (×2, ×3) hide where panels are scarcest, to give a reason to go there. They appear when your trace comes within 10 km. Multipliers add up (×2 then ×3 make ×4).</p>
-      <p>Final score = power collected × quest bonus (+0.1 per quest done, up to ×1.3). The power collected includes suns and combo: it is points more than kWp. In a city you collect a lot in small steps; in the countryside every step goes farther and suns are more common.</p>
+      <p>Score = kWp collected × bonus. The kWp collected are the real installed power of the panels visited (each counts once). The bonus gathers the rest: suns and combo, which multiply the next steps, then quests (+0.1 each at the end). While playing, the big counter shows points, the line below the kWp. In a city you collect a lot in small steps; in the countryside every step goes farther and suns are more common.</p>
       <p>The installations are AI detections (OpenPVMapper / DeepPVMapper), not an official census. Each panel of the game groups nearby installations; its power is capped at 1 MWp so that large solar farms do not decide everything.</p>
       <p class="fine">The leaderboard keeps your nickname and your traces (ids of the panels visited), with no account or email address. Play as often as you like: your best game of the day is ranked.</p>
       <p class="fine">Data: OpenPVMapper — DeepPVMapper, Gabriel Kasmi (CC BY 4.0). Basemap: Plan IGN © IGN. Towns and départements: INSEE, geo.api.gouv.fr, france-geojson (Licence Ouverte). Fonts: Unbounded, Manrope (SIL OFL).</p>`,
@@ -104,7 +104,7 @@ const T = {
       'Your start is drawn at random for each game, never too poor nor too rich. In a city, lots of power in small steps; in the countryside, long steps, suns and batteries: the strategy depends on where you land.',
       'Swipe up, down, left or right to move, or tap the controller at the bottom.',
       'Stay on the panels: chaining installations of 100 kWp or more builds a combo, up to ×2. A ×2 or ×3 sun multiplies everything that follows.',
-      'Three quests a day: each adds +0.1 to the final bonus (score = power × bonus). Batteries for 3 more steps, and facts to discover on the way to fill your album.'],
+      'Three quests a day: each adds +0.1 to the bonus. Score = kWp collected × bonus (suns, combo, quests). Batteries for 3 more steps, and facts to discover on the way to fill your album.'],
     tutKeys: 'Arrow keys (or the controller at the bottom) move one step N, S, E or W.',
     tutT: ['The goal', 'Your start', 'Moving', 'Combo and suns', 'Quests, batteries, album'], tutSkip: 'Skip', tutNext: 'Next', tutGo: 'Let’s go', tutCity: 'city', tutCountry: 'countryside', tutKm: 'km',
     adj: ['Bold', 'Radiant', 'Curious', 'Roaming', 'Bright', 'Fearless', 'Early', 'Beaming', 'Nomad', 'Swift'],
@@ -123,7 +123,7 @@ for (const el of document.querySelectorAll('[data-t-ph]')) el.placeholder = t[el
 for (const el of document.querySelectorAll('[data-t-title]')) el.title = t[el.dataset.tTitle];
 for (const a of document.querySelectorAll('.lang a')) a.setAttribute('aria-current', a.dataset.l === LANG);
 document.getElementById('aboutBody').innerHTML = t.aboutHtml;
-document.getElementById('unit').textContent = LANG === 'fr' ? 'kWc' : 'kWp';
+document.getElementById('unit').textContent = 'points';
 const $ = id => document.getElementById(id);
 const NF = new Intl.NumberFormat(LANG === 'fr' ? 'fr-FR' : 'en-GB');
 const XF = v => '×' + v.toLocaleString(LANG === 'fr' ? 'fr-FR' : 'en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -144,7 +144,7 @@ const TODAY = parisDay();
 const DAY = /^\d{4}-\d{2}-\d{2}$/.test(qs.get('day') || '') && qs.get('day') < TODAY ? qs.get('day') : TODAY;
 const PRACTICE = DAY !== TODAY;
 const REVEAL_M = 2500;
-const VER = '20261121e';   // data cache-buster, bumped with the scripts
+const VER = '20261122d';   // data cache-buster, bumped with the scripts
 const TOP = 100;   // height of the floating counter: markers and pins stay below it
 let CFG, N, LL, BON, BAT, QU, BK, LIGHTS, TOWNS, FACTS, VIEW = [], BVIEW = [], TGT = [], RAYS = [0, 0, 0, 0], TOPS = [];
 const bkey = (i, j) => i * 100000 + j;
@@ -570,7 +570,7 @@ function hud(last) {
   $('stepsN').textContent = L;
   st.style.setProperty('--sc', col);
   st.classList.toggle('urgent', L > 0 && L <= 3); st.setAttribute('aria-label', t.stepsLeft(L));
-  $('meta').innerHTML = `<b>${NF.format(Math.round(traceKm(N, g.path)))} km</b> · ${esc(placeOf(g.node))}` +
+  $('meta').innerHTML = `<b>${NF.format(realK())} ${LANG === 'fr' ? 'kWc' : 'kWp'}</b> · ${NF.format(Math.round(traceKm(N, g.path)))} km` +
     (g.combo ? ` <span class="combo${g.combo >= (CFG.game.combo?.max || 10) ? ' max' : ''}">${t.comboTxt(g.combo * 10)}</span>` : '');
   if (last && CFG.game.combo && g.combo === CFG.game.combo.max && last.combo !== undefined && !hud.maxed) { hud.maxed = true; toast(t.comboMax); }
   if (!g.combo) hud.maxed = false;
@@ -578,7 +578,7 @@ function hud(last) {
   if (last && last.bonus) { m.classList.remove('pop'); void m.offsetWidth; m.classList.add('pop'); }
   const a = g.node;
   $('info').innerHTML = `<b>${t.node(NF.format(N.k[a]))}</b>` +
-    (last ? (last.bonus ? t.bonusTxt(last.bonus, g.mult) : last.gain ? t.gainTxt(NF.format(last.gain)) : t.already) : t.choose);
+    (last ? (last.bonus ? t.bonusTxt(last.bonus, g.mult) : last.gain ? t.gainTxt(NF.format(last.gain), NF.format(N.k[a]), last.gain !== N.k[a]) : t.already) : t.choose);
   for (const b of document.querySelectorAll('.pad button')) {
     const d = +b.dataset.d, ok = g.left > 0 && !anim && g.target(d) >= 0, n = ok ? rays(d) : 0;
     RAYS[d] = n;
@@ -654,6 +654,7 @@ $('recenter').onclick = () => g && map.easeTo({ center: ll(g.node), zoom: Math.m
 
 /* ---------------- place, quests, facts, album ---------------- */
 // where the walker is: the town of the node (data v3), else its département
+const realK = () => g ? [...g.seen].reduce((s, a) => a === g.path[0] ? s : s + N.k[a], 0) : 0;   // the real installed power collected (the landing node does not count)
 const placeOf = a => N.t[a] >= 0 ? TOWNS[N.t[a]].name : CFG.depts[N.dp[a]]?.[1] || '';
 // quests of the day: chips under the score; a new one done pops a toast and makes the walker jump
 let qDone = new Set();
@@ -743,7 +744,8 @@ function finish(silent) {
   g.final = final; g.explore = ex; g.km = km;
   $('endT').innerHTML = t.endT + (rec && prev ? ` <span class="record">${t.endRecord}</span>` : '');
   $('endScore').innerHTML = `${NF.format(final)}<small>${t.pts}</small>`;
-  $('endSub').textContent = t.endSub(NF.format(g.score), XF(Math.round(ex * qf * 100) / 100), qn);   // one bonus: power × bonus = score
+  const kr = realK();   // one global bonus: real kWc × bonus = score (suns, combo and quests together)
+  $('endSub').textContent = t.endSub(NF.format(kr), kr ? XF(Math.round(final / kr * 100) / 100) : XF(1), NF.format(final));
   $('endStats').innerHTML = `<div><b>${NF.format(km)} km</b>${t.sWalked}</div><div><b>☀ ×${g.mult}</b>${t.sSuns(g.taken.size)}</div><div><b>✓ ${qn}/${QU.length}</b>${t.sQuests(qn)}</div><div><b>${NF.format(Math.max(prev, final))}</b>${t.sBestDay}</div>`;
   $('endRank').textContent = '';
   setMode('end');
@@ -860,7 +862,7 @@ async function card() {
   } catch (e) { console.warn('map snapshot failed', e); }
   x.fillStyle = '#ffcf6b'; x.font = '900 150px Unbounded'; x.fillText(NF.format(g.final ?? g.score), Wc / 2, 1490);
   x.fillStyle = '#fff4dc'; x.font = '700 46px Unbounded'; x.fillText(t.cardSub, Wc / 2, 1565);
-  x.globalAlpha = .85; x.font = '700 40px Manrope'; x.fillText(t.cardLine(NF.format(g.score), NF.format(g.km ?? Math.round(traceKm(N, g.path)))), Wc / 2, 1650);
+  x.globalAlpha = .85; x.font = '700 40px Manrope'; x.fillText(t.cardLine(NF.format(realK()), NF.format(g.km ?? Math.round(traceKm(N, g.path)))), Wc / 2, 1650);
   const rt = await route();
   if (rt) {
     x.globalAlpha = .6; x.font = '700 30px Manrope'; x.fillText(t.cardRoute.toUpperCase(), Wc / 2, 1730);
@@ -871,7 +873,7 @@ async function card() {
   return new Promise(res => c.toBlob(res, 'image/png'));
 }
 const shareUrl = () => OPM;
-const shareTxt = async () => t.shareText(NF.format(g.score), NF.format(g.km ?? 0), await route());
+const shareTxt = async () => t.shareText(NF.format(realK()), NF.format(g.km ?? 0), await route());
 $('shareBtn').onclick = async () => {
   $('share').hidden = false; $('shareMsg').textContent = '';
   $('shareImgBox').replaceChildren(); shareBlob = await card(); fitTrace();
@@ -948,8 +950,8 @@ const SCENES = [
   },
   // 4. combo, suns and score (power × quest bonus)
   () => SV(tDots(16, 10, 16, 130, 120, 9) + tTrace([[20, 120], [60, 120], [60, 74], [104, 74], [104, 34]], 4, { gains: [0, '+60', '+45', '×2', '+180'] }) + tSun(104, 74, 2, 11) +
-    `<g text-anchor="end" style="font-variant-numeric:tabular-nums"><text x="284" y="44" style="font:800 15px Unbounded,sans-serif" fill="#fff4dc">${NF.format(1240)} <tspan style="font-size:10px" fill="#ffcf6b">${LANG === 'fr' ? 'kWc' : 'kWp'}</tspan></text>` +
-    `<text x="284" y="70" style="font:800 15px Unbounded,sans-serif" fill="#fff4dc">${XF(1.2)} <tspan style="font-size:10px" fill="#ffcf6b">✓✓ ${LANG === 'fr' ? 'quêtes' : 'quests'}</tspan></text>` +
+    `<g text-anchor="end" style="font-variant-numeric:tabular-nums"><text x="284" y="44" style="font:800 15px Unbounded,sans-serif" fill="#fff4dc">${NF.format(620)} <tspan style="font-size:10px" fill="#ffcf6b">${LANG === 'fr' ? 'kWc' : 'kWp'}</tspan></text>` +
+    `<text x="284" y="70" style="font:800 15px Unbounded,sans-serif" fill="#fff4dc">${XF(2.4)} <tspan style="font-size:10px" fill="#ffcf6b">bonus</tspan></text>` +
     `<line x1="170" y1="84" x2="284" y2="84" stroke="rgba(255,178,46,.5)"/><text x="284" y="114" style="font:900 24px Unbounded,sans-serif" fill="#ffcf6b">${NF.format(1488)} <tspan style="font-size:11px">${t.pts}</tspan></text></g>` +
     `<g transform="translate(150 22)"><rect x="-4" y="-12" width="${LANG === 'fr' ? 92 : 86}" height="18" rx="9" fill="rgba(255,178,46,.22)" stroke="#ffb22e"/><text x="${LANG === 'fr' ? 42 : 39}" y="1" text-anchor="middle" style="font:800 10.5px Manrope,sans-serif" fill="#ffcf6b">${t.comboTxt(30)}</text></g>`),
 ,
