@@ -1,8 +1,7 @@
 // PV Explorer — page logic (direction B, "Lever de soleil"). Rules live in game.js.
 // Bump ?v= (imports below and the script tag in index.html) at each release: phones keep old scripts otherwise.
-import { betterRoute } from './solve.js?v=20261123a';
-import { prepareNodes, dailyBonuses, dailyBatteries, dailyQuests, questState, finalScore, factsFound, Game, parisDay, sunView, distanceFactor, traceKm, startNode } from './game.js?v=20261123a';
-import * as BE from './backend.js?v=20261123a';
+import { prepareNodes, dailyBonuses, dailyBatteries, dailyQuests, questState, finalScore, factsFound, Game, parisDay, sunView, distanceFactor, traceKm, startNode } from './game.js?v=20261123b';
+import * as BE from './backend.js?v=20261123b';
 
 /* ================================================================ i18n */
 const T = {
@@ -21,15 +20,14 @@ const T = {
     pseudoLabel: 'Votre pseudo', pseudoPh: 'Votre pseudo', suggest: 'Suggérer un pseudo', play: 'Jouer',
     pseudoBad: 'Entre 2 et 24 caractères.', local: 'Votre pseudo apparaîtra dans le classement du jour.', pseudoTaken: 'Ce pseudo est déjà pris.', pseudoRefused: 'Ce pseudo n’est pas accepté. Essayez-en un autre.', offline: 'Hors ligne : votre partie sera envoyée plus tard.',
     startAt: d => `Départ tiré au sort : ${d}`, startGain: k => `Point de départ : +${k} points.`,
-    demoBtn: 'Voir une meilleure partie', demoSkip: 'Passer', demoStep: (n, m, k) => `Route bleue · pas ${n}/${m} · ${k} points`,
-    lvl: ['rien de spécial', 'un peu de puissance', 'de la puissance', 'beaucoup de puissance'],
-    demoFork: (s, da, la, dm, lm) => la > lm ? `Pas ${s} : vous êtes parti vers ${dm}. Vers ${da}, la boussole annonçait ${la}.` : `Pas ${s} : la route bleue part vers ${da} au lieu de ${dm}.`,
-    demoSun: (m, km) => `Soleil ×${m} : il était à ${km} de votre trace.`, demoBatt: n => `Batterie : +${n} pas pour aller plus loin.`,
-    demoRun: (n, k) => `${n} grosses installations d'affilée : +${k} points grâce au combo.`,
-    demoEnd: 'Les cercles : les plus gros amas solaires autour du départ que vous n\'avez pas récoltés.',
-    spot: (k, n) => `${k} kWc · ${n} inst.`, spotsTxt: 'Cercles en pointillés : les plus gros amas autour de votre départ, à viser la prochaine fois.',
-    betterLoading: 'On cherche une route un peu meilleure…',
-    betterTxt: (s, dir, f, p) => `Un peu mieux était possible : au pas ${s}, en partant vers ${dir}, la route bleue fait ${f} points (+${p} %).`, betterNone: 'Bravo : pas de route nettement meilleure en changeant la fin de votre partie.',
+    demoSkip: 'Retour', fbBtn: 'Feedback sur l’itinéraire', kindName: ['ville', 'sous-préfecture', 'préfecture'],
+    spot: (k, n) => `${k} kWc · ${n} inst.`,
+    spotsSum: (got, n) => got ? `Vous avez récolté ${got} des ${n} plus gros amas solaires du coin (cercles pleins). En pointillés, ceux qui restaient.` : `Les cercles : les ${n} plus gros amas solaires du coin, à viser la prochaine fois.`,
+    fbTown: (n, k, s, d) => `${n} (${k}) : à ${s} pas ${fromStep(d)}`, fbDept: (n, s, d) => `${n} : à ${s} pas ${fromStep(d)}`,
+    fbKm: m => `Il manquait ${m} km. Les directions sans panneaux font souvent de plus grands pas.`,
+    fbStreak: (n, c, s, d) => `${n} (${c} arrêts, de quoi enchaîner) : à ${s} pas ${fromStep(d)}`,
+    fbBig: (c, k, s, d) => `Installation de ${k} kWc : à ${s} pas ${fromStep(d)}` + (c > 1 ? ` · ${c} installations de 1 MWc à 3 pas ou moins de votre trace` : ''),
+    fbKwc: m => `Il manquait ${m} kWc.`, fbSpot: (k, s, d) => `Amas de ${k} kWc : à ${s} pas ${fromStep(d)}`, fbNone: 'Rien à moins de 12 pas de votre trace.',
     node: k => `${k} kWc`,
     choose: 'Plus une direction est orangée, plus on peut récolter de puissance en 3 pas de ce côté.',
     practice: 'Partie d’entraînement sur un jour passé : non classée.', newDay: 'Le jour a changé : nouveaux soleils !',
@@ -83,15 +81,14 @@ const T = {
     pseudoLabel: 'Your nickname', pseudoPh: 'Your nickname', suggest: 'Suggest a nickname', play: 'Play',
     pseudoBad: '2 to 24 characters.', local: 'Your nickname will appear in today’s leaderboard.', pseudoTaken: 'This nickname is taken.', pseudoRefused: 'This nickname is not accepted. Try another one.', offline: 'Offline: your game will be sent later.',
     startAt: d => `Start drawn at random: ${d}`, startGain: k => `Starting point: +${k} points.`,
-    demoBtn: 'See a better game', demoSkip: 'Skip', demoStep: (n, m, k) => `Blue route · step ${n}/${m} · ${k} points`,
-    lvl: ['nothing special', 'some power', 'power', 'lots of power'],
-    demoFork: (s, da, la, dm, lm) => la > lm ? `Step ${s}: you went ${dm}. Heading ${da}, the compass showed ${la}.` : `Step ${s}: the blue route heads ${da} instead of ${dm}.`,
-    demoSun: (m, km) => `Sun ×${m}: it was ${km} from your trace.`, demoBatt: n => `Battery: +${n} steps to go further.`,
-    demoRun: (n, k) => `${n} big installations in a row: +${k} points from the combo.`,
-    demoEnd: 'The circles: the biggest solar clusters around the start that you did not collect.',
-    spot: (k, n) => `${k} kWp · ${n} inst.`, spotsTxt: 'Dashed circles: the biggest clusters around your start, worth aiming for next time.',
-    betterLoading: 'Looking for a slightly better route…',
-    betterTxt: (s, dir, f, p) => `A bit better was possible: at step ${s}, heading ${dir}, the blue route makes ${f} points (+${p}%).`, betterNone: 'Well done: no clearly better route by changing the end of your game.',
+    demoSkip: 'Back', fbBtn: 'Feedback on the route', kindName: ['town', 'sous-préfecture', 'préfecture'],
+    spot: (k, n) => `${k} kWp · ${n} inst.`,
+    spotsSum: (got, n) => got ? `You collected ${got} of the ${n} biggest solar clusters around (solid circles). Dashed: the ones left.` : `The circles: the ${n} biggest solar clusters around, worth aiming for next time.`,
+    fbTown: (n, k, s, d) => `${n} (${k}): ${s} steps ${fromStep(d)}`, fbDept: (n, s, d) => `${n}: ${s} steps ${fromStep(d)}`,
+    fbKm: m => `${m} km short. Directions without panels often make longer steps.`,
+    fbStreak: (n, c, s, d) => `${n} (${c} stops, enough to chain): ${s} steps ${fromStep(d)}`,
+    fbBig: (c, k, s, d) => `Installation of ${k} kWp: ${s} steps ${fromStep(d)}` + (c > 1 ? ` · ${c} 1 MWp installations within 3 steps of your trace` : ''),
+    fbKwc: m => `${m} kWp short.`, fbSpot: (k, s, d) => `Cluster of ${k} kWp: ${s} steps ${fromStep(d)}`, fbNone: 'Nothing within 12 steps of your trace.',
     node: k => `${k} kWp`,
     choose: 'The more orange a direction, the more power you can collect in 3 steps that way.',
     practice: 'Practice game on a past day: not ranked.', newDay: 'A new day: new suns!',
@@ -146,6 +143,7 @@ document.getElementById('unit').textContent = 'points';
 const $ = id => document.getElementById(id);
 const NF = new Intl.NumberFormat(LANG === 'fr' ? 'fr-FR' : 'en-GB');
 const XF = v => '×' + v.toLocaleString(LANG === 'fr' ? 'fr-FR' : 'en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fromStep = d => LANG === 'fr' ? (d ? `de votre pas ${d}` : 'de votre départ') : (d ? `from your step ${d}` : 'from your start');
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ================================================================ storage (this browser only) */
@@ -163,7 +161,7 @@ const TODAY = parisDay();
 const DAY = /^\d{4}-\d{2}-\d{2}$/.test(qs.get('day') || '') && qs.get('day') < TODAY ? qs.get('day') : TODAY;
 const PRACTICE = DAY !== TODAY;
 const REVEAL_M = 2500;
-const VER = '20261123a';   // data cache-buster, bumped with the scripts
+const VER = '20261123b';   // data cache-buster, bumped with the scripts
 const TOP = 100;   // height of the floating counter: markers and pins stay below it
 let CFG, N, LL, BON, BAT, QU, BK, LIGHTS, TOWNS, FACTS, VIEW = [], BVIEW = [], TGT = [], RAYS = [0, 0, 0, 0], TOPS = [];
 const bkey = (i, j) => i * 100000 + j;
@@ -216,12 +214,12 @@ function size() { DPR = Math.min(devicePixelRatio || 1, 2); W = innerWidth; H = 
 const P = a => map.project(ll(a));
 const mpx = () => 40075016.686 * Math.cos(map.getCenter().lat * Math.PI / 180) / (512 * 2 ** map.getZoom());
 let raf = 0;
-function kick() { if (!raf) raf = requestAnimationFrame(() => { raf = 0; draw(); if (anim || mode === 'draw' || mode === 'play' || mode === 'intro' || RP?.demo) kick(); }); }
+function kick() { if (!raf) raf = requestAnimationFrame(() => { raf = 0; draw(); if (anim || mode === 'draw' || mode === 'play' || mode === 'intro') kick(); }); }
 
 function trailPts(step) {
   if (!g) return [];
   const out = [], own = g.path.map(P); if (anim) own[own.length - 1] = anim.pos;
-  for (const path of [own].concat(RP?.alt ? [altPts()] : [])) {
+  for (const path of [own]) {
   for (let i = 0; i < path.length; i++) {
     if (i) { const a = path[i - 1], b = path[i], n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / Math.max(step, 2)); for (let s = 1; s < n; s++) out.push([a.x + (b.x - a.x) * s / n, a.y + (b.y - a.y) * s / n]); }
     out.push([path[i].x, path[i].y]);
@@ -349,116 +347,117 @@ function pointer(x, y, ang) {   // small triangle outside the ⚡ disc, pointing
   ctx.restore();
 }
 
-/* ---------------- after a game: "see a better game" (js/solve.js) and the solar clusters around the start ---------------- */
-// RP: { alt: {at, path, final} | null, spots: [{ll, r, k, n}], demo: {i, t, run, sum} | null, stop }
+/* ---------------- after a game: the solar clusters around the start, and feedback on the route (no full solution) ---------------- */
+// RP: { spots: [{ll, x, y, r, k, n, m, got}], fb: [{q, done, items: [{txt, route, target}]}], focus: item | null }
 let RP = null;
-const BLUE = '#8fd8ff';
-const dirOf = (a, b) => [0, 1, 2, 3].find(e => N.nb[a * 4 + e] === b);
-function altPts() {   // the blue route on screen, from the branching node to the step shown (the head moving during the demo)
-  const A = RP.alt, D = RP.demo, last = D ? D.i : A.path.length - 1;
-  const pts = A.path.slice(A.at, last + 1).map(P);
-  if (D && D.i > A.at && pts.length > 1) { const f = Math.min(1, (performance.now() - D.t) / D.dt), p = pts[pts.length - 2], q = pts[pts.length - 1]; pts[pts.length - 1] = { x: p.x + (q.x - p.x) * f, y: p.y + (q.y - p.y) * f }; }
-  return pts;
-}
-function altRoute() {   // the blue route and the suns it takes
-  const A = RP.alt, pts = altPts(); if (pts.length < 2) return;
-  const last = RP.demo ? RP.demo.i : A.path.length - 1, bm = new Map(BON.map(b => [b.node, b.mult]));
-  ctx.save(); ctx.lineJoin = ctx.lineCap = 'round'; ctx.shadowColor = '#3fb8ff'; ctx.shadowBlur = 10; ctx.setLineDash([7, 6]);
-  ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.strokeStyle = BLUE; ctx.lineWidth = 3.5; ctx.stroke(); ctx.restore();
-  const b0 = pts[0]; ctx.beginPath(); ctx.arc(b0.x, b0.y, 8, 0, 7); ctx.strokeStyle = BLUE; ctx.lineWidth = 2; ctx.stroke();
-  for (let i = A.at + 1; i <= last; i++) if (bm.has(A.path[i])) { const p = P(A.path[i]); sun(p.x, p.y, bm.get(A.path[i]), 1, 12); }
-  if (!RP.demo) { const h = pts[pts.length - 1]; ctx.beginPath(); ctx.arc(h.x, h.y, 6, 0, 7); ctx.fillStyle = BLUE; ctx.fill(); }
-}
-function demoWalker() {   // the walker on the blue route, with a blue halo
-  const pts = altPts(), h = pts[pts.length - 1], D = RP.demo, f = Math.min(1, (performance.now() - D.t) / D.dt);
-  const gl = ctx.createRadialGradient(h.x, h.y, 4, h.x, h.y, 34); gl.addColorStop(0, 'rgba(63,184,255,.55)'); gl.addColorStop(1, 'rgba(63,184,255,0)');
-  ctx.fillStyle = gl; ctx.fillRect(h.x - 34, h.y - 34, 68, 68);
-  const keep = facing; facing = D.face; avatar(h.x, h.y, Math.sin(Math.PI * f) * 14); facing = keep;
-}
-// the biggest clusters of installations the player did not collect, within 30 km of the start (6 km boxes on a 2 km grid)
-function findSpots(path, seen, n = 3, R = 30000) {
+// the biggest clusters of installations within 30 km of the start (6 km boxes on a 2 km grid); got: the player collected most of it
+function findSpots(path, seen, n = 5, R = 30000) {
   const a0 = path[0], x0 = N.x[a0], y0 = N.y[a0], C = 2000, cells = new Map();
   for (let a = 0; a < N.k.length; a++) {
-    if (seen.has(a)) continue;
     const dx = N.x[a] - x0, dy = N.y[a] - y0; if (dx * dx + dy * dy > R * R) continue;
     const key = Math.floor(dx / C) + 64 + (Math.floor(dy / C) + 64) * 128;
     (cells.get(key) || cells.set(key, []).get(key)).push(a);
   }
   const box = key => { const out = []; for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) { const c = cells.get(key + i + j * 128); if (c) out.push(...c); } return out; };
-  const cand = [...cells.keys()].map(key => { const m = box(key); return { key, m, k: m.reduce((s, a) => s + N.k[a], 0) }; }).sort((p, q) => q.k - p.k);
+  const cand = [...cells.keys()].map(key => { const m = box(key); return { m, k: m.reduce((s, a) => s + N.k[a], 0) }; }).sort((p, q) => q.k - p.k);
   const out = [];
   for (const c of cand) {
-    if (out.length >= n || c.m.length < 3) { if (out.length >= n) break; continue; }
+    if (out.length >= n) break;
+    if (c.m.length < 3) continue;
     let sx = 0, sy = 0, lo = 0, la = 0; for (const a of c.m) { const w = N.k[a]; sx += N.x[a] * w; sy += N.y[a] * w; const [p, q] = ll(a); lo += p * w; la += q * w; }
     const cx = sx / c.k, cy = sy / c.k;
     if (out.some(q => Math.hypot(q.x - cx, q.y - cy) < 8000)) continue;
     const r = Math.max(1200, Math.min(3500, c.m.reduce((s, a) => s + Math.hypot(N.x[a] - cx, N.y[a] - cy) * N.k[a], 0) / c.k * 1.3));
-    out.push({ x: cx, y: cy, ll: [lo / c.k, la / c.k], r, k: c.k, n: c.m.length });
+    const kg = c.m.reduce((s, a) => seen.has(a) && a !== path[0] ? s + N.k[a] : s, 0);
+    out.push({ x: cx, y: cy, ll: [lo / c.k, la / c.k], r, k: c.k, n: c.m.length, m: c.m, got: kg >= c.k / 2 });
+  }
+  return out;
+}
+// steps from the trace: a breadth-first search on the graph from every node of the trace at once (up to `max` steps)
+function fromTrace(path, max = 12) {
+  const n = N.k.length, dist = new Int16Array(n).fill(-1), par = new Int32Array(n).fill(-1), src = new Int32Array(n).fill(-1);
+  let q = [];
+  path.forEach((a, i) => { if (dist[a] < 0) { dist[a] = 0; src[a] = i; q.push(a); } });
+  for (let d = 1; d <= max && q.length; d++) {
+    const nq = [];
+    for (const a of q) for (let e = 0; e < 4; e++) { const b = N.nb[a * 4 + e]; if (b < 0 || dist[b] >= 0) continue; dist[b] = d; par[b] = a; src[b] = src[a]; nq.push(b); }
+    q = nq;
+  }
+  const near = test => { let best = -1; for (let a = 0; a < n; a++) if (dist[a] > 0 && test(a) && (best < 0 || dist[a] < dist[best])) best = a; return best; };
+  const route = b => { const r = [b]; while (par[r[0]] >= 0) r.unshift(par[r[0]]); return r; };
+  return { dist, src, near, route };
+}
+function feedback() {
+  const p = g.path, F = fromTrace(p), out = [];
+  const item = (b, txt, name) => ({ txt: txt(F.dist[b], F.src[b]), route: F.route(b), target: b, name });
+  for (const q of QU) {
+    const st = questState(N, g, q), f = { q, done: st.done, items: [], note: '' };
+    out.push(f); if (st.done) continue;
+    if (q.type === 'towns' || q.type === 'spref') {   // the nearest towns not passed, two at most
+      const been = new Set(p.map(a => N.t[a])), ok = a => N.t[a] >= 0 && !been.has(N.t[a]) && (q.type === 'towns' || N.tk[a] === 1);
+      for (let i = 0; i < 2; i++) { const b = F.near(ok); if (b < 0) break; const tw = TOWNS[N.t[b]]; f.items.push(item(b, (s, d) => t.fbTown(tw.name, t.kindName[tw.kind], s, d), tw.name)); been.add(N.t[b]); }
+    } else if (q.type === 'dept') {   // the nearest départements not crossed
+      const been = new Set(p.map(a => N.dp[a]));
+      for (let i = 0; i < 2; i++) { const b = F.near(a => !been.has(N.dp[a])); if (b < 0) break; const name = CFG.depts[N.dp[b]]?.[1] || ''; f.items.push(item(b, (s, d) => t.fbDept(name, s, d), name)); been.add(N.dp[b]); }
+    } else if (q.type === 'km') {
+      f.note = t.fbKm(q.n - st.v);
+    } else if (q.type === 'streak') {   // the nearest town with enough stops to chain them
+      const cnt = new Map(); for (let a = 0; a < N.k.length; a++) if (N.t[a] >= 0) cnt.set(N.t[a], (cnt.get(N.t[a]) || 0) + 1);
+      const b = F.near(a => N.t[a] >= 0 && cnt.get(N.t[a]) >= q.n + 1);
+      if (b >= 0) { const tw = TOWNS[N.t[b]]; f.items.push(item(b, (s, d) => t.fbStreak(tw.name, cnt.get(N.t[b]), s, d), tw.name)); }
+    } else if (q.type === 'big') {   // 1 MWc installations close to the trace
+      const big = a => N.k[a] >= 1000 && !g.seen.has(a);
+      let c = 0; for (let a = 0; a < N.k.length; a++) if (F.dist[a] > 0 && F.dist[a] <= 3 && big(a)) c++;
+      const b = F.near(big); if (b >= 0) f.items.push(item(b, (s, d) => t.fbBig(c, NF.format(N.k[b]), s, d), t.node(NF.format(N.k[b]))));
+    } else if (q.type === 'kwc') {   // the nearest cluster left
+      f.note = t.fbKwc(NF.format(q.n - st.v));
+      for (const sp of RP.spots.filter(s => !s.got)) { const m = new Set(sp.m), b = F.near(a => m.has(a)); if (b >= 0) { f.items.push(item(b, (s, d) => t.fbSpot(NF.format(Math.round(sp.k / 10) * 10), s, d), t.spot(NF.format(Math.round(sp.k / 10) * 10), sp.n))); break; } }
+    }
+    if (!f.items.length && !f.note) f.note = t.fbNone;
   }
   return out;
 }
 function spots() {
-  if (!RP.spots || RP.demo) return;
+  if (!RP.spots || RP.focus) return;
   const mp = mpx();
   for (const q of RP.spots) {
     const p = map.project(q.ll), r = Math.max(14, q.r / mp);
-    ctx.save(); ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.fillStyle = 'rgba(255,207,107,.08)'; ctx.fill();
-    ctx.setLineDash([4, 5]); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,244,220,.85)'; ctx.stroke(); ctx.restore();
-    label(p.x, p.y - r - 6, t.spot(NF.format(Math.round(q.k / 10) * 10), q.n));
+    ctx.save(); ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.fillStyle = q.got ? 'rgba(255,178,46,.22)' : 'rgba(255,207,107,.07)'; ctx.fill();
+    if (!q.got) ctx.setLineDash([4, 5]); ctx.lineWidth = 2; ctx.strokeStyle = q.got ? '#ffb22e' : 'rgba(255,244,220,.85)'; ctx.stroke(); ctx.restore();
+    label(p.x, p.y - r - 6, (q.got ? '✓ ' : '') + t.spot(NF.format(Math.round(q.k / 10) * 10), q.n));
   }
 }
-async function setupReplay() {
-  if (RP) RP.stop = true;
-  RP = { alt: null, spots: findSpots(g.path, g.seen), demo: null };
-  const me = RP; $('demoBtn').hidden = true; $('better').textContent = t.betterLoading; draw();
-  const res = await betterRoute(N, CFG, BON, BAT, QU, g.path, { signal: me });
-  if (RP !== me || !res) return;
-  const alt = res.path ? res : res.best;
-  if (!alt) { $('better').textContent = t.betterNone + ' ' + t.spotsTxt; return; }
-  RP.alt = alt;
-  $('better').textContent = t.betterTxt(alt.at + 1, t.dirNames[dirOf(alt.path[alt.at], alt.path[alt.at + 1])], NF.format(alt.final), Math.round(100 * (alt.final / res.mine - 1))) + ' ' + t.spotsTxt;
-  $('demoBtn').hidden = false; fitTrace();
+function focusPath() {   // the piece of route that led to a missed quest: from the nearest step of the trace to the place
+  const F = RP.focus, pts = F.route.map(P);
+  ctx.save(); ctx.lineJoin = ctx.lineCap = 'round'; ctx.setLineDash([2, 6]); ctx.lineWidth = 3; ctx.strokeStyle = '#fff4dc';
+  ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.stroke(); ctx.restore();
+  const h = pts[pts.length - 1];
+  ctx.beginPath(); ctx.arc(h.x, h.y, 11, 0, 7); ctx.lineWidth = 2.5; ctx.strokeStyle = '#fff4dc'; ctx.stroke();
+  ctx.beginPath(); ctx.arc(h.x, h.y, 4, 0, 7); ctx.fillStyle = '#fff4dc'; ctx.fill();
+  label(h.x, h.y - 18, F.name);
 }
-// the demo: the camera follows the blue walker at play zoom from the branching step, with a word at the moments that matter
-async function demo() {
-  const A = RP.alt, me = RP, steps = A.path.length - 1 - A.at, dt = REDUCED ? 0 : steps > 16 ? 520 : 700;
-  const h = new Game(N, CFG.game.steps, BON, BAT, CFG.game.combo); h.start(A.path[0]);
-  for (let i = 1; i <= A.at; i++) h.move(dirOf(A.path[i - 1], A.path[i]));
-  const dAlt = dirOf(A.path[A.at], A.path[A.at + 1]), dMe = dirOf(g.path[A.at], g.path[A.at + 1]);
-  const la = rays(dAlt, h), lm = dMe === undefined ? 0 : rays(dMe, h);
-  RP.demo = { i: A.at, t: performance.now(), dt: Math.max(dt, 1), face: dAlt, run: 0, sum: 0 };
-  $('end').hidden = true; $('demoBar').hidden = false; $('demoLbl').textContent = t.demoStep(A.at, A.path.length - 1, NF.format(h.score));
-  const zoom = Math.max(map.getZoom(), 11);
-  map.flyTo({ center: ll(A.path[A.at]), zoom, duration: REDUCED ? 0 : 1200 }); kick();
-  const wait = ms => new Promise(r => setTimeout(r, ms));
-  toast(t.demoFork(A.at + 1, t.dirNames[dAlt], t.lvl[la], dMe === undefined ? '…' : t.dirNames[dMe], t.lvl[lm]), 4200);
-  await wait(REDUCED ? 600 : 2600);
-  const mine = new Set(g.path), km = a => kmTxt(Math.min(...g.path.map(b => Math.hypot(N.x[a] - N.x[b], N.y[a] - N.y[b])))), cmin = CFG.game.combo?.min ?? Infinity;
-  for (let i = A.at + 1; i < A.path.length; i++) {
-    if (RP !== me || !RP.demo) return;
-    const d = dirOf(A.path[i - 1], A.path[i]), before = h.score, comboBefore = h.combo, res = h.move(d) || {};
-    const gain = h.score - before, gainRaw = N.k[A.path[i]];
-    Object.assign(RP.demo, { i, t: performance.now(), face: d });
-    open.add(A.path[i]); uncover(A.path[i]);
-    map.easeTo({ center: ll(A.path[i]), duration: REDUCED ? 0 : dt * .9 });
-    $('demoLbl').textContent = t.demoStep(i, A.path.length - 1, NF.format(h.score));
-    if (res.bonus) toast(t.demoSun(res.bonus, km(A.path[i])), 3200);
-    else if (res.extra) toast(t.demoBatt(res.extra), 3000);
-    if (h.combo > comboBefore && gainRaw >= cmin) { RP.demo.run++; RP.demo.sum += gain - Math.floor(gainRaw * h.mult); }
-    else { if (RP.demo.run >= 3 && !res.bonus && RP.demo.sum > 0) toast(t.demoRun(RP.demo.run, NF.format(RP.demo.sum)), 3000); RP.demo.run = 0; RP.demo.sum = 0; }
-    await wait(res.bonus || res.extra ? dt * 2.2 : dt);
-  }
-  if (RP === me && RP.demo && RP.demo.run >= 3 && RP.demo.sum > 0) toast(t.demoRun(RP.demo.run, NF.format(RP.demo.sum)), 3000);
-  if (RP === me) endDemo(true);
+function setupReplay() {
+  RP = { spots: findSpots(g.path, g.seen), focus: null };
+  RP.fb = feedback();
+  const got = RP.spots.filter(s => s.got).length;
+  $('better').textContent = t.spotsSum(got, RP.spots.length);
+  $('fbBtn').hidden = !RP.fb.length; $('fbBtn').setAttribute('aria-expanded', 'false'); $('fbList').hidden = true;
+  $('fbList').innerHTML = RP.fb.map((f, i) => `<li class="${f.done ? 'done' : ''}"><b><i aria-hidden="true">${f.done ? '✓' : '·'}</i>${esc(t.qLong[f.q.type](f.q.n))}</b>` +
+    (f.note ? `<p>${esc(f.note)}</p>` : '') + f.items.map((it, j) => `<button class="link" type="button" data-f="${i}" data-j="${j}">${esc(it.txt)} ›</button>`).join('') + '</li>').join('');
+  for (const b of $('fbList').querySelectorAll('button')) b.onclick = () => focus(RP.fb[+b.dataset.f].items[+b.dataset.j]);
 }
-function endDemo(done) {
-  if (!RP?.demo) return;
-  RP.demo = null; $('demoBar').hidden = true; $('end').hidden = mode !== 'end';
-  if (done) toast(t.demoEnd, 3600);
-  fitTrace(); draw();
+function focus(it) {
+  RP.focus = it;
+  $('end').hidden = true; $('demoBar').hidden = false; $('demoLbl').textContent = it.txt;
+  const b = it.route.reduce((bb, a) => bb.extend(ll(a)), new maplibregl.LngLatBounds(ll(it.route[0]), ll(it.route[0])));
+  map.fitBounds(b, { padding: { top: 190, bottom: 120, left: 50, right: 50 }, maxZoom: 12.5, duration: REDUCED ? 0 : 900 });
 }
-$('demoBtn').onclick = () => RP?.alt && !RP.demo && demo();
-$('demoSkip').onclick = () => endDemo(false);
+function unfocus() {
+  if (!RP?.focus) return;
+  RP.focus = null; $('demoBar').hidden = true; $('end').hidden = mode !== 'end'; fitTrace(); draw();
+}
+$('fbBtn').onclick = () => { const L = $('fbList'); L.hidden = !L.hidden; $('fbBtn').setAttribute('aria-expanded', String(!L.hidden)); if (!L.hidden) L.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); };
+$('demoSkip').onclick = unfocus;
 
 // a battery (+n steps): green, so that it reads apart from the suns
 function battery(x, y, n, a = 1) {
@@ -524,7 +523,7 @@ function draw() {
   if (g && mode === 'play') for (const f of FACTS.f) if (store.album[f.id]) { const p = map.project(f.ll); if (p.x > -20 && p.y > -20 && p.x < W + 20 && p.y < H + 20) book(p.x, p.y); }
   // trace
   if (g) {
-    if (RP && mode === 'end') { spots(); if (RP.alt) altRoute(); }
+    if (RP && mode === 'end') { spots(); if (RP.focus) focusPath(); }
     const path = g.path.map(P); if (anim) path[path.length - 1] = anim.pos;
     const line = () => { ctx.beginPath(); path.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); };
     ctx.lineJoin = ctx.lineCap = 'round';
@@ -550,7 +549,7 @@ function draw() {
       TGT.push({ d, x: p.x, y: p.y, r: R });
     }
     const hop = anim ? Math.sin(Math.PI * anim.f) * 16 : REDUCED ? 0 : (1 + Math.sin(performance.now() / 320)) * 1.2;
-    if (!RP?.demo) avatar(head.x, head.y, hop); else demoWalker();
+    avatar(head.x, head.y, hop);
   }
   if (!g) return;
   const top = TOP, bot = mode === 'play' ? 200 : 300, inside = p => p.x > 16 && p.y > top && p.x < W - 16 && p.y < H - bot;
@@ -642,7 +641,7 @@ async function drawStart() {
   ticket = r.ticket; return r.node;
 }
 async function newGame() {
-  if (RP) RP.stop = true; RP = null; $('demoBar').hidden = true;
+  RP = null; $('demoBar').hidden = true;
   g = null; open.clear(); if (!PRACTICE) store.game = null; save();
   setMode('draw');
   if (map.getZoom() > 7) map.flyTo({ zoom: 5.4, center: [2.6, 46.6], duration: REDUCED ? 0 : 900 });
@@ -887,7 +886,7 @@ function finish(silent) {
   if (!silent) fitTrace();
 }
 function fitTrace() {
-  const b = g.path.concat(RP && RP.alt ? RP.alt.path : []).reduce((bb, a) => bb.extend(ll(a)), new maplibregl.LngLatBounds(ll(g.path[0]), ll(g.path[0])));
+  const b = g.path.reduce((bb, a) => bb.extend(ll(a)), new maplibregl.LngLatBounds(ll(g.path[0]), ll(g.path[0])));
   for (const q of RP?.spots || []) b.extend(q.ll);
   map.fitBounds(b, { padding: { top: 170, bottom: Math.min(H * .5, 360), left: 40, right: 40 }, maxZoom: 12, duration: REDUCED ? 0 : 1000 });
 }
