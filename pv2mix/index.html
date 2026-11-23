@@ -8,6 +8,7 @@
 <meta name="description" content="Choisissez une commune ou un point : les toitures solaires détectées autour, et ce qu’elles produisent heure par heure, prévu la veille contre réalisé d’après le satellite. Projet indépendant, non affilié à RTE.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230f2f63'/%3E%3Cpath d='M12 78C30 78 34 26 50 26S70 78 88 78Z' fill='%23f4f7fa'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css">
 <style>
 @font-face{font-family:"Archivo";font-weight:400;font-display:swap;src:url(fonts/archivo-400.woff2) format("woff2")}
 @font-face{font-family:"Archivo";font-weight:600;font-display:swap;src:url(fonts/archivo-600.woff2) format("woff2")}
@@ -58,11 +59,113 @@ svg.i{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-widt
 .pop span{color:var(--paper-ink-2)}
 
 /* ---------- Top: back link, language, search ---------- */
-.top{position:fixed;z-index:600;top:0;left:0;right:0;padding:max(12px,env(safe-area-inset-top)) 12px 0;display:grid;gap:8px;pointer-events:none}
+.top{position:fixed;z-index:600;top:0;left:0;right:0;padding:max(12px,env(safe-area-inset-top)) 12px 0;display:grid;grid-template-columns:minmax(0,1fr);gap:8px;pointer-events:none}
 .top>*{pointer-events:auto}
-.bar{display:flex;justify-content:space-between;align-items:center}
-.chip-link{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border-radius:99px;background:rgba(255,255,255,.92);color:var(--paper-ink);font-size:13px;font-weight:600;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.bar{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.chip-link{display:inline-flex;align-items:center;gap:6px;height:30px;white-space:nowrap;flex:none;padding:0 11px;border-radius:99px;background:rgba(255,255,255,.92);color:var(--paper-ink);font-size:13px;font-weight:600;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.18)}
 .chip-link svg.i{width:15px;height:15px}
+.bar-r{display:flex;align-items:center;gap:8px}
+/* ---------- Sheet menu: two tabs (ACC sites, output), on the Prussian ground ---------- */
+.tabs{display:grid;grid-template-columns:1fr 1fr;background:var(--ground-2);border-radius:10px;padding:3px;margin:2px 0 14px}
+.tabs button{height:34px;border:0;border-radius:8px;background:none;font:700 13px var(--sans);color:var(--ink-2)}
+.tabs button[aria-selected="true"]{background:var(--x6);color:var(--ground)}
+.mhead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 10px}
+.mhead .ttl{font:800 22px/1 var(--display);letter-spacing:-.02em}
+.mhead .ttl em{font-style:normal;color:var(--x4)}
+.sheet[data-size="half"] .close,.sheet[data-size="full"] .close{display:grid}
+.loop{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 4px}
+.loop>span{font-size:12px;font-weight:700;color:var(--ink-2)}
+.seg{display:inline-flex;background:var(--ground-2);border-radius:99px;padding:3px}
+.seg button{height:28px;padding:0 12px;border:0;border-radius:99px;background:none;color:var(--ink-2);font:700 12px var(--sans)}
+.seg button[aria-pressed="true"]{background:var(--x6);color:var(--ground)}
+.loop-help{margin:0 0 12px;font-size:12px;line-height:1.4;color:var(--ink-3)}
+.sfind{display:block;height:44px;border:0;border-radius:12px;padding:0 14px;font:600 15px var(--sans);color:var(--paper-ink);background:var(--paper);outline:none;width:100%;caret-color:var(--x3)}
+.sfind::placeholder{color:var(--paper-ink-2);font-weight:400}
+.sbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--ink-2);margin:10px 0 8px}
+.sbar label{display:flex;align-items:center;gap:6px;font-weight:700;color:var(--ink);cursor:pointer}
+.sbar input{accent-color:var(--x4);width:16px;height:16px;margin:0}
+.sbar select{margin-left:auto;border:1px solid var(--line);border-radius:8px;background:var(--ground-2);color:var(--ink);font:600 12px var(--sans);height:30px;padding:0 6px}
+.sfilt{border:1px solid var(--line);border-radius:10px;padding:0 12px;margin:0 0 8px}
+.sfilt summary{cursor:pointer;font-size:13px;font-weight:700;padding:9px 0}
+.sfilt fieldset{border:0;border-top:1px solid var(--line);margin:0;padding:6px 0 4px;min-width:0}
+.sfilt legend{float:left;width:100%;font-size:12px;font-weight:700;padding:0;margin:0 0 2px}
+.sfilt .fsub{clear:both;margin:0 0 2px;font-size:11.5px;line-height:1.35;color:var(--ink-3)}
+.sfilt label{clear:both;display:flex;align-items:center;gap:8px;min-height:30px;font-size:13px;cursor:pointer}
+.sfilt label small{margin-left:auto;color:var(--ink-2);font-size:12px}
+.sfilt input{accent-color:var(--x4);width:16px;height:16px;margin:0;flex:none}
+.pd{width:12px;height:12px;border-radius:50%;border:1.5px solid #fff;flex:none}
+.slist{list-style:none;margin:0 -6px;padding:0}
+.slist button{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;padding:8px 6px;border-radius:8px;text-align:left;color:var(--ink);font:600 14px/1.25 var(--sans)}
+.slist button:hover,.slist button:focus-visible{background:var(--ground-2)}
+.slist .n{flex:1;min-width:0}
+.slist .n span,.slist small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.slist small{font-weight:400;font-size:12px;color:var(--ink-2);margin-top:1px}
+.slist b{font:700 13px var(--sans);white-space:nowrap}
+.slist .empty{padding:10px 6px;font-size:13px;color:var(--ink-2)}
+.smore{display:block;width:100%;height:36px;margin:6px 0 0;border:1px solid var(--line);border-radius:8px;background:none;font:600 13px var(--sans);color:var(--ink)}
+.smore:hover{border-color:var(--x4)}
+.sact{position:sticky;bottom:0;z-index:1;margin:10px -20px 0;padding:10px 20px max(12px,env(safe-area-inset-bottom));background:var(--ground);border-top:1px solid var(--line)}
+.btn.primary{background:var(--x6);color:var(--ground);border-color:var(--x6)}
+.btn.primary:disabled{opacity:.45;cursor:default}
+.btn.big{width:100%;height:44px;font-size:14px;border-radius:12px}
+.xhint{margin:8px 2px 12px;font-size:12px;color:var(--ink-3)}
+.pv{margin:6px 0 4px;padding:12px 14px;border:1px solid var(--line);border-radius:12px}
+.pv-name{margin:0 0 4px;font-weight:700}
+.pv .radius{margin:4px 0 10px}
+.sheet.m .foot{display:none}
+/* Compact welcome bar: opens the menu */
+#intro{padding-bottom:4px}
+.iopen{display:flex;align-items:center;gap:14px;width:100%;border:0;background:none;padding:0;text-align:left;color:var(--ink)}
+.iopen .itx{flex:1;min-width:0}
+.iopen .ttl{display:block;font:800 24px/1 var(--display);letter-spacing:-.02em;margin:0 0 5px}
+.iopen .ttl em{font-style:normal;color:var(--x4)}
+.iopen .lead{display:block;margin:0;font-size:13px;line-height:1.4;color:var(--ink-2)}
+.igo{flex:none;display:inline-flex;align-items:center;gap:4px;height:36px;padding:0 14px;border-radius:99px;background:var(--x6);color:var(--ground);font:700 13px var(--sans)}
+.igo svg.i{width:16px;height:16px}
+.ishuf{display:inline-flex;align-items:center;gap:6px;margin:10px 0 0;border:0;background:none;padding:0;color:var(--ink-2);font:600 12px var(--sans)}
+.ishuf svg.i{width:14px;height:14px}
+.ishuf:hover{color:var(--ink)}
+.sheet[data-size="intro"] #d-about,.sheet[data-size="intro"] .foot{display:none}
+.to-menu{display:inline-flex;align-items:center;gap:2px;border:0;background:none;padding:0;margin:0 0 6px -4px;color:var(--ink-2);font:600 13px var(--sans)}
+.to-menu svg.i{width:16px;height:16px}
+.to-menu:hover{color:var(--ink)}
+.res-nav{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 6px}
+.res-nav .to-menu{margin:0 0 0 -4px}
+.to-map{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border:1px solid var(--line);border-radius:99px;background:none;color:var(--ink);font:700 12px var(--sans);margin-right:44px}
+.to-map svg.i{width:15px;height:15px}
+@media (min-width:900px){.to-map{display:none}}
+/* Phones, results with the sheet down: a way back to the welcome view */
+.new-fab{position:fixed;z-index:550;left:50%;transform:translateX(-50%);bottom:max(20px,calc(env(safe-area-inset-bottom) + 12px));display:inline-flex;align-items:center;gap:7px;height:44px;padding:0 18px;border:0;border-radius:99px;background:var(--ground);color:var(--ink);font:700 14px var(--sans);box-shadow:0 6px 18px rgba(0,0,0,.3)}
+.new-fab[hidden]{display:none}
+.new-fab svg.i{width:18px;height:18px}
+@media (min-width:900px){.new-fab{display:none}}
+/* Existing ACC operations, reported by visitors */
+.accp{background:var(--x6);color:var(--ground)}
+.accb{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:99px;border:1px dashed var(--x5);font:700 10px/1.4 var(--sans);letter-spacing:.03em;color:var(--x5);vertical-align:1px}
+.accf{margin:18px 0 0;padding:14px;border:1px solid var(--line);border-radius:12px}
+.accf-h{margin:0 0 4px;font-weight:700;font-size:14px}
+.accf-sub{margin:0 0 10px;font-size:12px;line-height:1.4;color:var(--ink-2)}
+.accf-note{display:block;width:100%;height:38px;margin:10px 0 0;border:1px solid var(--line);border-radius:8px;padding:0 10px;background:var(--ground-2);color:var(--ink);font:500 13px var(--sans)}
+.accf-note::placeholder{color:var(--ink-3)}
+.accf-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:10px 0 0}
+.linkb{border:0;background:none;padding:0;color:var(--ink-2);font:600 12px var(--sans);text-decoration:underline;text-underline-offset:2px}
+.accf .note{margin:8px 0 0}
+/* All sites: clusters (count, coloured by the dominant potential), split as one zooms in */
+.scl-icon{background:none;border:0}
+.scl{display:grid;place-items:center;width:100%;height:100%;border-radius:50%;font:700 12px/1 var(--sans);color:#fff;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.scl.lo,.scl.na{color:var(--paper-ink)}
+/* Welcome suggestions pinned on the map */
+.sug-icon{background:none;border:0}
+.pin{position:absolute;left:0;top:0;transform:translate(-50%,-50%);display:inline-flex;align-items:center;gap:6px;max-width:170px;white-space:nowrap;border:0;background:var(--paper);color:var(--paper-ink);border-radius:99px;padding:5px 10px 5px 6px;font:600 12px var(--sans);box-shadow:0 3px 12px rgba(0,0,0,.28);cursor:pointer}
+.pin:hover{outline:2px solid var(--ground)}
+.pin span{overflow:hidden;text-overflow:ellipsis}
+.pin b{font-weight:700;color:var(--paper-ink-2)}
+.pin i,.ex i{width:11px;height:11px;border-radius:50%;flex:none;border:1.5px solid #fff}
+.cities{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 6px}
+.pin i.city,.ex i.city{border-radius:2px;background:var(--x4)}
+.ex{display:inline-flex;align-items:center;gap:7px;max-width:100%;min-width:0}
+.ex span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sug-h{margin:4px 0 8px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3)}
 .lang{display:flex;background:rgba(255,255,255,.92);border-radius:99px;padding:3px;box-shadow:0 2px 8px rgba(0,0,0,.18)}
 .lang a{height:24px;min-width:34px;display:grid;place-items:center;border-radius:99px;font-size:12px;font-weight:700;color:var(--paper-ink-2);text-decoration:none}
 .lang a[aria-current="true"]{background:var(--ground);color:var(--ink)}
@@ -84,6 +187,7 @@ svg.i{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-widt
 /* ---------- Sheet (results drawer) ---------- */
 .sheet{position:fixed;z-index:500;left:0;right:0;bottom:0;top:var(--sheet-top);background:var(--ground);border-radius:20px 20px 0 0;box-shadow:0 -10px 30px rgba(0,0,0,.3);display:flex;flex-direction:column;transition:top .45s var(--ease)}
 .sheet[data-size="intro"]{top:auto}
+.sheet[data-size="half"]{top:48svh}
 .sheet[data-size="hidden"]{top:100%;box-shadow:none;visibility:hidden;transition:top .45s var(--ease),visibility 0s .45s}
 .close{position:absolute;top:4px;right:12px;z-index:2;display:none;place-items:center;width:34px;height:34px;border:0;border-radius:50%;background:var(--ground-2);color:var(--ink)}
 .close svg.i{width:18px;height:18px}
@@ -104,7 +208,7 @@ svg.i{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-widt
 .mini input[type=range]{height:26px;margin-top:2px}
 .mini .status{margin:0 0 4px;font-size:13px}
 .mini.loading .mini-num,.mini.loading .mini-cap{opacity:.35}
-.sheet[data-size="full"]{top:calc(max(12px,env(safe-area-inset-top)) + 104px)}
+.sheet[data-size="full"]{top:calc(max(12px,env(safe-area-inset-top)) + 54px)}
 .grab{flex:none;display:block;width:100%;height:24px;border:0;background:none;position:relative}
 .grab::before{content:"";position:absolute;left:50%;top:9px;width:42px;height:4px;margin-left:-21px;border-radius:2px;background:var(--line)}
 .scroll{flex:1;overflow:auto;overscroll-behavior:contain;padding:0 20px;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
@@ -140,6 +244,25 @@ h1 em{font-style:normal;color:var(--x4)}
 .figs small{display:block;font:400 12px/1.3 var(--sans);color:var(--ink-2);margin-top:2px}
 .key{display:inline-block;width:14px;height:0;border-top:2.5px solid var(--x6);flex:none}
 .key.fc{border-top:2.5px dashed var(--x4)}
+.key.need{border-top:2px solid var(--x4)}
+.key.bar{width:10px;height:10px;border:0;border-radius:1px;background:var(--x3)}
+.key.bar.use{background:var(--x6)}
+
+/* Site view (around a large consumer): the year's rooftop output against the site's yearly consumption. */
+#res.site .days,#res.site .date,#res.site #out,#res.site #d-table,#res.site #to-site{display:none!important}
+#res:not(.site) #site-out{display:none!important}
+.mini.site #hour-m{display:none}
+.site-cat{display:flex;align-items:center;gap:8px;margin:8px 0 0;font-size:13px;color:var(--ink-2);min-width:0}
+.site-cat span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sfigs{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px 16px;margin:16px 0 0}
+.sfigs .fh{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:var(--ink-2)}
+.sfigs b{display:block;font:700 19px/1.15 var(--sans);margin-top:5px;white-space:nowrap}
+.sfigs small{display:block;font:400 12px/1.3 var(--sans);color:var(--ink-2);margin-top:2px}
+.loading .sfigs,.loading #ychart{opacity:.35;transition:opacity .3s}
+.btn.wide{width:100%;height:40px;margin-top:14px}
+.site-use{display:flex;align-items:flex-start;gap:9px;margin:12px 0 0;font-size:13px;line-height:1.4;color:var(--ink-2)}
+.pot{display:inline-flex;align-items:center;gap:6px;flex:none;font-size:11px;font-weight:700;white-space:nowrap;border-radius:99px;padding:3px 9px 3px 6px;background:var(--ground-2);color:var(--ink)}
+.pot i{width:10px;height:10px;border-radius:50%;border:1.5px solid #fff}
 
 .chart{position:relative;margin:16px -4px 0}
 canvas{display:block;width:100%;height:clamp(120px,17svh,178px);touch-action:pan-y}
@@ -210,22 +333,13 @@ tr.on td{background:var(--ground-2)}
 @media (min-width:900px){
   :root{--sheet-top:0}
   .top{right:auto;width:400px;padding:16px 0 0 16px}
-  .sheet,.sheet[data-size="intro"],.sheet[data-size="full"]{top:16px;bottom:16px;left:auto;right:16px;width:420px;border-radius:18px;box-shadow:0 12px 34px rgba(0,0,0,.32)}
+  .sheet,.sheet[data-size="intro"],.sheet[data-size="full"],.sheet[data-size="half"]{top:16px;bottom:16px;left:auto;right:16px;width:420px;border-radius:18px;box-shadow:0 12px 34px rgba(0,0,0,.32)}
   .sheet[data-size="intro"]{top:auto}
   .grab{display:none}
   .close{display:none!important}
+  .sheet.m .scroll{padding-top:16px}
   .scroll{padding-top:20px}
   .leaflet-left .leaflet-control-zoom{margin-left:16px;margin-bottom:16px}
-}
-@media (max-width:899px){
-  #intro h1{font-size:26px;margin:0 0 4px}
-  #intro .lead{font-size:14px;line-height:1.45;margin:0 0 10px}
-  #intro .examples{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -20px;padding:0 20px 2px}
-  #intro .examples::-webkit-scrollbar{display:none}
-  #intro .ex{flex:none}
-  #intro .hint{margin-top:6px}
-  .sheet[data-size="intro"] details{margin-top:8px}
-  .sheet[data-size="intro"] summary{padding:8px 0}
 }
 @media (prefers-reduced-motion:reduce){*,*::before{transition:none!important;animation:none!important}}
 </style>
@@ -236,15 +350,9 @@ tr.on td{background:var(--ground-2)}
 <div class="top">
   <div class="bar">
     <a class="chip-link" id="back" href="../"><svg class="i" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg><span>Random Maps</span></a>
-    <nav class="lang" aria-label="Langue / Language"><a href="?lang=fr" data-l="fr">FR</a><a href="?lang=en" data-l="en">EN</a></nav>
-  </div>
-  <div class="search" role="search">
-    <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-    <label class="sr" for="q" data-t="qLabel"></label>
-    <input id="q" type="search" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="sugg">
-    <span class="tag" id="q-tag" hidden></span>
-    <button class="icon-btn" id="locate" type="button"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/><circle cx="12" cy="12" r="7.5"/></svg><span class="sr" data-t="locate"></span></button>
-    <ul class="sugg" id="sugg" role="listbox" hidden></ul>
+    <div class="bar-r">
+      <nav class="lang" aria-label="Langue / Language"><a href="?lang=fr" data-l="fr">FR</a><a href="?lang=en" data-l="en">EN</a></nav>
+    </div>
   </div>
 </div>
 
@@ -254,13 +362,59 @@ tr.on td{background:var(--ground-2)}
   <div class="scroll" id="scroll">
 
     <div id="intro">
-      <h1 id="sheet-title">PV<em>2</em>Mix</h1>
-      <p class="lead" data-t="lead"></p>
-      <div class="examples" id="examples"></div>
-      <p class="hint" data-t="hint"></p>
+      <button class="iopen" id="intro-open" type="button" aria-controls="menu">
+        <span class="itx"><span class="ttl" id="sheet-title">PV<em>2</em>Mix</span><span class="lead" data-t="lead"></span></span>
+        <span class="igo"><span data-t="explore"></span><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></span>
+      </button>
+      <button class="ishuf" id="reshuffle" type="button"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4"/></svg><span data-t="reshuffle"></span></button>
+    </div>
+
+    <div id="menu" hidden>
+      <div class="mhead"><span class="ttl">PV<em>2</em>Mix</span></div>
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" id="tab-sites" aria-selected="true" aria-controls="pane-sites" data-t="tabAcc"></button>
+        <button type="button" role="tab" id="tab-place" aria-selected="false" aria-controls="pane-place" data-t="tabProd"></button>
+      </div>
+      <div id="pane-sites" role="tabpanel" aria-labelledby="tab-sites">
+        <div class="loop"><span data-t="loopL"></span><div class="seg" id="loop-seg"><button type="button" data-loop="2">2 km</button><button type="button" data-loop="10">10 km</button><button type="button" data-loop="20">20 km</button></div></div>
+        <p class="loop-help" data-t="loopHelp"></p>
+        <input class="sfind" id="sq" type="search" autocomplete="off" spellcheck="false">
+        <div class="sbar"><span class="tnum" id="scount"></span><label><input type="checkbox" id="f-show"><span data-t="sitesShow"></span></label>
+          <select id="ssort"><option value="ap" data-t="sortAp"></option><option value="mwh" data-t="sortMwh"></option><option value="name" data-t="sortName"></option></select></div>
+        <details class="sfilt"><summary data-t="sFilters"></summary><div id="sites-panel"></div></details>
+        <ul class="slist" id="slist"></ul>
+        <button class="smore" id="smore" type="button" hidden></button>
+        <div class="sact"><button class="btn primary big" id="s-apply" type="button"></button></div>
+      </div>
+      <div id="pane-place" role="tabpanel" aria-labelledby="tab-place" hidden>
+        <div class="search" role="search">
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          <label class="sr" for="q" data-t="qLabel"></label>
+          <input id="q" type="search" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="sugg">
+          <span class="tag" id="q-tag" hidden></span>
+          <button class="icon-btn" id="locate" type="button"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/><circle cx="12" cy="12" r="7.5"/></svg><span class="sr" data-t="locate"></span></button>
+          <ul class="sugg" id="sugg" role="listbox" hidden></ul>
+        </div>
+        <p class="xhint" data-t="xhint"></p>
+        <div class="pv" id="pv" hidden>
+          <p class="pv-name" id="pv-name"></p>
+          <div class="radius" id="pv-radius-row" hidden>
+            <label for="pv-radius" data-t="lRadius"></label>
+            <input id="pv-radius" type="range" min="0" max="1000" step="1">
+            <output id="pv-radius-val" class="tnum" for="pv-radius"></output>
+          </div>
+          <button class="btn primary big" id="pv-go" type="button" data-t="compute"></button>
+        </div>
+        <p class="sug-h" data-t="citiesH"></p>
+        <div class="cities" id="cities"></div>
+      </div>
     </div>
 
     <div id="res" hidden>
+      <div class="res-nav">
+        <button class="to-menu" id="to-menu" type="button"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span data-t="newSearch"></span></button>
+        <button class="to-map" id="to-map" type="button"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/></svg><span data-t="toMap"></span></button>
+      </div>
       <div class="zone">
         <h2 id="zone-name"></h2>
         <div class="days"><button type="button" id="d-yest" data-t="yesterday"></button><button type="button" id="d-today" data-t="today"></button></div>
@@ -290,6 +444,35 @@ tr.on td{background:var(--ground-2)}
         </div>
         <p class="note" id="src-note"></p>
         <p class="note" data-th="omCredit"></p>
+      </div>
+      <button class="btn wide" id="to-site" type="button" data-t="toSite" hidden></button>
+
+      <div id="site-out">
+        <p class="site-cat"><span class="tag" id="site-cat"></span><span id="site-where"></span></p>
+        <div class="hero">
+          <p class="hero-num tnum"><span id="cov-v">–</span><small>%</small></p>
+          <p class="hero-cap" id="cov-cap"></p>
+        </div>
+        <p class="site-use"><span class="pot" id="site-pot"></span><span id="site-use"></span></p>
+        <p class="site-use" id="site-acc-row" hidden><span class="pot accp" id="site-acc"></span><span id="site-acc-txt"></span></p>
+        <div class="sfigs">
+          <div><span class="fh"><i class="key bar use" aria-hidden="true"></i><span data-t="yUse"></span></span><b class="tnum" id="y-use">–</b><small class="tnum" id="y-ac"></small></div>
+          <div><span class="fh"><i class="key need" aria-hidden="true"></i><span data-t="yNeed"></span></span><b class="tnum" id="y-need">–</b><small class="tnum" id="y-meters"></small></div>
+          <div><span class="fh"><i class="key bar" aria-hidden="true"></i><span data-t="yProd"></span></span><b class="tnum" id="y-prod">–</b><small class="tnum" id="y-range"></small></div>
+          <div><span class="fh"><span data-t="yCeil"></span></span><b class="tnum" id="y-ceil">–</b><small data-t="yCeilSub"></small></div>
+        </div>
+        <div class="chart"><canvas id="ychart" role="img"></canvas></div>
+        <p class="note" id="y-note"></p>
+        <p class="note" data-th="omCredit"></p>
+        <div class="accf" id="accf" hidden>
+          <p class="accf-h" data-t="accQ"></p>
+          <p class="accf-sub" data-t="accSub"></p>
+          <div class="seg" id="accf-seg"><button type="button" data-s="active" aria-pressed="false" data-t="accActive"></button><button type="button" data-s="project" aria-pressed="false" data-t="accProject"></button></div>
+          <input class="accf-note" id="accf-note" type="text" maxlength="200" autocomplete="off">
+          <div class="accf-row"><button class="btn primary" id="accf-send" type="button" disabled data-t="accSend"></button><button class="linkb" id="accf-undo" type="button" hidden data-t="accUndo"></button></div>
+          <p class="note" id="accf-msg" role="status" aria-live="polite"></p>
+        </div>
+        <button class="btn wide" id="to-day" type="button" data-t="toDay"></button>
       </div>
 
       <div class="radius" id="radius-row" hidden>
@@ -340,6 +523,8 @@ tr.on td{background:var(--ground-2)}
           <li data-t="lim2"></li>
           <li data-t="lim3"></li>
           <li data-t="lim4"></li>
+          <li data-t="lim5"></li>
+          <li data-t="lim6"></li>
           <li data-t="indep"></li>
         </ul>
         <p data-th="credits"></p>
@@ -349,6 +534,8 @@ tr.on td{background:var(--ground-2)}
     <p class="foot"><span data-t="footLine"></span> <button type="button" id="more" data-t="more"></button></p>
   </div>
 </section>
+
+<button class="new-fab" id="new-fab" type="button" hidden><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><span data-t="newSearch"></span></button>
 
 <div hidden><div class="mini" id="mini">
   <p class="status" id="mini-status" role="status" aria-live="polite"></p>
@@ -363,6 +550,7 @@ tr.on td{background:var(--ground-2)}
 </div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
 <script>
 (function(){
 'use strict';
@@ -378,6 +566,11 @@ const OM_SATELLITE = 'https://satellite-api.open-meteo.com/v1/archive';     // s
 const SAT_MODELS = ['satellite_radiation_seamless', 'eumetsat_sarah3'];       // per hour: first non-null wins
 const TZ = 'Europe/Paris';
 const MIN_DATE = '2024-02-01';           // start of the Previous Runs archive (checked 2026-11-17)
+const OM_ARCHIVE = 'https://archive-api.open-meteo.com/v1/archive';  // ERA5 reanalysis: one call per site for a whole year
+const SITE_YEAR = 2025;                  // the year of the Enedis consumption in data/sites.json, and of the weather it is set against
+/* Collective self-consumption: the two most distant participants within 2 km (rule), 10 or 20 km (exemptions).
+   Around a site: a circle whose diameter is the loop size. The offline potential (acc.py) has one value per loop. */
+const LOOPS = [2, 10, 20], LOOP_R = {2: 1000, 10: 5000, 20: 10000};
 const R_MIN = 500, R_MAX = 10000, R_DEFAULT = 2000;
 const COORD_DECIMALS = 3;                // every coordinate sent anywhere is rounded to this (~100 m)
 const ALBEDO = 0.2;
@@ -390,16 +583,27 @@ const SUBSTEPS = 12;                     // sun positions per hour (5 min)
    DATA_ACCESS.md says "clockwise from true north (180 = south)", which the values contradict. */
 const azFromData = a => ((a + 180) % 360 + 360) % 360;
 const DEF = {orient: 'det', tilt: 30, az: 180, pr: 0.80, tcorr: true, ratio: 6, dtilt: 15, daz: 45, dpr: 0.05};
-/* Metropolitan communes with 100 000+ inhabitants (geo.api.gouv.fr populations, checked 2026-11-17).
-   The welcome card shows EXAMPLES_SHOWN of them, drawn at random on each visit. */
-const EXAMPLES = [['Paris', '75056'], ['Marseille', '13055'], ['Lyon', '69123'], ['Toulouse', '31555'], ['Nice', '06088'], ['Nantes', '44109'],
-  ['Montpellier', '34172'], ['Strasbourg', '67482'], ['Bordeaux', '33063'], ['Lille', '59350'], ['Rennes', '35238'], ['Toulon', '83137'],
-  ['Reims', '51454'], ['Saint-Étienne', '42218'], ['Le Havre', '76351'], ['Villeurbanne', '69266'], ['Dijon', '21231'], ['Angers', '49007'],
-  ['Grenoble', '38185'], ['Nîmes', '30189'], ['Aix-en-Provence', '13001'], ['Saint-Denis', '93066'], ['Clermont-Ferrand', '63113'],
-  ['Le Mans', '72181'], ['Brest', '29019'], ['Tours', '37261'], ['Amiens', '80021'], ['Annecy', '74010'], ['Limoges', '87085'], ['Metz', '57463'],
-  ['Perpignan', '66136'], ['Boulogne-Billancourt', '92012'], ['Besançon', '25056'], ['Rouen', '76540'], ['Orléans', '45234'],
-  ['Montreuil', '93048'], ['Caen', '14118'], ['Argenteuil', '95018'], ['Mulhouse', '68224'], ['Nancy', '54395']];
-const EXAMPLES_SHOWN = 4;
+/* Metropolitan communes with 100 000+ inhabitants (geo.api.gouv.fr populations and centres, checked 2026-11-23):
+   [name, INSEE code, lat, lon]. The welcome view suggests SUG_CITIES of them, drawn at random on each visit. */
+const EXAMPLES = [
+  ['Paris', '75056', 48.859, 2.347], ['Marseille', '13055', 43.28, 5.381], ['Lyon', '69123', 45.758, 4.835],
+  ['Toulouse', '31555', 43.601, 1.433], ['Nice', '06088', 43.703, 7.253], ['Nantes', '44109', 47.238, -1.56],
+  ['Montpellier', '34172', 43.61, 3.874], ['Strasbourg', '67482', 48.569, 7.762],
+  ['Bordeaux', '33063', 44.862, -0.585], ['Lille', '59350', 50.631, 3.047], ['Rennes', '35238', 48.116, -1.688],
+  ['Toulon', '83137', 43.136, 5.933], ['Reims', '51454', 49.254, 4.055], ['Saint-Étienne', '42218', 45.424, 4.367],
+  ['Le Havre', '76351', 49.496, 0.131], ['Villeurbanne', '69266', 45.772, 4.89], ['Dijon', '21231', 47.332, 5.032],
+  ['Angers', '49007', 47.482, -0.563], ['Grenoble', '38185', 45.184, 5.715], ['Nîmes', '30189', 43.832, 4.343],
+  ['Aix-en-Provence', '13001', 43.536, 5.388], ['Saint-Denis', '93066', 48.938, 2.366],
+  ['Clermont-Ferrand', '63113', 45.787, 3.113], ['Le Mans', '72181', 47.982, 0.196], ['Brest', '29019', 48.408, -4.5],
+  ['Tours', '37261', 47.394, 0.695], ['Amiens', '80021', 49.899, 2.285], ['Annecy', '74010', 45.902, 6.126],
+  ['Limoges', '87085', 45.857, 1.226], ['Metz', '57463', 49.105, 6.196], ['Perpignan', '66136', 42.699, 2.905],
+  ['Boulogne-Billancourt', '92012', 48.837, 2.243], ['Besançon', '25056', 47.26, 6.012],
+  ['Rouen', '76540', 49.441, 1.091], ['Orléans', '45234', 47.873, 1.912], ['Montreuil', '93048', 48.864, 2.449],
+  ['Caen', '14118', 49.185, -0.372], ['Argenteuil', '95018', 48.95, 2.248], ['Mulhouse', '68224', 47.753, 7.325],
+  ['Nancy', '54395', 48.688, 6.173]];
+/* Welcome suggestions: SUG_SITES sites (high potential, named in OSM, ≥ 10 roofs) and SUG_CITIES cities, at least
+   SUG_GAP apart, drawn at random; pinned on the map and listed in the welcome card. */
+const SUG_SITES = 5, SUG_CITIES = 3, SUG_GAP = 220000;
 const FRANCE = [[42.2, -4.9], [51.1, 8.3]];
 /* The exposure ramp: every intensity on the page (rooftops, scrubber track) snaps to one of these 7 steps. */
 const RAMP = ['#0b2550', '#123a75', '#1d4f96', '#2f68b3', '#7fb2e5', '#b9d7f3', '#f4f7fa'];
@@ -413,8 +617,7 @@ const T = {
   fr: {
     mapLabel: 'Carte des toitures solaires détectées',
     qLabel: 'Commune, adresse ou lieu', qPh: 'Une commune, une adresse…', locate: 'Me localiser', grab: 'Agrandir ou réduire les résultats',
-    lead: 'Les toitures solaires qu’une IA a repérées sur les photos aériennes, et ce qu’elles produisent heure par heure : la météo prévue la veille contre le soleil vu par satellite.',
-    hint: 'Ou touchez la carte.',
+    lead: 'Les bâtiments publics que les toits solaires voisins pourraient alimenter en autoconsommation collective, et ce que produisent ces toits heure par heure.',
     tagCommune: 'Commune', tagPoint: 'Point', tagAddr: 'Adresse',
     pickPoint: (r) => `Autour de ce point`, pickPointSub: (r) => `rayon ${r}`, pickCommune: (n) => `Toute la commune de ${n}`, pickCommuneSub: 'limites communales', pickLoading: 'Commune…',
     zoneCircle: (r, l) => `${l} <span>· ${r}</span>`, zonePick: 'Point choisi', myPos: 'Ma position',
@@ -447,9 +650,11 @@ const T = {
     lim2: 'Seules les installations sur toiture détectées par OpenPVMapper sont prises en compte ; les installations manquées ou les faux positifs ne sont pas corrigés.',
     lim3: 'Le « réalisé » est calculé à partir d’un rayonnement observé ou analysé, ce n’est pas une mesure de production.',
     lim4: 'Le jeu de données ne couvre que les installations sur toiture ; les centrales au sol ne sont pas comptées. Puissance, inclinaison et azimut sont des estimations du modèle de détection.',
+    lim5: 'Sites : consommation 2025 des entreprises de plus de 36 kVA par adresse (Enedis), secteurs plutôt publics (administration, santé, enseignement, sport, culture, eau), au-delà de 500 MWh par an. Adresse géocodée (IGN) et nom retrouvé dans OpenStreetMap sans vérification manuelle : un nom peut être faux ou manquer, et une adresse peut regrouper plusieurs bâtiments.',
+    lim6: 'Autour d’un site : production heure par heure de tous les toits détectés dans le cercle (météo 2025, réanalyse ERA5 au point de grille 0,5° le plus proche), coupée en demi-heures selon la hauteur du soleil, et consommation 2025 du site répartie selon une courbe type Enedis (moyenne des sites de même secteur et de même puissance, ou courbe sectorielle expérimentale). Le potentiel de la carte est calculé ainsi pour chaque taille de boucle (cercle de 1, 5 ou 10 km de rayon), avec les hypothèses par défaut. Ni stockage, ni pilotage, ni coûts : c’est un ordre de grandeur, pas une étude de faisabilité.',
     indep: 'Projet indépendant, non affilié à RTE.',
-    credits: 'Installations : <a href="https://deeppvmapper.fr">OpenPVMapper — DeepPVMapper, Gabriel Kasmi</a> (CC BY 4.0). Météo : <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a> (CC BY 4.0), données transformées. Communes : <a href="https://geo.api.gouv.fr">geo.api.gouv.fr</a> (Etalab). Géocodage et fond de carte : © <a href="https://geoservices.ign.fr">IGN</a> Géoplateforme.',
-    privacy: 'Confidentialité : pour un point, le centre arrondi à environ 100 m part vers l’API OpenPVMapper ; pour une commune, seul son code. Toucher la carte envoie la position arrondie à geo.api.gouv.fr pour trouver la commune. Open-Meteo ne reçoit qu’un point par zone (le centre du cercle, ou le centre des toits de la commune, arrondi à ≈ 100 m) ; le texte tapé part chez l’IGN et geo.api.gouv.fr. Aucun cookie, aucun suivi ; l’adresse de la page ne contient qu’un code de commune, jamais une position.',
+    credits: 'Installations : <a href="https://deeppvmapper.fr">OpenPVMapper — DeepPVMapper, Gabriel Kasmi</a> (CC BY 4.0). Météo : <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a> (CC BY 4.0), données transformées. Communes : <a href="https://geo.api.gouv.fr">geo.api.gouv.fr</a> (Etalab). Géocodage et fond de carte : © <a href="https://geoservices.ign.fr">IGN</a> Géoplateforme. Sites : consommation annuelle des entreprises par adresse, <a href="https://opendata.enedis.fr">Enedis open data</a> ; noms © <a href="https://www.openstreetmap.org/copyright">contributeurs OpenStreetMap</a> (ODbL).',
+    privacy: 'Confidentialité : pour un point, le centre arrondi à environ 100 m part vers l’API OpenPVMapper ; pour une commune, seul son code. Toucher la carte envoie la position arrondie à geo.api.gouv.fr pour trouver la commune. Open-Meteo ne reçoit qu’un point par zone (le centre du cercle, ou le centre des toits de la commune, arrondi à ≈ 100 m) ; le texte tapé part chez l’IGN et geo.api.gouv.fr. Aucun cookie, aucun suivi ; l’adresse de la page ne contient qu’un code de commune ou un numéro de site, jamais une position.',
     footLine: 'Non affilié à RTE ·', more: 'En savoir plus',
     loadInst: 'Recherche des toits…', loadPage: (a, b) => `Toits… ${a} sur ${b}`, loadOrient: (a, b) => `Orientation des toits… ${a} sur ${b}`, loadWx: 'Météo du jour…', loadCommune: 'Commune…',
     locating: 'Localisation…', denied: 'Position indisponible : tapez une commune ou une adresse.', noResult: 'Aucun résultat pour cette recherche.',
@@ -465,12 +670,47 @@ const T = {
     popKwp: 'estimés', popOrient: (t, a) => `inclinaison ${t}°, azimut ${a}`, popArea: (s) => `${s} m² de panneaux`,
     kwp: 'kWc', mwp: 'MWc', kwh: 'kWh', mwh: 'MWh', kw: 'kW', mw: 'MW',
     S: 'S', SE: 'SE', SO: 'SO', E: 'E', O: 'O', N: 'N',
+    tagSite: 'Site',
+    sitesShow: 'Sur la carte', fPot: 'Potentiel', fPotSub: 'Part des besoins couverte, demi-heure par demi-heure, par les toits solaires de la boucle choisie.',
+    fCurve: 'Courbe de charge', fUse: 'Usage', fCount: (n, t) => `${n} sites affichés sur ${t}`,
+    sortAp: 'Par potentiel', sortMwh: 'Par consommation', sortName: 'Par nom', sFilters: 'Filtres : potentiel, courbe, usage',
+    sCount: (n) => `${n} sites`, sMore: (n) => `Afficher plus (${n} restants)`, sEmpty: 'Aucun site ne correspond.',
+    explore: 'Explorer', tabAcc: 'Sites d’ACC', tabProd: 'Production', reshuffle: 'D’autres suggestions sur la carte',
+    xhint: 'Une commune, une adresse ou un nom de lieu ; ou touchez la carte. Une commune se calcule tout de suite ; pour une adresse ou un point, réglez d’abord le rayon.', sq: 'Chercher un site : nom, commune, catégorie…',
+    loopL: 'Boucle', loopHelp: 'Distance maximale entre les deux participants les plus éloignés : 2 km en règle générale ; 10 ou 20 km sur dérogation (communes rurales ou périurbaines, opérations avec un SDIS). Le cercle autour du site a ce diamètre.',
+    sApply: (n) => `Afficher ${n} sites sur la carte`, compute: 'Calculer la production', citiesH: 'Grandes villes',
+    pvRoofs: (n, k) => `${n} toits solaires (${k})`, newSearch: 'Nouvelle recherche', toMap: 'Carte',
+    fAcc: 'ACC existante', fAccSub: 'Signalée par les visiteurs : opération en service ou en projet.', acc: {free: 'Pas d’ACC signalée', acc: 'ACC signalée'}, accBadge: 'ACC',
+    accQ: 'Ce site est déjà dans une opération d’ACC ?', accSub: 'Signalez-le pour que la carte le montre. Anonyme : seuls le nombre de signalements et leur type sont publics.',
+    accActive: 'En service', accProject: 'En projet', accNote: 'Nom de l’opération ou porteur (facultatif)', accSend: 'Signaler', accUndo: 'Retirer mon signalement',
+    accSending: 'Envoi…', accThanks: 'Merci, c’est enregistré.', accGone: 'Signalement retiré.', accErr: 'Envoi impossible pour le moment. Réessayez plus tard.',
+    accState: {active: 'ACC en service', project: 'ACC en projet'}, accCount: (a, p) => [a && `${a} « en service »`, p && `${p} « en projet »`].filter(Boolean).join(', ') + ` · ${a + p} signalement${a + p > 1 ? 's' : ''}`,
+    accTip: 'ACC signalée',
+    pot: {hi: 'Potentiel fort', mid: 'Potentiel moyen', lo: 'Potentiel faible', na: 'Non calculé'}, potShort: {hi: 'Fort', mid: 'Moyen', lo: 'Faible'},
+    potRange: {hi: '≥ 40 %', mid: '20 à 40 %', lo: '< 20 %'},
+    curveKind: {sect: 'Sectorielle (administration, eau)', gen: 'Générique (tertiaire, industrie)'},
+    use: {day: 'Diurne', school: 'Scolaire', cont: 'Continu', leis: 'Loisirs', flex: 'Flexible'},
+    useHint: {day: 'Usage diurne, en semaine : en phase avec le soleil.', school: 'Usage scolaire : vide en juillet-août, au pic de production. La courbe type ne le montre pas : le taux est optimiste.',
+      cont: 'Usage continu, 24 h/24 : la production trouve preneur, mais ne couvre que les heures de jour.', leis: 'Loisirs (piscine, sport) : forte consommation toute l’année, souvent jusqu’en soirée.',
+      flex: 'Usage flexible : pompage et traitement peuvent être décalés vers les heures solaires, au-delà de ce taux.'},
+    curves: {A: 'la courbe type des administrations (Enedis, NAF 84.11, courbes fictives expérimentales)', W: 'la courbe type de l’eau potable (Enedis, NAF 36, courbes fictives expérimentales)',
+      P: 'la courbe moyenne 2025 des sites tertiaires de même puissance (Enedis)', IP: 'la courbe moyenne 2025 des sites industriels de même puissance (Enedis)'},
+    yUse: 'Consommé sur place', yAc: (p) => `${p} % de la production (autoconsommation)`,
+    yCeil: 'Plafond annuel', yCeilSub: 'production / consommation sur l’année, toutes heures confondues',
+    cats: {hospital: 'Hôpital', clinic: 'Santé', care: 'Médico-social', higher: 'Enseignement supérieur', school: 'Établissement scolaire', pool: 'Piscine',
+      sport: 'Équipement sportif', wastewater: 'Station d’épuration', water: 'Eau potable', culture: 'Culture', townhall: 'Mairie', public: 'Bâtiment public'},
+    siteTip: (n, e, p) => `${n} · ${e} par an${p == null ? '' : ` · ${p} % couverts`}`,
+    yProd: 'Production des toits, 2025', yNeed: 'Consommation du site, 2025',
+    covCap: (n, r, k) => `des besoins du site couverts demi-heure par demi-heure (taux d’autoproduction), avec les <b>${n} toits solaires</b> détectés à moins de ${r} (${k})`,
+    yRange: (a, b) => `entre ${a} et ${b}`, yMeters: (n) => `${n} compteur${n > 1 ? 's' : ''} > 36 kVA · Enedis`,
+    yNote: (c) => `Taux d’autoproduction : part de la consommation couverte demi-heure par demi-heure, comme dans la répartition d’une opération d’autoconsommation collective. Production : tous les toits détectés dans le cercle, météo 2025 (réanalyse ERA5). C’est un gisement brut : ces toits appartiennent à d’autres, et une partie de leur production est déjà consommée ou vendue. Consommation : total 2025 relevé par Enedis à l’adresse, réparti selon ${c}. C’est une forme moyenne, pas la courbe réelle du site. Le cercle a pour diamètre la taille de la boucle : 2 km entre les participants les plus éloignés en règle générale, 10 ou 20 km sur dérogation.`,
+    miniSite: (r) => `des besoins couverts · toits à ${r}`,
+    toDay: 'Voir une journée de production', toSite: 'Revenir au bilan annuel du site', loadYear: 'Météo de l’année 2025…', loadSites: 'Sites…',
   },
   en: {
     mapLabel: 'Map of detected rooftop solar',
     qLabel: 'Commune, address or place', qPh: 'A commune, an address…', locate: 'Locate me', grab: 'Expand or collapse the results',
-    lead: 'The rooftop solar an AI spotted on aerial photos, and what it produces hour by hour: the weather forecast the day before against the sun seen by satellite.',
-    hint: 'Or tap the map.',
+    lead: 'Public buildings the nearby solar roofs could supply through collective self-consumption, and what those roofs produce hour by hour.',
     tagCommune: 'Commune', tagPoint: 'Point', tagAddr: 'Address',
     pickPoint: (r) => `Around this point`, pickPointSub: (r) => `${r} radius`, pickCommune: (n) => `All of ${n}`, pickCommuneSub: 'commune boundary', pickLoading: 'Commune…',
     zoneCircle: (r, l) => `${l} <span>· ${r}</span>`, zonePick: 'Chosen point', myPos: 'My location',
@@ -503,9 +743,11 @@ const T = {
     lim2: 'Only the rooftop installations detected by OpenPVMapper are counted; missed installations and false positives are not corrected.',
     lim3: '“Actual” is computed from observed or analysed irradiance; it is not a production measurement.',
     lim4: 'The dataset only covers rooftop installations; ground-mounted plants are not counted. Capacity, tilt and azimuth are estimates from the detection model.',
+    lim5: 'Sites: 2025 consumption of businesses above 36 kVA by address (Enedis), public-leaning sectors (administration, health, education, sport, culture, water), above 500 MWh a year. Address geocoded (IGN) and name found in OpenStreetMap without manual checking: a name may be wrong or missing, and one address may group several buildings.',
+    lim6: 'Around a site: hourly output of every roof detected in the circle (2025 weather, ERA5 reanalysis at the nearest 0.5° grid point), split into half-hours by the sun’s height, against the site’s 2025 consumption spread along an Enedis standard curve (average of sites of the same sector and power, or an experimental sector curve). The potential on the map is computed this way for each loop size (a circle of 1, 5 or 10 km radius), with the default assumptions. No storage, no load shifting, no costs: an order of magnitude, not a feasibility study.',
     indep: 'Independent project, not affiliated with RTE.',
-    credits: 'Installations: <a href="https://deeppvmapper.fr">OpenPVMapper — DeepPVMapper, Gabriel Kasmi</a> (CC BY 4.0). Weather: <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a> (CC BY 4.0), data transformed. Communes: <a href="https://geo.api.gouv.fr">geo.api.gouv.fr</a> (Etalab). Geocoding and basemap: © <a href="https://geoservices.ign.fr">IGN</a> Géoplateforme.',
-    privacy: 'Privacy: for a point, the centre rounded to about 100 m goes to the OpenPVMapper API; for a commune, only its code. Tapping the map sends the rounded position to geo.api.gouv.fr to find the commune. Open-Meteo only receives one point per zone (the circle’s centre, or the centre of the commune’s roofs, rounded to ≈ 100 m); typed text goes to IGN and geo.api.gouv.fr. No cookies, no tracking; the page address only ever holds a commune code, never a position.',
+    credits: 'Installations: <a href="https://deeppvmapper.fr">OpenPVMapper — DeepPVMapper, Gabriel Kasmi</a> (CC BY 4.0). Weather: <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a> (CC BY 4.0), data transformed. Communes: <a href="https://geo.api.gouv.fr">geo.api.gouv.fr</a> (Etalab). Geocoding and basemap: © <a href="https://geoservices.ign.fr">IGN</a> Géoplateforme. Sites: business consumption by address, <a href="https://opendata.enedis.fr">Enedis open data</a>; names © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> (ODbL).',
+    privacy: 'Privacy: for a point, the centre rounded to about 100 m goes to the OpenPVMapper API; for a commune, only its code. Tapping the map sends the rounded position to geo.api.gouv.fr to find the commune. Open-Meteo only receives one point per zone (the circle’s centre, or the centre of the commune’s roofs, rounded to ≈ 100 m); typed text goes to IGN and geo.api.gouv.fr. No cookies, no tracking; the page address only ever holds a commune code or a site number, never a position.',
     footLine: 'Not affiliated with RTE ·', more: 'Learn more',
     loadInst: 'Looking for roofs…', loadPage: (a, b) => `Roofs… ${a} of ${b}`, loadOrient: (a, b) => `Roof orientations… ${a} of ${b}`, loadWx: 'Today’s weather…', loadCommune: 'Commune…',
     locating: 'Locating…', denied: 'Location unavailable: type a commune or an address.', noResult: 'No result for this search.',
@@ -521,6 +763,42 @@ const T = {
     popKwp: 'estimated', popOrient: (t, a) => `tilt ${t}°, azimuth ${a}`, popArea: (s) => `${s} m² of panels`,
     kwp: 'kWp', mwp: 'MWp', kwh: 'kWh', mwh: 'MWh', kw: 'kW', mw: 'MW',
     S: 'S', SE: 'SE', SO: 'SW', E: 'E', O: 'W', N: 'N',
+    tagSite: 'Site',
+    sitesShow: 'On the map', fPot: 'Potential', fPotSub: 'Share of needs covered, half-hour by half-hour, by the solar roofs of the chosen loop.',
+    fCurve: 'Load curve', fUse: 'Use', fCount: (n, t) => `${n} of ${t} sites shown`,
+    sortAp: 'By potential', sortMwh: 'By consumption', sortName: 'By name', sFilters: 'Filters: potential, curve, use',
+    sCount: (n) => `${n} sites`, sMore: (n) => `Show more (${n} left)`, sEmpty: 'No site matches.',
+    explore: 'Explore', tabAcc: 'Shared-solar sites', tabProd: 'Output', reshuffle: 'Other suggestions on the map',
+    xhint: 'A commune, an address or a place name; or tap the map. A commune is computed straight away; for an address or a point, set the radius first.', sq: 'Find a site: name, commune, category…',
+    loopL: 'Loop', loopHelp: 'Maximum distance between the two most distant participants: 2 km as a rule; 10 or 20 km by exemption (rural or periurban communes, operations with a fire and rescue service). The circle around the site has this diameter.',
+    sApply: (n) => `Show ${n} sites on the map`, compute: 'Compute the output', citiesH: 'Large cities',
+    pvRoofs: (n, k) => `${n} solar roofs (${k})`, newSearch: 'New search', toMap: 'Map',
+    fAcc: 'Existing shared solar', fAccSub: 'Reported by visitors: operation in service or being set up.', acc: {free: 'None reported', acc: 'Reported'}, accBadge: 'ACC',
+    accQ: 'Is this site already in a collective self-consumption operation?', accSub: 'Report it so the map shows it. Anonymous: only the number and type of reports are public.',
+    accActive: 'In service', accProject: 'Planned', accNote: 'Operation name or organiser (optional)', accSend: 'Report', accUndo: 'Withdraw my report',
+    accSending: 'Sending…', accThanks: 'Thanks, it is recorded.', accGone: 'Report withdrawn.', accErr: 'Cannot send right now. Please try again later.',
+    accState: {active: 'Shared solar in service', project: 'Shared solar planned'}, accCount: (a, p) => [a && `${a} “in service”`, p && `${p} “planned”`].filter(Boolean).join(', ') + ` · ${a + p} report${a + p > 1 ? 's' : ''}`,
+    accTip: 'Shared solar reported',
+    pot: {hi: 'High potential', mid: 'Medium potential', lo: 'Low potential', na: 'Not computed'}, potShort: {hi: 'High', mid: 'Medium', lo: 'Low'},
+    potRange: {hi: '≥ 40 %', mid: '20 to 40 %', lo: '< 20 %'},
+    curveKind: {sect: 'Sector curve (administration, water)', gen: 'Generic (services, industry)'},
+    use: {day: 'Daytime', school: 'School', cont: 'Round the clock', leis: 'Leisure', flex: 'Flexible'},
+    useHint: {day: 'Daytime use, on weekdays: in step with the sun.', school: 'School use: empty in July and August, at peak output. The standard curve does not show it: the rate is optimistic.',
+      cont: 'Round-the-clock use: the output finds a taker, but only covers daytime hours.', leis: 'Leisure (pool, sport): high consumption all year, often into the evening.',
+      flex: 'Flexible use: pumping and treatment can be shifted to sunny hours, beyond this rate.'},
+    curves: {A: 'the standard curve of public administrations (Enedis, NACE 84.11, experimental synthetic curves)', W: 'the standard curve of water supply (Enedis, NACE 36, experimental synthetic curves)',
+      P: 'the 2025 average curve of service-sector sites of the same power (Enedis)', IP: 'the 2025 average curve of industrial sites of the same power (Enedis)'},
+    yUse: 'Used on site', yAc: (p) => `${p} % of the output (self-consumption)`,
+    yCeil: 'Yearly ceiling', yCeilSub: 'output / consumption over the year, regardless of the hour',
+    cats: {hospital: 'Hospital', clinic: 'Health', care: 'Care home', higher: 'Higher education', school: 'School', pool: 'Swimming pool',
+      sport: 'Sports facility', wastewater: 'Wastewater plant', water: 'Drinking water', culture: 'Culture', townhall: 'Town hall', public: 'Public building'},
+    siteTip: (n, e, p) => `${n} · ${e} a year${p == null ? '' : ` · ${p} % covered`}`,
+    yProd: 'Rooftop output, 2025', yNeed: 'Site consumption, 2025',
+    covCap: (n, r, k) => `of the site’s needs covered half-hour by half-hour (self-sufficiency rate), with the <b>${n} solar roofs</b> detected within ${r} (${k})`,
+    yRange: (a, b) => `between ${a} and ${b}`, yMeters: (n) => `${n} meter${n > 1 ? 's' : ''} > 36 kVA · Enedis`,
+    yNote: (c) => `Self-sufficiency rate: the share of consumption covered half-hour by half-hour, as in the sharing of a French collective self-consumption operation. Output: every roof detected in the circle, 2025 weather (ERA5 reanalysis). This is a raw potential: these roofs belong to others, and part of their output is already used or sold. Consumption: the 2025 total Enedis metered at the address, spread along ${c}. This is an average shape, not the site’s actual curve. The circle’s diameter is the loop size: 2 km between the two most distant participants as a rule, 10 or 20 km by exemption.`,
+    miniSite: (r) => `of needs covered · roofs within ${r}`,
+    toDay: 'See one day of output', toSite: 'Back to the site’s yearly balance', loadYear: '2025 weather…', loadSites: 'Sites…',
   }
 }[lang];
 
@@ -617,6 +895,10 @@ const state = {
   wx: new Map(),               // `${cellKey}|${date}` → weather for that cell and day
   geo: new Map(),              // `${cellKey}|${date}` → sun geometry per hour
   view: null,                  // last computed result, for redraws, hover and the scrubber
+  mode: 'day',                 // 'day': one day, forecast vs actual | 'site': the year around a large consumer
+  year: new Map(),             // weather point key → hourly weather of SITE_YEAR
+  ygeo: new Map(),             // weather point key → sun geometry per hour of SITE_YEAR
+  yview: null,                 // last computed year around a site
 };
 let zoneRun = 0, engRun = 0;
 
@@ -626,18 +908,49 @@ const sheet = $('sheet');
    (output at the scrubbed quarter-hour + scrubber); tapping it opens the full sheet. Desktop: the sheet
    is a right-hand column and the mini card is never shown. */
 const mobileResults = () => !desktop() && !$('res').hidden;
-function setSheet(size){ sheet.dataset.size = size; $('grab').setAttribute('aria-expanded', String(size === 'full')); }
-$('grab').addEventListener('click', () => setSheet(sheet.dataset.size === 'full' ? (mobileResults() ? 'hidden' : 'peek') : 'full'));
-$('close').addEventListener('click', () => { setSheet('hidden'); placeMini(); });
+function setSheet(size){
+  sheet.dataset.size = size; $('grab').setAttribute('aria-expanded', String(size === 'full'));
+  $('new-fab').hidden = !(size === 'hidden' && !$('res').hidden && !desktop());
+}
+$('grab').addEventListener('click', () => {
+  if (!$('intro').hidden) return openMenu();
+  if (!$('menu').hidden) return setSheet(sheet.dataset.size === 'full' ? 'half' : 'full');
+  setSheet(sheet.dataset.size === 'full' ? (mobileResults() ? 'hidden' : 'peek') : 'full');
+});
+$('close').addEventListener('click', () => { if (!$('menu').hidden) return closeMenu(); setSheet('hidden'); placeMini(); });
+/* Menu: two tabs. ACC sites take the whole sheet; the output tab keeps the map visible (half sheet on phones) so the
+   chosen area can be previewed before the computation. */
+let menuTab = 'sites';
+function openMenu(tab = menuTab){
+  $('intro').hidden = true; $('res').hidden = true; $('menu').hidden = false; sheet.classList.add('m'); miniPop.remove();
+  setMenuTab(tab);
+}
+function setMenuTab(t){
+  menuTab = t;
+  for (const [k, id] of [['sites', 'tab-sites'], ['place', 'tab-place']]) $(id).setAttribute('aria-selected', String(k === t));
+  $('pane-sites').hidden = t !== 'sites'; $('pane-place').hidden = t !== 'place';
+  setMapMode(t === 'sites' ? 'acc' : 'prod');
+  setSheet(t === 'sites' ? 'full' : 'half');
+  $('scroll').scrollTop = 0;
+  if (t === 'sites') renderSiteList(); else if (t !== 'sites') clearPreview(true);
+}
+/* Back to the map: to the results if an area is computed, else to the welcome bar. */
+function closeMenu(){
+  $('menu').hidden = true; sheet.classList.remove('m'); clearPreview();
+  if (state.zone){ $('res').hidden = false; setMapMode(state.zone.site ? 'acc' : 'prod'); if (desktop()) setSheet('peek'); else { setSheet('hidden'); placeMini(); } }
+  else { $('intro').hidden = false; setSheet('intro'); setMapMode('all'); }
+}
 function showResults(){
-  $('intro').hidden = true; $('res').hidden = false;
-  if (!desktop()){ if (sheet.dataset.size !== 'full') setSheet('hidden'); }
+  $('intro').hidden = true; $('menu').hidden = true; $('res').hidden = false; sheet.classList.remove('m'); clearPreview();
+  setMapMode(state.zone?.site ? 'acc' : 'prod');
+  if (!desktop()) setSheet('hidden');
   else if (sheet.dataset.size === 'intro' || sheet.dataset.size === 'hidden') setSheet('peek');
 }
 function setStatus(msg, kind = 'info', busy = false){
   const html = msg ? `${busy ? '<i class="spin" aria-hidden="true"></i>' : ''}<span>${esc(msg)}</span>` : '';
   for (const id of ['status', 'mini-status']){ const s = $(id); s.className = `status ${kind}`; s.innerHTML = html; }
   $('out').classList.toggle('loading', busy);
+  $('site-out').classList.toggle('loading', busy);
   $('mini').classList.toggle('loading', busy);
 }
 function errMsg(e){ return e.kind === 'rate' ? T.errRate : e.kind === 'sb' ? T.errSb : e.kind === 'geo' ? T.errGeo : e.kind === 'nofc' ? T.errNoFc : e.kind === 'omreq' ? T.errOmReq : T.errOm; }
@@ -651,6 +964,224 @@ map.attributionControl.setPrefix(false);
 const renderer = L.canvas({padding: 0.3});
 const zoneLayer = L.layerGroup().addTo(map), dotLayer = L.layerGroup().addTo(map);
 let dots = [];                 // [{row, marker}]
+
+/* ---------- Sites: large public-leaning consumers (data/sites.json, built offline) ----------
+   Enedis consumption by address (businesses > 36 kVA, SITE_YEAR), geocoded by IGN, named from OpenStreetMap.
+   Shown with the "Consumers" button (off by default, remembered in this browser; a ?site link turns it on). Loaded once,
+   when first shown or when the search box gets focus. Drawn on their own canvas pane, above the rooftops: Prussian dot
+   ringed in white (the same mark as a chosen point), sized by consumption, smaller at country scale. */
+map.createPane('sites').style.zIndex = 450;
+const siteRenderer = L.canvas({pane: 'sites', padding: 0.3});
+/* All sites are clustered (Leaflet.markercluster): a bubble per group with its count, coloured by the potential most of
+   its sites share; hovering draws the area it covers; clusters split as one zooms in, and stop at street level. */
+const siteLayer = L.markerClusterGroup({
+  maxClusterRadius: z => z < 8 ? 60 : 45, disableClusteringAtZoom: 12, spiderfyOnMaxZoom: false, chunkedLoading: true,
+  showCoverageOnHover: true, polygonOptions: {color: ZONE_INK, weight: 1.5, opacity: .8, fillColor: ZONE_INK, fillOpacity: .08, interactive: false},
+  iconCreateFunction: c => {
+    const n = c.getChildCount(), k = {};
+    for (const m of c.getAllChildMarkers()) k[m.options.pot] = (k[m.options.pot] || 0) + 1;
+    const pot = Object.keys(k).sort((a, b) => k[b] - k[a])[0], d = n < 10 ? 26 : n < 100 ? 32 : n < 500 ? 38 : 44;
+    return L.divIcon({className: 'scl-icon', iconSize: [d, d], html: `<span class="scl ${pot}" style="background:${POT_INK[pot]}">${nf0.format(n)}</span>`});
+  },
+});
+let SITES = null, SITES_DRAW = [], SITE_BY_ID = new Map(), sitesP = null, PROF = null, profP = null;
+/* Potential = self-sufficiency rate precomputed offline (acc.py) for a 2 km circle with the default assumptions.
+   Darker = higher, on the exposure ramp; the white ring stays the mark of a site. */
+const POT_INK = {hi: RAMP[0], mid: RAMP[3], lo: RAMP[4], na: RAMP[5]};
+const potOf = ap => ap == null ? 'na' : ap >= 40 ? 'hi' : ap >= 20 ? 'mid' : 'lo';
+let loop = 2;
+const apOf = s => loop === 2 ? s.ap : s['ap' + loop];
+const siteTip = s => T.siteTip(esc(s.label), fmtE(s.mwh * 1000), s.apL == null ? null : fmtPct(s.apL)) + (s.acc ? `<br><b>${esc(T.accTip)}</b>` : '');
+/* A site already reported in an ACC operation: dashed ring. */
+const accStyle = s => s.acc ? {color: '#fff', weight: 3, dashArray: '3 3'} : {color: '#fff', weight: 2.5, dashArray: null};
+const USE = {townhall: 'day', public: 'day', higher: 'day', culture: 'day', school: 'school', hospital: 'cont', clinic: 'cont', care: 'cont',
+  pool: 'leis', sport: 'leis', water: 'flex', wastewater: 'flex'};
+const curveKind = k => k === 'A' || k === 'W' ? 'sect' : 'gen';
+const curveText = k => T.curves[k.startsWith('IP') ? 'IP' : k.startsWith('P') ? 'P' : k];
+const fmtPct = p => p < 10 ? nf1.format(p) : nf0.format(p);
+const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const titleCase = s => String(s || '').toLowerCase().replace(/(^|[\s'’-])(\p{L})/gu, (m, a, b) => a + b.toUpperCase())
+  .replace(/\b(De|Du|Des|La|Le|Les|Et|Sur|En|Aux|Au|D|L)\b/g, w => w.toLowerCase()).replace(/^./, c => c.toUpperCase());
+const siteName = s => s.name || `${T.cats[s.catKey] || ''} · ${titleCase(s.addr)}`;
+const fmtE = kwh => kwh >= 1e6 ? `${nf1.format(kwh / 1e6)} GWh` : fmtKwh(kwh);
+function loadSites(){
+  sitesP ??= getJSON('data/sites.json', {}, 'sites').then(d => {
+    SITES = d.rows.map(r => {
+      const s = Object.fromEntries(d.cols.map((c, i) => [c, r[i]]));
+      s.catKey = d.cats[s.cat]; s.profKey = d.profs[s.prof]; s.use = USE[s.catKey] || 'day'; s.apL = apOf(s); s.pot = potOf(s.apL); s.curve = curveKind(s.profKey);
+      s.label = siteName(s); s.key = norm(`${s.label} ${s.name ? '' : s.addr} ${s.commune} ${T.cats[s.catKey] || ''}`);
+      s.m = L.circleMarker([s.lat, s.lon], {renderer: siteRenderer, bubblingMouseEvents: false, pot: s.pot, r0: 4.5 + 2 * Math.log10(Math.max(1, s.mwh / 500)),
+        color: '#fff', weight: 2.5, fillColor: POT_INK[s.pot], fillOpacity: 1})
+        .bindTooltip(siteTip(s), {direction: 'top', offset: [0, -6]})
+        .on('click', () => { $('q').value = s.label; selectSite(s); });
+      return s;
+    });
+    SITES_DRAW = SITES.slice().sort((a, b) => a.mwh - b.mwh);   // big ones drawn last, on top
+    SITE_BY_ID = new Map(SITES.map(s => [s.id, s]));
+    applyFilters();
+    loadAcc().then(ok => { if (ok) applyAcc(); });
+    return SITES;
+  }).catch(e => { sitesP = null; throw e; });
+  return sitesP;
+}
+/* ---------- Existing ACC operations, reported by visitors (schema: supabase/pv2_setup.sql) ----------
+   Read: the public counts per site (plain REST, anon key). Write: an anonymous Supabase session, created only when a
+   visitor sends a report (SDK loaded then). If the backend is unavailable, the report form stays hidden. */
+const SB_URL = SB.replace(/\/rest\/v1$/, ''), SB_SDK = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
+const ACC = new Map();   // site key → {active, project}
+let accP = null, accOk = false;
+const siteRef = s => `${s.insee}|${s.addr}`;
+function loadAcc(force){
+  if (force) accP = null;
+  return accP ??= getJSON(`${SB}/pv2_acc_sites?select=site_key,active,project`, {headers: SB_HEADERS}, 'sb')
+    .then(rows => { ACC.clear(); for (const r of rows) ACC.set(r.site_key, r); return accOk = true; })
+    .catch(e => { console.warn('ACC reports unavailable', e); accP = null; return false; });
+}
+function accOf(s){ const r = ACC.get(siteRef(s)); return r && r.active + r.project > 0 ? (r.active >= r.project ? 'active' : 'project') : null; }
+function applyAcc(){
+  for (const s of SITES){
+    const a = accOf(s); if (a === s.acc) continue;
+    s.acc = a; s.m.setStyle(accStyle(s)); s.m.setTooltipContent(siteTip(s));
+  }
+  applyFilters(); if (!$('menu').hidden) renderSiteList();
+  if (state.zone?.site) renderAcc(state.zone.site);
+}
+const accMine = (() => { try { return JSON.parse(localStorage.getItem('pv2mix.acc') || '{}'); } catch { return {}; } })();
+const saveMine = () => { try { localStorage.setItem('pv2mix.acc', JSON.stringify(accMine)); } catch {} };
+let sbc = null;
+async function sbSession(){
+  if (!sbc){ const {createClient} = await import(SB_SDK); sbc = createClient(SB_URL, SB_KEY, {auth: {storageKey: 'pv2mix.auth', persistSession: true, autoRefreshToken: true}}); }
+  const {data: {session}} = await sbc.auth.getSession();
+  if (session) return session;
+  const {data, error} = await sbc.auth.signInAnonymously({options: {data: {app: 'pv2mix'}}});
+  if (error) throw error;
+  return data.session;
+}
+let accPick = null;
+function renderAcc(s){
+  const r = ACC.get(siteRef(s)), a = s.acc;
+  $('site-acc-row').hidden = !a;
+  if (a){ $('site-acc').textContent = T.accState[a]; $('site-acc-txt').textContent = T.accCount(r.active, r.project); }
+  $('accf').hidden = !accOk;
+  const mine = accMine[siteRef(s)];
+  accPick = mine?.status || null;
+  $('accf-note').value = mine?.note || ''; $('accf-note').placeholder = T.accNote;
+  document.querySelectorAll('#accf-seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.s === accPick)));
+  $('accf-send').disabled = !accPick; $('accf-undo').hidden = !mine; $('accf-msg').textContent = '';
+}
+$('accf-seg').addEventListener('click', e => {
+  const b = e.target.closest('button[data-s]'); if (!b) return;
+  accPick = b.dataset.s; $('accf-send').disabled = false;
+  document.querySelectorAll('#accf-seg button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+});
+async function accWrite(del){
+  const s = state.zone?.site; if (!s) return;
+  const key = siteRef(s), msg = $('accf-msg');
+  $('accf-send').disabled = true; msg.textContent = T.accSending;
+  try {
+    const ses = await sbSession();
+    const t = sbc.from('pv2_acc_reports');
+    const {error} = del
+      ? await t.delete().eq('site_key', key).eq('user_id', ses.user.id)
+      : await t.upsert({site_key: key, user_id: ses.user.id, site_id: s.id, label: s.label, status: accPick, note: $('accf-note').value.trim() || null}, {onConflict: 'site_key,user_id'});
+    if (error) throw error;
+    if (del) delete accMine[key]; else accMine[key] = {status: accPick, note: $('accf-note').value.trim()};
+    saveMine();
+    await loadAcc(true); applyAcc();
+    if (state.zone?.site === s) $('accf-msg').textContent = del ? T.accGone : T.accThanks;
+  } catch (e){ console.error(e); msg.textContent = T.accErr; $('accf-send').disabled = !accPick; }
+}
+$('accf-send').addEventListener('click', () => accWrite(false));
+$('accf-undo').addEventListener('click', () => accWrite(true));
+
+/* Show / hide and filters, remembered in this browser. A site with no computed potential is never filtered out by it. */
+const FILTERS = {pot: ['hi', 'mid', 'lo'], curve: ['sect', 'gen'], use: ['day', 'school', 'cont', 'leis', 'flex'], acc: ['free', 'acc']};
+/* Map mode follows the view: 'acc' (ACC tab, a site's view) shows sites only, 'prod' (output tab, a day view) shows
+   cities and rooftops only, 'all' (welcome) shows both kinds of suggestions. */
+let mapMode = 'all';
+function setMapMode(m){
+  mapMode = m;
+  if (typeof sugSites === 'undefined') return;
+  const show = (l, on) => on ? l.addTo(map) : l.remove();
+  show(sugSites, m !== 'prod'); show(sugCities, m !== 'acc');
+  syncSites();
+}
+let sitesOn = false, filt = {pot: [...FILTERS.pot], curve: [...FILTERS.curve], use: [...FILTERS.use], acc: [...FILTERS.acc]};
+try {
+  const v = JSON.parse(localStorage.getItem('pv2mix.sites2') || 'null');
+  if (v){ sitesOn = !!v.on; if (LOOPS.includes(v.loop)) loop = v.loop; for (const k in FILTERS) if (Array.isArray(v[k])) filt[k] = v[k].filter(x => FILTERS[k].includes(x)); }
+  else sitesOn = localStorage.getItem('pv2mix.sites') === '1';
+} catch {}
+function saveSites(){ try { localStorage.setItem('pv2mix.sites2', JSON.stringify({on: sitesOn, loop, ...filt})); } catch {} }
+const passes = s => (s.pot === 'na' || filt.pot.includes(s.pot)) && filt.curve.includes(s.curve) && filt.use.includes(s.use)
+  && filt.acc.includes(s.acc ? 'acc' : 'free');
+/* The text filter of the list also applies to the map once "Show" is pressed. */
+const qWords = q => norm(q).split(/[^a-z0-9]+/).filter(w => w.length > 1);
+let mapQ = [];
+const onMap = s => passes(s) && mapQ.every(w => s.key.includes(w));
+/* Loop size: each site's potential, colour and tooltip follow it. */
+function applyLoop(){
+  document.querySelectorAll('#loop-seg button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.loop === loop)));
+  if (!SITES) return;
+  for (const s of SITES){
+    s.apL = apOf(s); s.pot = potOf(s.apL);
+    s.m.options.pot = s.pot; s.m.setStyle({fillColor: POT_INK[s.pot]}); s.m.setTooltipContent(siteTip(s));
+  }
+}
+let shownN = 0;
+function applyFilters(){
+  siteLayer.clearLayers();
+  const ms = SITES_DRAW.filter(onMap).map(s => s.m);
+  shownN = ms.length;
+  for (const m of ms) m.setRadius(m.options.r0);
+  siteLayer.addLayers(ms);
+  syncSites();
+}
+function syncSites(){
+  $('f-show').checked = sitesOn;
+  if (sitesOn && !SITES){
+    loadSites().catch(e => { console.error(e); sitesOn = false; $('f-show').checked = false; });
+    return;   // loadSites calls back here once the points exist
+  }
+  if (!sitesOn || !SITES || mapMode === 'prod'){ siteLayer.remove(); return; }
+  siteLayer.addTo(map);
+}
+function buildSitesPanel(){
+  const box = (k, v, label, pre = '', post = '') =>
+    `<label><input type="checkbox" data-f="${k}" value="${v}"${filt[k].includes(v) ? ' checked' : ''}>${pre}<span>${esc(label)}</span>${post}</label>`;
+  $('sites-panel').innerHTML =
+    `<fieldset><legend>${esc(T.fPot)}</legend><p class="fsub">${esc(T.fPotSub)}</p>` +
+      FILTERS.pot.map(v => box('pot', v, T.potShort[v], `<i class="pd" style="background:${POT_INK[v]}" aria-hidden="true"></i>`, `<small>${esc(T.potRange[v])}</small>`)).join('') + `</fieldset>` +
+    `<fieldset><legend>${esc(T.fCurve)}</legend>` + FILTERS.curve.map(v => box('curve', v, T.curveKind[v])).join('') + `</fieldset>` +
+    `<fieldset><legend>${esc(T.fUse)}</legend>` + FILTERS.use.map(v => box('use', v, T.use[v])).join('') + `</fieldset>` +
+    `<fieldset><legend>${esc(T.fAcc)}</legend><p class="fsub">${esc(T.fAccSub)}</p>` + FILTERS.acc.map(v => box('acc', v, T.acc[v])).join('') + `</fieldset>`;
+}
+buildSitesPanel();
+/* The full list (Explore › Sites): the map filters plus a text filter, sorted, shown SLIST_STEP at a time. */
+const SLIST_STEP = 60;
+const slist = {q: '', sort: 'ap', n: SLIST_STEP};
+function renderSiteList(){
+  const ul = $('slist');
+  if (!SITES){
+    ul.innerHTML = `<li class="empty">${esc(T.loadSites)}</li>`;
+    loadSites().then(renderSiteList).catch(e => console.error(e));
+    return;
+  }
+  const words = qWords(slist.q);
+  const list = SITES.filter(s => passes(s) && words.every(w => s.key.includes(w)));
+  slist.shown = list;
+  list.sort(slist.sort === 'mwh' ? (a, b) => b.mwh - a.mwh : slist.sort === 'name' ? (a, b) => a.label.localeCompare(b.label, LOC)
+    : (a, b) => (b.apL ?? -1) - (a.apL ?? -1) || b.mwh - a.mwh);
+  ul.innerHTML = list.length ? list.slice(0, slist.n).map(s =>
+    `<li><button type="button" data-id="${s.id}"><i class="pd" style="background:${POT_INK[s.pot]}" aria-hidden="true"></i>` +
+    `<span class="n"><span>${esc(s.label)}${s.acc ? `<em class="accb">${esc(T.accBadge)}</em>` : ''}</span><small>${esc(s.commune)} · ${esc(T.cats[s.catKey] || '')} · ${esc(fmtE(s.mwh * 1000))}</small></span>` +
+    `<b class="tnum">${s.apL == null ? '–' : `${fmtPct(s.apL)} %`}</b></button></li>`).join('') : `<li class="empty">${esc(T.sEmpty)}</li>`;
+  $('scount').textContent = T.sCount(nf0.format(list.length));
+  $('s-apply').textContent = T.sApply(nf0.format(list.length)); $('s-apply').disabled = !list.length;
+  const more = list.length - slist.n;
+  $('smore').hidden = more <= 0; if (more > 0) $('smore').textContent = T.sMore(nf0.format(more));
+}
+
 
 /* Keep the zone clear of the floating search (top), the mini card above the zone (phones) and the sheet
    (bottom on phones, right on desktop). */
@@ -821,20 +1352,46 @@ async function searchAddress(text, signal){
 function setUrl(){
   const p = new URLSearchParams(); if (EN) p.set('lang', 'en');
   if (state.zone?.type === 'commune') p.set('insee', state.zone.code);       // a commune code, never a position
+  else if (state.zone?.site) p.set('site', state.zone.site.id);              // a site number (a public building), never a position
   history.replaceState(null, '', `${location.pathname}${p.toString() ? '?' + p : ''}`);
 }
 function setTag(text){ const t = $('q-tag'); t.hidden = !text; t.textContent = text || ''; }
-function selectCircle(center, label){
+function selectCircle(center, label, site = null){
   center = [round(center[0]), round(center[1])];
   if (!inFrance(center)){ showResults(); setStatus(T.outside, 'error'); return; }
-  state.zone = {type: 'circle', center, r: state.r, label};
-  setTag(T.tagPoint); setUrl(); drawZone(); showResults(); renderZoneName(); fitZone(zoneBounds()); loadZone();
+  state.zone = {type: 'circle', center, r: state.r, label, site};
+  setMode(site ? 'site' : 'day');
+  setTag(site ? T.tagSite : T.tagPoint); setUrl(); drawZone(); showResults(); renderZoneName(); fitZone(zoneBounds()); loadZone();
+}
+/* Around a large consumer: the site's view (the year), on the chosen loop's circle unless the radius was already changed. */
+function selectSite(s){
+  map.closePopup();
+  if (state.zone?.site?.id !== s.id){ state.r = LOOP_R[loop]; $('radius').value = sliderFromR(state.r); $('radius-val').textContent = fmtDist(state.r); }
+  state.yview = null; ycv.getContext('2d').clearRect(0, 0, ycv.width, ycv.height);
+  // What is known before any call: the site itself. The output figures fill in once the year is computed.
+  for (const id of ['cov-v', 'y-prod', 'y-use', 'y-ceil', 'm-v']) $(id).textContent = '–';
+  for (const id of ['cov-cap', 'y-range', 'y-ac', 'm-cap']) $(id).textContent = '';
+  $('y-need').textContent = fmtE(s.mwh * 1000); $('y-meters').textContent = T.yMeters(s.n);
+  $('site-cat').textContent = T.cats[s.catKey] || '';
+  $('site-where').textContent = `${s.name ? titleCase(s.addr) + ' · ' : ''}${s.commune}`;
+  setPot(s.pot); $('site-use').textContent = T.useHint[s.use];
+  $('y-note').textContent = T.yNote(curveText(s.profKey)); $('m-u').textContent = '%';
+  renderAcc(s);
+  selectCircle([s.lat, s.lon], s.label, s);
+}
+function setPot(p){ $('site-pot').innerHTML = `<i style="background:${POT_INK[p]}" aria-hidden="true"></i>${esc(T.pot[p])}`; }
+/* Two entries on the same rooftops: 'day' (forecast vs actual for one day) and, around a site, 'site' (the year). */
+function setMode(m){
+  state.mode = m;
+  $('res').classList.toggle('site', m === 'site'); $('mini').classList.toggle('site', m === 'site');
+  $('to-site').hidden = !(m === 'day' && state.zone?.site);
 }
 /* The commune outline (geo.api.gouv.fr, sometimes several seconds for a big city) is only needed for the
    drawing: it loads in parallel with the rooftops instead of before them. */
 function selectCommune(code, feature, name){
   const id = ++zoneRun;
   state.zone = {type: 'commune', code, name: feature?.properties?.nom || name || '', dep: feature?.properties?.codeDepartement || '', feature};
+  setMode('day');
   setTag(T.tagCommune); setUrl(); drawZone(); showResults(); renderZoneName();
   if (feature) fitZone(zoneBounds());
   else communeFeature(code).then(f => {
@@ -879,10 +1436,17 @@ async function loadZone(id = ++zoneRun){
     drawDots(rows);
     placeMini();
     if (z.type === 'commune' && !z.feature) fitZone(zoneBounds());
-    if (!rows.length){ state.view = null; $('out').hidden = $('mini-out').hidden = true; setStatus(T.noInst); return; }
+    if (!rows.length){
+      state.view = null; $('out').hidden = $('mini-out').hidden = true; setStatus(T.noInst);
+      if (state.mode === 'site'){
+        $('cov-v').textContent = '0'; for (const id of ['y-prod', 'y-use']) $(id).textContent = fmtE(0);
+        $('y-ceil').textContent = '0 %'; setPot('lo'); state.yview = null; ycv.getContext('2d').clearRect(0, 0, ycv.width, ycv.height);
+      }
+      return;
+    }
     $('out').hidden = $('mini-out').hidden = false;
     renderInstallInfo(rows);
-    runEngine();
+    if (state.mode === 'site') runYear(); else runEngine();
   } catch (e){
     if (id !== zoneRun) return;
     console.error(e); setStatus(errMsg(e), 'error');
@@ -1127,6 +1691,160 @@ function simulateQ(cells, date, source, hyp, availableAt){
   return {out, perCell};
 }
 
+/* ---------- Year around a site ----------
+   One Open-Meteo call per weather point for the whole of SITE_YEAR: ERA5 reanalysis, hourly, in UTC (radiation is the
+   mean over the hour ending at the stamp, as in the day view). Same PV model and orientation classes as the day
+   view, no quarter-hour step: yearly energy, monthly sums and the envelope (orientation × PR scenarios). */
+/* The year's weather point: the centre of the 0.5° cell holding the circle's centre, shared by every site in that cell
+   (fewer calls) and by the offline potential (acc.py), so the map and the panel agree. */
+const YEAR_GRID = 0.5;
+const yearPt = ([lat, lon]) => {
+  const a = +(Math.floor(lat / YEAR_GRID + .5) * YEAR_GRID).toFixed(2), b = +(Math.floor(lon / YEAR_GRID + .5) * YEAR_GRID).toFixed(2);
+  return {key: `${a}:${b}`, lat: a, lon: b};
+};
+/* Load shapes (data/profiles.json, from acc.py): a typical day per month × day type (weekday, Saturday, Sunday or
+   public holiday) × half-hour; idx maps each half-hour of SITE_YEAR (Paris time, = the ERA5 hours) to its slot. */
+function loadProfiles(){
+  profP ??= getJSON('data/profiles.json', {}, 'sites').then(P => {
+    const idx = new Uint16Array(17520), hol = new Set(P.hol), p2 = n => String(n).padStart(2, '0');
+    for (let i = 0; i < 17520; i++){
+      const u = P.t0 + i * 1800, d = new Date((u + (u >= P.dst[0] && u < P.dst[1] ? 7200 : 3600)) * 1000), wd = d.getUTCDay();
+      const dt = hol.has(`${p2(d.getUTCMonth() + 1)}-${p2(d.getUTCDate())}`) || wd === 0 ? 2 : wd === 6 ? 1 : 0;
+      idx[i] = d.getUTCMonth() * 144 + dt * 48 + d.getUTCHours() * 2 + (d.getUTCMinutes() >= 30 ? 1 : 0);
+    }
+    PROF = {...P, idx};
+    return PROF;
+  }).catch(e => { profP = null; throw e; });
+  return profP;
+}
+async function loadYearWeather(pt){
+  if (state.year.has(pt.key)) return state.year.get(pt.key);
+  const h = (await getJSON(`${OM_ARCHIVE}?latitude=${pt.lat}&longitude=${pt.lon}&start_date=${SITE_YEAR}-01-01&end_date=${SITE_YEAR}-12-31` +
+    `&hourly=shortwave_radiation,direct_radiation,temperature_2m,wind_speed_10m&wind_speed_unit=ms&timezone=GMT&timeformat=unixtime`)).hourly;
+  const w = {t: h.time, ghi: h.shortwave_radiation, dir: h.direct_radiation, ta: h.temperature_2m, ws: h.wind_speed_10m};
+  state.year.set(pt.key, w);
+  return w;
+}
+function yearGeometry(pt, times){
+  if (state.ygeo.has(pt.key)) return state.ygeo.get(pt.key);
+  const g = times.map(t => {
+    const cz = [], sz = [], az = []; let cza = 0;
+    for (let s = 0; s < SUBSTEPS; s++){
+      const p = sunPos(t - 3600 + (s + 0.5) * 3600 / SUBSTEPS, pt.lat, pt.lon);
+      if (p.cz > 0){ cz.push(p.cz); sz.push(p.sz); az.push(p.az); if (s < SUBSTEPS / 2) cza += p.cz; }
+    }
+    return {cz, sz, az, scz: cz.reduce((a, b) => a + b, 0), cza};
+  });
+  state.ygeo.set(pt.key, g);
+  return g;
+}
+function simulateYear(cells, w, G, hyp){
+  const scen = [];
+  for (const dt of [0, -hyp.dtilt, hyp.dtilt]) for (const da of [0, -hyp.daz, hyp.daz]) scen.push([dt, da]);
+  const tot = new Array(scen.length).fill(0), month = new Array(12).fill(0), perCell = new Map(cells.map(c => [c.key, 0])), hour = new Float64Array(w.t.length);
+  for (let h = 0; h < w.t.length; h++){
+    const g = G[h], ghi = w.ghi[h], dir = w.dir[h];
+    if (!g.cz.length || ghi == null || dir == null || ghi <= 0) continue;
+    const mo = new Date((w.t[h] - 1800) * 1000).getUTCMonth();
+    for (const c of cells){
+      const beta0 = hyp.orient === 'fix' ? hyp.tilt : c.tilt, az0 = hyp.orient === 'fix' ? hyp.az : c.az;
+      scen.forEach(([dt, da], s) => {
+        const f = perKwp(g, Math.min(90, Math.max(0, beta0 + dt)), az0 + da, ghi, dir, w.ta[h], w.ws[h], hyp.tcorr);
+        tot[s] += c.kwp * f;
+        if (s === 0){ month[mo] += c.kwp * f * hyp.pr; hour[h] += c.kwp * f * hyp.pr; perCell.set(c.key, perCell.get(c.key) + f * hyp.pr); }
+      });
+    }
+  }
+  return {mid: tot[0] * hyp.pr, lo: Math.min(...tot) * Math.max(0, hyp.pr - hyp.dpr), hi: Math.max(...tot) * (hyp.pr + hyp.dpr), month, perCell, hour};
+}
+/* Half-hour balance, as in a collective self-consumption operation: each hour's output split into its two half-hours by
+   the sun's height, against the site's consumption spread along its load shape. Used = Σ min(output, consumption). */
+function selfUse(hour, G, s){
+  const sh = PROF.shapes[s.profKey], idx = PROF.idx, need = s.mwh * 1000;
+  let tot = 0; for (let i = 0; i < 17520; i++) tot += sh[idx[i]];
+  const k = need / tot, m = {prod: new Array(12).fill(0), use: new Array(12).fill(0), need: new Array(12).fill(0)};
+  let sp = 0, su = 0;
+  for (let i = 0; i < 17520; i++){
+    const h = i >> 1, g = G[h], fr = g.scz > 0 ? g.cza / g.scz : .5;
+    const p = (hour[h] || 0) * (i & 1 ? 1 - fr : fr), c = sh[idx[i]] * k, u = Math.min(p, c), mo = (idx[i] / 144) | 0;
+    sp += p; su += u; m.prod[mo] += p; m.use[mo] += u; m.need[mo] += c;
+  }
+  return {sp, su, ap: 100 * su / need, ac: sp > 0 ? 100 * su / sp : null, ceil: 100 * sp / need, m};
+}
+async function runYear(){
+  const rows = currentRows(); if (!rows.length || !state.zone?.site) return;
+  const id = ++engRun;
+  try {
+    const pt = yearPt(state.zone.center);
+    if (!state.year.has(pt.key) || !PROF) setStatus(T.loadYear, 'info', true);
+    await Promise.all([loadYearWeather(pt), loadProfiles()]);
+    if (id !== engRun) return;
+    setStatus('');
+    computeYear();
+  } catch (e){
+    if (id !== engRun) return;
+    console.error(e); setStatus(errMsg(e), 'error');
+  }
+}
+function computeYear(){
+  const z = state.zone, site = z?.site, rows = currentRows();
+  if (!site || !rows.length) return;
+  const cells = buildCells(rows, state.hyp.ratio), pt = yearPt(z.center), w = state.year.get(pt.key);
+  if (!w || !PROF){ runYear(); return; }
+  const G = yearGeometry(pt, w.t), Y = simulateYear(cells, w, G, state.hyp), A = selfUse(Y.hour, G, site);
+  const kwp = cells.reduce((s, c) => s + c.kwp, 0);
+  $('cov-v').textContent = $('m-v').textContent = fmtPct(A.ap); $('m-u').textContent = '%';
+  $('m-cap').textContent = T.miniSite(fmtDist(z.r));
+  $('cov-cap').innerHTML = T.covCap(nf0.format(rows.length), esc(fmtDist(z.r)), esc(fmtKwp(kwp)));
+  setPot(potOf(A.ap));
+  $('y-use').textContent = fmtE(A.su); $('y-ac').textContent = A.ac == null ? '' : T.yAc(fmtPct(A.ac));
+  $('y-prod').textContent = fmtE(Y.mid);
+  $('y-range').textContent = T.yRange(fmtE(Y.lo), fmtE(Y.hi));
+  $('y-ceil').textContent = `${fmtPct(A.ceil)} %`;
+  // Rooftops: each class's yearly yield on the exposure ramp (the brightest class = paper white).
+  const ymax = Math.max(1e-6, ...Y.perCell.values());
+  for (const {row, m} of dots){
+    const v = Y.perCell.get(row.cell) || 0, st = v <= 0 ? 1 : Math.min(6, 2 + Math.round(4 * v / ymax));
+    m.setStyle({fillColor: RAMP[st], color: RAMP[Math.max(1, st - 3)]});
+  }
+  state.yview = A.m;
+  drawYear();
+}
+/* Per month: the rooftops' output (bar), the part of it used on site (paper-white, inside the bar), and the site's
+   consumption along its load shape (a step line). */
+const ycv = $('ychart');
+function drawYear(){
+  const v = state.yview; if (!v || state.mode !== 'site') return;
+  const dpr = window.devicePixelRatio || 1, W = ycv.clientWidth, H = ycv.clientHeight, L = 52, R = 6, Tp = 14, B = 20;
+  if (!W) return;
+  ycv.width = Math.round(W * dpr); ycv.height = Math.round(H * dpr);
+  const g = ycv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+  const top = Math.max(1e-6, ...v.need, ...v.prod);
+  const {max: yMax, div} = niceScale(top * 1.08);
+  const pw = W - L - R, ph = H - Tp - B, X = i => L + pw * i / 12, Y = y => Tp + ph * (1 - y / yMax);
+  g.font = '11px Archivo, sans-serif'; g.textBaseline = 'middle'; g.textAlign = 'right';
+  for (let i = 0; i <= div; i++){
+    const y = yMax * i / div, py = Math.round(Y(y)) + .5;
+    g.strokeStyle = i === 0 ? RAMP[4] : RAMP[2]; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(L, py); g.lineTo(W - R, py); g.stroke();
+    if (i % (div === 5 ? 1 : 2) === 0 || i === div){ g.fillStyle = '#8fbbe8'; g.fillText(yMax >= 1e6 ? `${nfT.format(y / 1e6)} GWh` : yMax >= 1000 ? `${nfT.format(y / 1000)} ${T.mwh}` : `${nfT.format(y)} ${T.kwh}`, L - 6, py); }
+  }
+  const bw = pw / 12 * 0.62;
+  const mName = new Intl.DateTimeFormat(LOC, {month: 'narrow', timeZone: 'UTC'});
+  g.textBaseline = 'top'; g.textAlign = 'center';
+  v.prod.forEach((e, i) => {
+    const x = X(i + .5);
+    g.fillStyle = RAMP[3]; g.fillRect(x - bw / 2, Y(e), bw, Y(0) - Y(e));
+    g.fillStyle = RAMP[6]; g.fillRect(x - bw / 2, Y(v.use[i]), bw, Y(0) - Y(v.use[i]));
+    g.fillStyle = '#8fbbe8'; g.fillText(mName.format(new Date(Date.UTC(SITE_YEAR, i, 15))), x, H - B + 6);
+  });
+  g.strokeStyle = RAMP[4]; g.lineWidth = 2; g.lineJoin = 'round'; g.beginPath();
+  v.need.forEach((e, i) => { const y = Math.round(Y(e)) + .5; if (i) g.lineTo(X(i), y); else g.moveTo(X(0), y); g.lineTo(X(i + 1), y); });
+  g.stroke();
+  ycv.setAttribute('aria-label', `${T.yUse} ${$('y-use').textContent}, ${T.yProd} ${$('y-prod').textContent}, ${T.yNeed} ${$('y-need').textContent}.`);
+}
+new ResizeObserver(drawYear).observe(ycv);
+
 /* ---------- Engine: runs straight after the zone ---------- */
 async function runEngine(){
   const rows = currentRows(); if (!rows.length) return;
@@ -1362,6 +2080,10 @@ $('radius').addEventListener('input', e => {
 });
 $('radius').addEventListener('change', () => { if (state.zone?.type === 'circle'){ fitZone(zoneBounds()); loadZone(); } });
 
+// Around a site: the year view, or one day on the same rooftops (and back).
+$('to-day').addEventListener('click', () => { setMode('day'); state.view = null; state.qi = null; runEngine(); });
+$('to-site').addEventListener('click', () => { setMode('site'); computeYear(); });
+
 // Map tap: around this point, or the whole commune under it.
 map.on('click', e => {
   const ll = [e.latlng.lat, e.latlng.lng];
@@ -1383,20 +2105,12 @@ map.on('click', e => {
   }).catch(() => bCom.remove());
 });
 
-// Examples (communes)
-const pickExamples = () => { const a = EXAMPLES.slice(); for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a.slice(0, EXAMPLES_SHOWN); };
-pickExamples().forEach(([name, code]) => {
-  const b = document.createElement('button'); b.type = 'button'; b.className = 'ex'; b.textContent = name;
-  b.addEventListener('click', () => { $('q').value = name; selectCommune(code, null, name); });
-  $('examples').append(b);
-});
-
 $('locate').addEventListener('click', () => {
   const btn = $('locate');
   if (!navigator.geolocation){ showResults(); setStatus(T.denied, 'error'); return; }
   btn.setAttribute('aria-busy', 'true');
   navigator.geolocation.getCurrentPosition(
-    p => { btn.removeAttribute('aria-busy'); $('q').value = T.myPos; selectCircle([p.coords.latitude, p.coords.longitude], T.myPos); },
+    p => { btn.removeAttribute('aria-busy'); $('q').value = T.myPos; previewZone({type: 'circle', center: [round(p.coords.latitude), round(p.coords.longitude)], label: T.myPos}); },
     () => { btn.removeAttribute('aria-busy'); showResults(); setStatus(T.denied, 'error'); },
     {enableHighAccuracy: false, timeout: 12000, maximumAge: 300000}
   );
@@ -1412,14 +2126,24 @@ function renderSugg(){
 }
 function choose(i){
   const it = items[i]; if (!it) return;
-  q.value = it.name || it.label; items = []; renderSugg(); q.blur();
-  if (it.code) selectCommune(it.code, null, it.name); else selectCircle([it.lat, it.lon], it.label.split(',')[0]);
+  q.value = it.site ? it.site.label : it.name || it.label; items = []; renderSugg(); q.blur();
+  if (it.site) selectSite(it.site);
+  else if (it.code) selectCommune(it.code, null, it.name);
+  else previewZone({type: 'circle', center: [round(it.lat), round(it.lon)], label: it.label.split(',')[0]});
+}
+/* Sites: searched locally (no call), every typed word must appear in the name, address or commune; biggest first. */
+function searchSites(text){
+  if (!SITES) return [];
+  const words = norm(text).split(/[^a-z0-9]+/).filter(w => w.length > 1);
+  if (!words.length) return [];
+  return SITES.filter(s => words.every(w => s.key.includes(w))).sort((a, b) => b.mwh - a.mwh).slice(0, 3)
+    .map(s => ({label: `${s.label} · ${s.commune}`, site: s, tag: T.tagSite}));
 }
 async function search(text){
   searchAbort?.abort(); searchAbort = new AbortController(); const signal = searchAbort.signal;
   const [c, a] = await Promise.allSettled([searchCommunes(text, signal), /^\d{5}$/.test(text) ? Promise.resolve([]) : searchAddress(text, signal)]);
   if (signal.aborted) throw new DOMException('aborted', 'AbortError');
-  return [...(c.value || []).slice(0, 3), ...(a.value || []).slice(0, 4)];
+  return [...(c.value || []).slice(0, 3), ...searchSites(text), ...(a.value || []).slice(0, 4)];
 }
 q.addEventListener('input', () => {
   clearTimeout(debounce); setTag('');
@@ -1441,10 +2165,10 @@ q.addEventListener('keydown', e => {
 });
 sugg.addEventListener('pointerdown', e => { const li = e.target.closest('li'); if (li){ e.preventDefault(); choose(+li.id.slice(4)); } });
 q.addEventListener('blur', () => setTimeout(() => { items = []; renderSugg(); }, 150));
-q.addEventListener('focus', () => { if (!desktop() && sheet.dataset.size === 'full') setSheet('peek'); });
+q.addEventListener('focus', () => loadSites().catch(e => console.error(e)));
 
 // Sources & limits
-$('more').addEventListener('click', () => { const d = $('d-about'); d.open = true; if (sheet.dataset.size === 'peek') setSheet('full'); d.scrollIntoView({block: 'start', behavior: reduced() ? 'auto' : 'smooth'}); });
+$('more').addEventListener('click', () => { const d = $('d-about'); d.open = true; if (sheet.dataset.size === 'peek' || sheet.dataset.size === 'half') setSheet('full'); d.scrollIntoView({block: 'start', behavior: reduced() ? 'auto' : 'smooth'}); });
 
 // Assumptions: recompute only, never refetch (the ratio changes kWp, not the cells' weather).
 const H = state.hyp;
@@ -1460,7 +2184,7 @@ function syncHypUI(){
   $('tilt').disabled = $('az').disabled = !fixed;
   $('c-tilt').classList.toggle('off', !fixed); $('c-az').classList.toggle('off', !fixed);
 }
-const recompute = () => { if (state.view) compute(); };
+const recompute = () => { if (state.mode === 'site'){ if (state.yview) computeYear(); } else if (state.view) compute(); };
 for (const k of Object.keys(outs)) $(k).addEventListener('input', e => {
   H[k] = +e.target.value; $(`${k}-v`).textContent = outs[k](H[k]);
   if (k === 'ratio' && currentRows().length) renderInstallInfo(currentRows());
@@ -1472,11 +2196,180 @@ $('reset').addEventListener('click', () => { Object.assign(H, DEF); syncHypUI();
 syncHypUI();
 
 // Live: refresh today's output every 10 min while the tab is visible (satellite hours keep arriving).
-setInterval(() => { if (state.view && state.date === parisDate() && document.visibilityState === 'visible') runEngine(); }, TODAY_TTL);
+setInterval(() => { if (state.mode === 'day' && state.view && state.date === parisDate() && document.visibilityState === 'visible') runEngine(); }, TODAY_TTL);
+
+// Menu wiring: ACC sites (loop, search, filters, list, "Show") and output (search, locate, preview, compute).
+$('sq').placeholder = T.sq; $('sq').setAttribute('aria-label', T.sq);
+$('intro-open').addEventListener('click', () => openMenu());
+/* New search: back to the welcome view (France, fresh suggestions, compact bar). */
+function goHome(){
+  zoneRun++; engRun++; state.zone = null; state.view = null; state.yview = null;
+  zoneLayer.clearLayers(); dotLayer.clearLayers(); dots = []; miniPop.remove(); map.closePopup();
+  q.value = ''; setTag(''); setUrl();
+  $('res').hidden = true; $('menu').hidden = true; sheet.classList.remove('m'); clearPreview();
+  $('intro').hidden = false; setSheet('intro'); setMapMode('all');
+  renderSuggestions(true);
+}
+$('to-menu').addEventListener('click', goHome);
+$('new-fab').addEventListener('click', goHome);
+/* Phones: from the detailed sheet back to the map and its mini card (the card's "Details" goes the other way). */
+$('to-map').addEventListener('click', () => { setSheet('hidden'); fitZone(zoneBounds()); });
+$('tab-sites').addEventListener('click', () => setMenuTab('sites'));
+$('tab-place').addEventListener('click', () => setMenuTab('place'));
+$('loop-seg').addEventListener('click', e => {
+  const b = e.target.closest('button[data-loop]'); if (!b) return;
+  loop = +b.dataset.loop; saveSites(); applyLoop();
+  if (SITES){ if (sitesOn) applyFilters(); renderSiteList(); }
+});
+applyLoop();
+$('pane-sites').addEventListener('change', e => {
+  const t = e.target;
+  if (t.id === 'f-show'){ sitesOn = t.checked; if (sitesOn) mapQ = qWords(slist.q); saveSites(); if (SITES) applyFilters(); else syncSites(); return; }
+  if (t.id === 'ssort'){ slist.sort = t.value; slist.n = SLIST_STEP; renderSiteList(); return; }
+  if (t.dataset.f){ const k = t.dataset.f; filt[k] = t.checked ? [...new Set([...filt[k], t.value])] : filt[k].filter(x => x !== t.value); saveSites(); slist.n = SLIST_STEP; renderSiteList(); }
+});
+let sqDeb = null;
+$('sq').addEventListener('input', e => { clearTimeout(sqDeb); sqDeb = setTimeout(() => { slist.q = e.target.value; slist.n = SLIST_STEP; renderSiteList(); }, 120); });
+$('smore').addEventListener('click', () => { slist.n += SLIST_STEP; renderSiteList(); });
+$('slist').addEventListener('click', e => {
+  const b = e.target.closest('button[data-id]'); const s = b && SITE_BY_ID.get(+b.dataset.id); if (!s) return;
+  q.value = s.label; selectSite(s);
+});
+/* "Show": the list as it stands (filters + text) becomes the map layer, and the map takes the screen. */
+$('s-apply').addEventListener('click', () => {
+  if (!SITES) return;
+  sitesOn = true; mapQ = qWords(slist.q); saveSites();
+  closeMenu(); setMapMode('acc'); applyFilters();
+  const list = slist.shown || [];
+  if (list.length && list.length < SITES.length) fitZone(L.latLngBounds(list.map(s => [s.lat, s.lon])).pad(0.1));
+  else map.fitBounds(FRANCE);
+});
+syncSites();
+
+/* Output: a place is previewed (outline, dashed) before the computation. */
+const pvLayer = L.layerGroup().addTo(map), pvRoofs = L.layerGroup().addTo(map);
+let pending = null;
+function clearPreview(keepPanel){
+  pending = null; pvRun++; pvLayer.clearLayers(); pvRoofs.clearLayers();
+  if (!keepPanel) $('pv').hidden = true;
+  else if (!pending) $('pv').hidden = true;
+}
+async function previewZone(z){
+  pending = z; $('pv').hidden = false; $('pv-name').textContent = z.label;
+  $('pv-radius-row').hidden = z.type !== 'circle';
+  pvRoofs.clearLayers();
+  if (z.type === 'circle'){ $('pv-radius').value = sliderFromR(state.r); $('pv-radius-val').textContent = fmtDist(state.r); drawPreview(true); previewRoofs(); return; }
+  pvLayer.clearLayers(); previewRoofs();
+  try { const f = z.feature || await communeFeature(z.code); if (pending !== z) return; z.feature = f; drawPreview(true); }
+  catch (e){ console.error(e); }
+}
+let pvRun = 0;
+async function previewRoofs(){
+  const z = pending, id = ++pvRun; if (!z) return;
+  $('pv-name').textContent = `${z.label} · ${T.loadInst}`;
+  try {
+    let rows;
+    if (z.type === 'circle'){
+      const c = state.circle;
+      if (!(c && c.center[0] === z.center[0] && c.center[1] === z.center[1] && c.r >= state.r)){
+        const r = state.r, got = await loadInstallations(z.center, r);
+        if (id !== pvRun) return;
+        state.circle = {center: z.center.slice(), r, rows: got};
+      }
+      rows = state.circle.rows.filter(x => x.d <= state.r);
+    } else {
+      if (!state.communes.has(z.code)){
+        const got = await loadCommuneInstallations(z.code);
+        if (id !== pvRun) return;
+        state.communes.set(z.code, got);
+      }
+      rows = state.communes.get(z.code);
+    }
+    if (id !== pvRun || pending !== z) return;
+    pvRoofs.clearLayers();
+    const dense = rows.length > 600 ? 0.7 : 1;
+    let kwp = 0;
+    for (const x of rows){
+      const k = x.kwp ?? (x.surface || 0) / state.hyp.ratio; kwp += k;
+      L.circleMarker([x.lat, x.lon], {renderer, interactive: false, radius: dense * Math.min(8, 2.4 + Math.sqrt(k) / 2.6), color: RAMP[1], weight: 0.6, fillColor: RAMP[2], fillOpacity: 1}).addTo(pvRoofs);
+    }
+    $('pv-name').textContent = `${z.label} · ${T.pvRoofs(nf0.format(rows.length), fmtKwp(kwp))}`;
+  } catch (e){ if (id === pvRun){ console.error(e); $('pv-name').textContent = z.label; } }
+}
+function drawPreview(fit){
+  const z = pending; pvLayer.clearLayers(); if (!z) return;
+  const st = {color: ZONE_INK, weight: 2.5, dashArray: '6 6', fillColor: ZONE_INK, fillOpacity: .1, interactive: false};
+  const l = z.type === 'circle' ? L.circle(z.center, {radius: state.r, ...st}) : L.geoJSON(z.feature, {style: () => st, interactive: false});
+  l.addTo(pvLayer);
+  if (z.type === 'circle') L.circleMarker(z.center, {radius: 5, color: '#fff', weight: 2, fillColor: ZONE_INK, fillOpacity: 1, interactive: false}).addTo(pvLayer);
+  if (fit) fitZone(l.getBounds());
+}
+$('pv-radius').addEventListener('input', e => { state.r = rFromSlider(+e.target.value); $('pv-radius-val').textContent = fmtDist(state.r); drawPreview(false); });
+$('pv-radius').addEventListener('change', () => { drawPreview(true); previewRoofs(); });
+$('pv-go').addEventListener('click', () => {
+  const z = pending; if (!z) return;
+  $('radius').value = sliderFromR(state.r); $('radius-val').textContent = fmtDist(state.r);
+  if (z.type === 'circle') selectCircle(z.center, z.label); else selectCommune(z.code, z.feature || null, z.label);
+});
+
+// Welcome suggestions: a few sites and cities, drawn at random, pinned on the map and listed in the welcome card.
+map.createPane('sug').style.zIndex = 640;
+const sugSites = L.layerGroup().addTo(map), sugCities = L.layerGroup().addTo(map);
+const shuffled = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+function pickSuggestions(){
+  const pts = [], out = [], far = p => pts.every(x => haversine(p, x) > SUG_GAP), perUse = {};
+  if (SITES) for (const pass of [['hi'], ['hi', 'mid']]){
+    for (const s of shuffled(SITES.filter(s => s.named === 2 && pass.includes(s.pot) && s.roofs >= 10 && s.mwh >= 800 && (s.naf !== '84' || ['townhall', 'public', 'pool'].includes(s.catKey))))){
+      if (out.length >= SUG_SITES) break;
+      if (!far([s.lat, s.lon]) || (perUse[s.use] || 0) >= 2) continue;
+      perUse[s.use] = (perUse[s.use] || 0) + 1; pts.push([s.lat, s.lon]); out.push({site: s});
+    }
+  }
+  let n = 0;
+  for (const [name, code, lat, lon] of shuffled(EXAMPLES)){
+    if (n >= SUG_CITIES) break;
+    if (!far([lat, lon])) continue;
+    pts.push([lat, lon]); out.push({city: {name, code, lat, lon}}); n++;
+  }
+  return out;
+}
+function goSuggestion(x){
+  if (x.site){ q.value = x.site.label; selectSite(x.site); }
+  else { q.value = x.city.name; selectCommune(x.city.code, null, x.city.name); }
+}
+function renderSuggestions(fit){
+  const list = pickSuggestions();
+  sugSites.clearLayers(); sugCities.clearLayers();
+  const dot = x => x.site ? `<i style="background:${POT_INK[x.site.pot]}" aria-hidden="true"></i>` : '<i class="city" aria-hidden="true"></i>';
+  const name = x => x.site ? x.site.name : x.city.name, pct = x => x.site?.apL != null ? ` <b>${fmtPct(x.site.apL)} %</b>` : '';
+  for (const x of list){
+    const ll = x.site ? [x.site.lat, x.site.lon] : [x.city.lat, x.city.lon];
+    L.marker(ll, {pane: 'sug', keyboard: false, icon: L.divIcon({className: 'sug-icon', iconSize: [0, 0],
+      html: `<span class="pin">${dot(x)}<span>${esc(name(x))}</span>${pct(x)}</span>`})})
+      .on('click', () => goSuggestion(x)).addTo(x.site ? sugSites : sugCities);
+  }
+  // Output tab: a few large cities (the pinned ones first), previewed on tap.
+  const pinned = list.filter(x => x.city).map(x => x.city.code);
+  const cities = [...EXAMPLES.filter(c => pinned.includes(c[1])), ...shuffled(EXAMPLES.filter(c => !pinned.includes(c[1])))].slice(0, 8);
+  $('cities').innerHTML = '';
+  for (const [nm, code] of cities){
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'ex';
+    b.innerHTML = `<i class="city" aria-hidden="true"></i><span>${esc(nm)}</span>`;
+    b.addEventListener('click', () => { q.value = nm; selectCommune(code, null, nm); });
+    $('cities').append(b);
+  }
+  setMapMode(mapMode);
+  if (fit && list.length > 1) fitZone(L.latLngBounds(list.map(x => x.site ? [x.site.lat, x.site.lon] : [x.city.lat, x.city.lon])).pad(0.15));
+}
+$('reshuffle').addEventListener('click', () => renderSuggestions(!state.zone));
 
 // A shared link may carry a commune code (never a position).
 const insee = params.get('insee');
 if (insee && /^[0-9AB]{5}$/i.test(insee)) selectCommune(insee.toUpperCase());
+// … or a site number.
+const siteId = params.get('site');
+loadSites().then(() => renderSuggestions(!insee && !siteId)).catch(e => { console.error(e); renderSuggestions(!insee && !siteId); });
+if (!insee && /^\d+$/.test(siteId || '')) (sitesOn = true, loadSites()).then(list => { const s = list.find(x => x.id === +siteId); if (s){ $('q').value = s.label; selectSite(s); } }).catch(e => console.error(e));
 })();
 </script>
 </body>
